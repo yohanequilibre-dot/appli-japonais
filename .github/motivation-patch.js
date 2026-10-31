@@ -20,10 +20,8 @@ const summaryActionsNew = '</p>' + s39 + ' + dailyBonus + ' + s39 + '<div class=
 
 patch('js/app.js', [
 [
-`const streak = $('#streakVal');
-if (streak) streak.textContent = String(state.stats.streak || 0);`,
-`const streak = $('#streakVal');
-if (streak) {
+`if (streak) streak.textContent = String(state.stats.streak || 0);`,
+`if (streak) {
 const streakValue = window.Kotoba.Motivation ? window.Kotoba.Motivation.currentStreak(state) : (state.stats.streak || 0);
 streak.textContent = String(streakValue);
 const streakPill = streak.closest ? streak.closest('.stat-pill') : null;
@@ -52,9 +50,7 @@ list = seen.concat(fresh).slice(0, 3);
 'daily session'
 ],
 [
-`function nextCard() {
-if (!session) return;
-if (!session.queue.length) { session.current = null; session.phase = 'summary'; renderSession(); return; }`,
+`function nextCard() {`,
 `function claimDaily() {
 const day = S.todayKey();
 if (state.flags.daily === day) return;
@@ -68,14 +64,17 @@ const goal = state.settings.goal || 50;
 const message = beforeXp < goal && todayXp() >= goal ? 'Objectif du jour atteint + défi relevé ! +20 XP' : 'Défi du jour relevé ! +20 XP';
 if (window.Kotoba.Motivation) window.Kotoba.Motivation.celebrate(message); else toast(message);
 }
-function nextCard() {
-if (!session) return;
-if (!session.queue.length) {
+function nextCard() {`,
+'daily claim'
+],
+[
+`if (!session.queue.length) { session.current = null; session.phase = 'summary'; renderSession(); return; }`,
+`if (!session.queue.length) {
 session.current = null; session.phase = 'summary';
 if (session.kind === 'daily') claimDaily();
 renderSession(); return;
 }`,
-'daily claim'
+'daily summary'
 ],
 [
 `const next = S.nextDue(entries, state, Date.now());`,
@@ -89,30 +88,20 @@ summaryActionsNew,
 'summary actions'
 ],
 [
-`const e = session.current, now = Date.now();
-const prev = state.progress[e.id] || S.freshProgress(now);`,
-`const e = session.current, now = Date.now();
-const beforeXp = todayXp();
+`const prev = state.progress[e.id] || S.freshProgress(now);`,
+`const beforeXp = todayXp();
 const beforeStreak = state.stats.streak || 0;
 const prev = state.progress[e.id] || S.freshProgress(now);`,
 'grade before'
 ],
 [
-`session.phase = 'feedback';
-renderSession();
-updateChrome();
-}
-function choose(id) {`,
-`session.phase = 'feedback';
-renderSession();
-updateChrome();
-if (window.Kotoba.Motivation) {
+`session.phase = 'feedback';`,
+`if (window.Kotoba.Motivation) {
 const goal = state.settings.goal || 50;
 if (beforeXp < goal && todayXp() >= goal) window.Kotoba.Motivation.celebrate('Objectif du jour atteint ! 🎯');
 else if (state.stats.streak > beforeStreak && [3, 7, 14, 30, 100].indexOf(state.stats.streak) >= 0) window.Kotoba.Motivation.celebrate('Série de ' + state.stats.streak + ' jours ! 🔥');
 }
-}
-function choose(id) {`,
+session.phase = 'feedback';`,
 'grade celebrate'
 ]
 ]);
@@ -133,21 +122,17 @@ function counts(entries, state, now) {`,
 'addXp'
 ],
 [
+`bumpStats: bumpStats,`,
 `bumpStats: bumpStats,
-counts: counts,`,
-`bumpStats: bumpStats,
-addXp: addXp,
-counts: counts,`,
+addXp: addXp,`,
 'export addXp'
 ]
 ]);
 
 patch('index.html', [
 [
-`<script src='js/parser.js'></script>
-<script src='js/app.js'></script>`,
-`<script src='js/parser.js'></script>
-<script src='js/motivation.js'></script>
+`<script src='js/app.js'></script>`,
+`<script src='js/motivation.js'></script>
 <script src='js/app.js'></script>`,
 'script motivation'
 ]
