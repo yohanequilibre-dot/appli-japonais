@@ -1,0 +1,28 @@
+name: fix-text
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Appliquer les corrections
+        run: python3 scripts/fix-text.py
+      - name: Vérifier la syntaxe
+        run: node --check js/app.js
+      - name: Publier
+        run: |
+          git config user.name "kotoba-bot"
+          git config user.email "kotoba-bot@users.noreply.github.com"
+          git add js/app.js
+          git rm .github/workflows/fix-text.yml scripts/fix-text.py
+          git commit -m "style: apostrophes et mots importés révisables immédiatement"
+          git push
