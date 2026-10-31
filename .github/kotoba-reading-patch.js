@@ -113,20 +113,18 @@ renderSession();
 }
 `;
 
-patch('js/app.js', [
-["const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null };", "const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null };"],
-[`function contextHtml(context, hl) {
-const text = String(context || '').trim();
-if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>';`, `function wordRubyHtml(e) {
+const WORD_RUBY = `function wordRubyHtml(e) {
 var jp = e && e.jp ? String(e.jp) : '';
 var kanaOnly = jp && !/[一-鿿]/.test(jp);
 if (kanaOnly && window.Kotoba.Reading && state.settings.furigana) return window.Kotoba.Reading.kanaReading(e);
 return rubyHtml(e && e.ruby, state.settings.furigana);
 }
-function contextHtml(context, hl) {
-const text = String(context || '').trim();
-if (text && window.Kotoba.Reading) return window.Kotoba.Reading.annotate(text, hl, state.settings.furigana);
-if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>';`],
+`;
+
+patch('js/app.js', [
+["const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null };", "const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null };"],
+['function contextHtml(context, hl) {', WORD_RUBY + 'function contextHtml(context, hl) {'],
+["const text = String(context || '').trim();", "const text = String(context || '').trim();\nif (text && window.Kotoba.Reading) return window.Kotoba.Reading.annotate(text, hl, state.settings.furigana);"],
 ['>Écoute</button>', ">Écoute</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='pronounce'>🎙️ Prononciation</button>"],
 ['function startOne(id) {', 'function startOne(id, mode) {'],
 ["session = { kind: 'single', mode: 'recall',", "mode = mode || 'recall';\nsession = { kind: 'single', mode: mode,"],
@@ -140,7 +138,7 @@ if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>'
 ['rubyHtml(wotd.ruby, state.settings.furigana)', 'wordRubyHtml(wotd)'],
 [`'<span class="word-jp" lang="ja">' + rubyHtml(e.ruby, state.settings.furigana) + '</span>' +`, `'<span class="word-jp" lang="ja">' + wordRubyHtml(e) + '</span>' +`],
 ["if (session.mode === 'recall' && g === 'good') next.said = (prev.said || 0) + 1;", "if ((session.mode === 'recall' || session.mode === 'pronounce') && g === 'good') next.said = (prev.said || 0) + 1;"],
-["function closeSession() {\nsession = null;", "function closeSession() {\nif (session && session.recognition) { try { session.recognition.abort(); } catch (e) { /* ignore */ } }\nsession = null;"],
+['function closeSession() {', "function closeSession() {\nif (session && session.recognition) { try { session.recognition.abort(); } catch (e) { /* ignore */ } }"],
 ['function quizView() {', PRONOUNCE_BLOCK + 'function quizView() {'],
 ['case "review-one": startOne(id); break;', `case "review-one": startOne(id); break;
 case 'pronounce-one': startOne(ui.detailId, 'pronounce'); break;
@@ -150,12 +148,12 @@ case 'pronounce-finish': grade(el.getAttribute('data-good') === '1' ? 'good' : '
 ]);
 
 patch('index.html', [
-["<script src='js/parser.js'></script>\n<script src='js/motivation.js'></script>", "<script src='js/parser.js'></script>\n<script src='js/reading.js'></script>\n<script src='js/pronunciation.js'></script>\n<script src='js/motivation.js'></script>"]
+["<script src='js/parser.js'></script>", "<script src='js/parser.js'></script>\n<script src='js/reading.js'></script>\n<script src='js/pronunciation.js'></script>"]
 ]);
 
 patch('sw.js', [
 ["const CACHE = 'kotoba-v3-5';", "const CACHE = 'kotoba-v3-6';"],
-["'./js/parser.js',\n'./js/motivation.js',", "'./js/parser.js',\n'./js/reading.js',\n'./js/pronunciation.js',\n'./js/motivation.js',"]
+["'./js/parser.js',", "'./js/parser.js',\n'./js/reading.js',\n'./js/pronunciation.js',"]
 ]);
 
 fs.appendFileSync('styles.css', `
