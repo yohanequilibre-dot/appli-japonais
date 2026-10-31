@@ -5,6 +5,19 @@ src = src_path.read_text(encoding='utf-8')
 q = chr(39)
 start_marker = 'rep(' + q + 'js/app.js' + q + ','
 
+src = src.replace(
+    "line.startswith('[' + q + '行く' + q) and q + 'iku' + q in line",
+    "'行く' in line and 'iku' in line and 'aller' in line"
+)
+src = src.replace(
+    "line.startswith('[' + q + '買う' + q)",
+    "'買う' in line"
+)
+src = src.replace(
+    "line.startswith('E(' + q + '行く' + q)",
+    "'E(' in line and '行く' in line"
+)
+
 
 def replace_label(label, replacement):
     global src
