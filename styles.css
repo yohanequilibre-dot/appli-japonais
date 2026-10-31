@@ -823,3 +823,32 @@ will-change: transform, opacity;
 .daily-challenge { flex-direction: column; align-items: stretch; }
 .daily-challenge .btn { width: 100%; }
 }
+
+/* --- Lectures kana et mode prononciation --- */
+.jp-big ruby rt,
+.detail-jp ruby rt,
+.wotd-jp ruby rt { font-size: .32em; line-height: 1.05; color: var(--muted); font-weight: 500; }
+.context-jp ruby rt,
+.jp ruby rt { font-size: .46em; line-height: 1.1; color: var(--muted); font-weight: 500; }
+.word-jp ruby rt { font-size: .44em; line-height: 1.1; color: var(--muted); font-weight: 500; }
+.pronounce-card { text-align: center; }
+.pronounce-card .jp-big { margin: 10px 0 2px; }
+.pronounce-card .audio-row { justify-content: center; margin: 8px 0; }
+.pronounce-card .hint { max-width: 470px; margin: 6px auto 14px; }
+.mic-btn { font-size: 1.05rem; padding: 14px 28px; }
+.pronounce-status { margin: 12px auto; padding: 12px 16px; border-radius: 14px; max-width: 460px; background: #eef4ea; color: #31512a; font-weight: 600; }
+.pronounce-status.error { background: #fdecea; color: #8a2d25; }
+.pronounce-result { display: flex; gap: 12px; align-items: center; text-align: left; max-width: 470px; margin: 12px auto; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--line, #e2e8df); }
+.pronounce-result.good { background: #edf8e7; border-color: #b8e39f; }
+.pronounce-result.retry { background: #fff7e8; border-color: #f0d59c; }
+.pronounce-result > div:last-child { display: flex; flex-direction: column; gap: 2px; }
+.pronounce-result strong { font-size: 1.02rem; }
+.pronounce-result span { font-size: .88rem; color: var(--muted); }
+.pronounce-score { font-size: 1.7rem; line-height: 1; }
+.pronounce-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+.pronounce-actions .btn { min-width: 0; }
+.context-jp mark, .jp mark { color: inherit; }
+@media (max-width: 560px) {
+.pronounce-card .jp-big { font-size: 2.7rem; }
+.pronounce-result { align-items: flex-start; }
+}

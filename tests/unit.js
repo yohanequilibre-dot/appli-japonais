@@ -4,6 +4,7 @@ const assert = require("assert");
 const Lex = require("../js/lexicon.js");
 const Store = require("../js/srs.js");
 const Parser = require("../js/parser.js");
+const Pron = require("../js/pronunciation.js");
 
 let failed = 0;
 function test(name, fn) {
@@ -207,6 +208,19 @@ const e = entryOf('aller | ikimasu');
 assert.equal(e.jp, '行きます');
 assert.equal(e.romaji, 'ikimasu');
 assert.equal(e.context, '明日、東京に行きます。');
+});
+test("prononciation : score et variantes", function () {
+const entry = { jp: "こんばんは", reading: "こんばんは", romaji: "konbanwa" };
+assert.equal(Pron.compare("こんばんは", entry).good, true);
+assert.equal(Pron.compare("こんばんわ", entry).good, true);
+assert.equal(Pron.compare("おはよう", entry).good, false);
+assert.ok(Pron.compare("こんばんは", entry).score >= 75);
+});
+test("prononciation : la meilleure alternative est retenue", function () {
+const entry = { jp: "ありがとう", reading: "ありがとう", romaji: "arigatou" };
+const result = Pron.best(["おはよう", "ありがとう"], entry);
+assert.equal(result.good, true);
+assert.equal(result.transcript, "ありがとう");
 });
 if (failed) {
   console.error("\n" + failed + " test(s) en échec.");

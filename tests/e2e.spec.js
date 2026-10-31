@@ -16,6 +16,8 @@ await page.getByTestId('reveal').click();
 await expect(page.getByTestId('answer-jp')).toContainText('こんにちは');
 await expect(page.getByTestId('answer-romaji')).toBeVisible();
 await expect(page.getByTestId('answer-context')).toContainText('こんにちは');
+expect(await page.locator('[data-testid="answer-jp"] rt').count()).toBeGreaterThan(0);
+expect(await page.locator('[data-testid="answer-context"] rt').count()).toBeGreaterThan(0);
 await page.getByTestId('grade-good').click();
 await expect(page.getByTestId('feedback')).toContainText('Bien joué');
 await page.getByTestId('session-next').click();
@@ -121,4 +123,14 @@ await expect(page.getByTestId('daily-bonus')).toContainText('+20 XP');
 await page.getByTestId('finish-session').click();
 await expect(page.getByTestId('streak-panel')).toContainText('1 jour');
 await expect(page.getByTestId('daily-done')).toBeVisible();
+});
+
+test('prononciation : carte dédiée et lecture du mot', async ({ page }) => {
+await page.locator('.desktop-nav [data-nav=library]').click();
+await page.locator('.word-row').first().click();
+await expect(page.locator('.modal-panel')).toContainText('Prononcer');
+await page.locator('[data-action=pronounce-one]').click();
+await expect(page.getByTestId('pronounce-card')).toBeVisible();
+await expect(page.getByTestId('pronounce-start')).toBeVisible();
+expect(await page.locator('[data-testid="pronounce-word"] rt').count()).toBeGreaterThan(0);
 });

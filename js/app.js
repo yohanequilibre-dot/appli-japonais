@@ -17,7 +17,7 @@ const state = S.load();
 let entries = [];
 let view = 'learn';
 let session = null;
-const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null };
+const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null };
 let toastTimer = 0;
 let voices = [];
 let tessPromise = null;
@@ -53,8 +53,15 @@ function rubyHtml(annotated, showFurigana) {
   out += esc(s.slice(last));
   return out;
 }
+function wordRubyHtml(e) {
+var jp = e && e.jp ? String(e.jp) : '';
+var kanaOnly = jp && !/[一-鿿]/.test(jp);
+if (kanaOnly && window.Kotoba.Reading && state.settings.furigana) return window.Kotoba.Reading.kanaReading(e);
+return rubyHtml(e && e.ruby, state.settings.furigana);
+}
 function contextHtml(context, hl) {
   const text = String(context || '').trim();
+if (text && window.Kotoba.Reading) return window.Kotoba.Reading.annotate(text, hl, state.settings.furigana);
   if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>';
   const target = String(hl || '').trim();
   const safe = esc(text);
@@ -260,7 +267,7 @@ function renderHome() {
     '<section class="panel"><div class="panel-head"><h2>Mes thèmes</h2><p>' + c.seen + '/' + c.total + ' mots découverts</p></div><div class="theme-grid">' + units + '</div></section>';
   if (wotd) {
     body += '<section class="panel"><div class="panel-head"><h2>Mot du jour</h2><button class="btn ghost small" data-action="speak-text" data-text="' + attr(wotd.jp) + '">🔊 Écouter</button></div>' +
-      '<div class="wotd"><div><div class="wotd-fr">' + frHtml(wotd.fr) + '</div><div class="wotd-jp" lang="ja">' + rubyHtml(wotd.ruby, state.settings.furigana) + '</div>' +
+      '<div class="wotd"><div><div class="wotd-fr">' + frHtml(wotd.fr) + '</div><div class="wotd-jp" lang="ja">' + wordRubyHtml(wotd) + '</div>' +
       '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context" lang="ja">' + contextHtml(wotd.context, wotd.hl) + '</p>' +
       '<p class="muted small">' + esc(wotd.contextFr) + '</p><button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
   }
@@ -292,7 +299,7 @@ $('#view-review').innerHTML = `
 <div class='review-card' role='button' tabindex='0' data-action='start' data-kind='due' data-mode='recall' data-testid='review-card-due'>
 <span class='review-num'>${c.due}</span><strong>Cartes dues</strong><span class='hint'>Clique sur la carte pour commencer en rappel, ou choisis un mode.</span>
 <button class='btn primary small' data-action='start' data-kind='due' data-mode='recall'${c.due ? '' : ' disabled'}>Commencer</button>
-<div class='mode-row'><button class='mode-btn active' data-action='start' data-kind='due' data-mode='recall'${c.due ? '' : ' disabled'}>Rappel</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='choice'${c.due ? '' : ' disabled'}>QCM</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='listen'${c.due ? '' : ' disabled'}>Écoute</button></div>
+<div class='mode-row'><button class='mode-btn active' data-action='start' data-kind='due' data-mode='recall'${c.due ? '' : ' disabled'}>Rappel</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='choice'${c.due ? '' : ' disabled'}>QCM</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='listen'${c.due ? '' : ' disabled'}>Écoute</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='pronounce'>🎙️ Prononciation</button></div>
 </div>
 <button class='review-card' data-action='start' data-kind='quick' data-mode='recall'${c.seen ? '' : ' disabled'}><span class='review-num'>${Math.min(10, c.seen)}</span><strong>Révision rapide</strong><span class='hint'>Dix mots au hasard, même s’ils ne sont pas dus.</span></button>
 <button class='review-card' data-action='start' data-kind='all' data-mode='recall'${c.seen ? '' : ' disabled'}><span class='review-num'>${c.seen}</span><strong>Tout revoir</strong><span class='hint'>Tous les mots déjà rencontrés.</span></button>
@@ -339,7 +346,7 @@ else if (ui.filter === 'reviewed') list = list.filter(function (e) { const p = s
     const label = status === 'known' ? 'Connu' : (status === 'learning' ? 'En cours' : 'Nouveau');
     return '<div class="word-row" role="button" tabindex="0" data-action="detail" data-id="' + attr(e.id) + '">' +
       '<span><span class="word-fr">' + frHtml(e.fr) + '</span><br><span class="badge ' + status + '">' + label + '</span></span>' +
-      '<span class="word-jp" lang="ja">' + rubyHtml(e.ruby, state.settings.furigana) + '</span>' +
+      '<span class="word-jp" lang="ja">' + wordRubyHtml(e) + '</span>' +
       '<span class="word-romaji">' + esc(e.romaji) + (e.source === 'import' ? ' <span class="badge import">Importé</span>' : '') + '</span></div>';
   }).join('') + '</div>';
 }
@@ -494,11 +501,12 @@ list = seen.concat(fresh).slice(0, 3);
   if (root) root.hidden = false;
   nextCard();
 }
-function startOne(id) {
+function startOne(id, mode) {
 const e = entries.filter(function (x) { return x.id === id; })[0];
 if (!e) return;
 closeModal();
-session = { kind: 'single', mode: 'recall', queue: [e], current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: 1, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
+mode = mode || 'recall';
+session = { kind: 'single', mode: mode, queue: [e], current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: 1, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
 document.body.style.overflow = 'hidden';
 const root = $('#session');
 if (root) root.hidden = false;
@@ -525,8 +533,9 @@ if (session.kind === 'daily') claimDaily();
 renderSession(); return;
 }
   session.current = session.queue.shift();
-  session.phase = session.mode === 'recall' ? 'front' : 'question';
-  session.options = session.mode === 'recall' ? [] : buildOptions(session.current, session.mode);
+  session.pronunciation = null;
+session.phase = session.mode === 'recall' ? 'front' : 'question';
+  session.options = (session.mode === 'recall' || session.mode === 'pronounce') ? [] : buildOptions(session.current, session.mode);
   session.lastGrade = null; session.lastChoice = null;
   session.total = Math.max(session.total, session.done + session.queue.length + 1);
   renderSession();
@@ -550,7 +559,7 @@ function renderSession() {
   if (!session) { root.hidden = true; return; }
   root.hidden = false;
   const pct = Math.min(100, Math.round(session.done / Math.max(1, session.total) * 100));
-  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'recall' ? recallView() : quizView());
+  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : quizView()));
   root.innerHTML = '<div class="session-shell"><div class="session-top"><button class="icon-btn" data-action="quit-session" aria-label="Quitter la session">✕</button>' +
     '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><div class="progress-fill" style="width:' + pct + '%" data-testid="progress"></div></div>' +
     '<span class="session-count">' + session.done + '/' + Math.max(session.done, session.total) + '</span></div><div class="session-body">' + body + '</div></div>';
@@ -560,7 +569,7 @@ function renderSession() {
 }
 function answerCard(e) {
   return '<div class="session-card answer-card" data-testid="session-card"><div class="answer-head"><div class="fr-small">' + frHtml(e.fr) + '</div>' +
-    '<div class="jp-big" lang="ja" data-testid="answer-jp">' + rubyHtml(e.ruby, state.settings.furigana) + '</div>' +
+    '<div class="jp-big" lang="ja" data-testid="answer-jp">' + wordRubyHtml(e) + '</div>' +
     (state.settings.romaji ? '<div class="romaji" data-testid="answer-romaji">' + esc(e.romaji) + '</div>' : '') +
     '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
     '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
@@ -578,6 +587,89 @@ function recallView() {
   if (session.phase === 'feedback') return answer + feedbackHtml();
   return answer + '<div class="grade-row" data-testid="grade-row"><button class="btn ghost danger-text" data-action="grade" data-grade="again" data-testid="grade-again">Je ne savais pas <kbd>1</kbd></button>' +
     '<button class="btn primary" data-action="grade" data-grade="good" data-testid="grade-good">J\'ai prononcé ✓ <kbd>2</kbd></button></div>';
+}
+function pronounceView() {
+const e = session.current;
+if (session.phase === 'feedback') return answerCard(e) + feedbackHtml();
+const st = session.pronunciation;
+let interaction = '';
+if (!st) {
+interaction = '<button class="btn primary big mic-btn" data-action="pronounce-start" data-testid="pronounce-start">🎙️ Prononcer</button>' +
+'<p class="hint">Autorise le micro, puis répète le mot. La reconnaissance se fait dans ton navigateur.</p>';
+} else if (st.status === 'listening') {
+interaction = '<div class="pronounce-status listening" data-testid="pronounce-status">🎙️ J’écoute… Parle maintenant.</div>';
+} else if (st.status === 'error') {
+interaction = '<div class="pronounce-status error" data-testid="pronounce-status">' + esc(st.message) + '</div>' +
+'<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-retry">Réessayer</button>' +
+'<button class="btn ghost" data-action="pronounce-finish" data-good="0">Passer</button></div>';
+} else {
+interaction = '<div class="pronounce-result ' + (st.good ? 'good' : 'retry') + '" data-testid="pronounce-result">' +
+'<div class="pronounce-score">' + (st.good ? '✅' : '🔁') + '</div>' +
+'<div><strong>' + (st.good ? 'Bien prononcé !' : 'Presque !') + '</strong>' +
+'<span>Score : ' + st.score + ' %</span>' +
+'<p class="hint">Entendu : ' + esc(st.transcript || '—') + '</p></div></div>' +
+'<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-finish" data-good="' + (st.good ? '1' : '0') + '">' + (st.good ? 'Valider et continuer' : 'Continuer sans valider') + '</button>' +
+'<button class="btn ghost" data-action="pronounce-retry">Réessayer</button></div>';
+}
+return '<div class="session-card pronounce-card" data-testid="pronounce-card"><p class="eyebrow">Prononciation</p><h1 class="prompt-fr">' + frHtml(e.fr) + '</h1>' +
+'<div class="jp-big" lang="ja" data-testid="pronounce-word">' + wordRubyHtml(e) + '</div>' +
+(state.settings.romaji ? '<div class="romaji">' + esc(e.romaji) + '</div>' : '') +
+'<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
+'<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div>' +
+'<p class="hint">Répète le mot japonais à voix haute. Le score est indicatif.</p>' + interaction + '</div>';
+}
+function startPronunciation() {
+if (!session || !session.current) return;
+const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!Ctor) {
+session.pronunciation = { status: 'error', message: 'La reconnaissance vocale n’est pas disponible dans ce navigateur. Essaie Chrome ou Edge sur ordinateur ou Android.' };
+renderSession();
+return;
+}
+if (session.recognition) { try { session.recognition.abort(); } catch (e) { /* ignore */ } session.recognition = null; }
+const rec = new Ctor();
+rec.lang = 'ja-JP';
+rec.interimResults = false;
+rec.continuous = false;
+rec.maxAlternatives = 3;
+session.recognition = rec;
+session.pronunciation = { status: 'listening' };
+renderSession();
+rec.onresult = function (event) {
+if (!session || !session.current) return;
+const list = [];
+const first = event.results && event.results[0];
+if (first) { for (let i = 0; i < first.length; i++) list.push(first[i].transcript); }
+const best = window.Kotoba.Pronunciation ? window.Kotoba.Pronunciation.best(list, session.current) : { transcript: list[0] || '', score: 0, good: false };
+session.pronunciation = { status: 'done', transcript: best.transcript, score: best.score, good: best.good };
+session.recognition = null;
+renderSession();
+};
+rec.onerror = function (event) {
+if (!session) return;
+const messages = {
+'not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+'service-not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+'no-speech': 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.',
+'audio-capture': 'Aucun micro détecté. Vérifie ton matériel.',
+'network': 'La reconnaissance vocale a besoin d’une connexion réseau.'
+};
+session.pronunciation = { status: 'error', message: messages[event.error] || 'Je n’ai pas pu écouter. Réessaie.' };
+session.recognition = null;
+renderSession();
+};
+rec.onend = function () {
+if (session && session.pronunciation && session.pronunciation.status === 'listening') {
+session.pronunciation = { status: 'error', message: 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.' };
+renderSession();
+}
+if (session) session.recognition = null;
+};
+try { rec.start(); } catch (e) {
+session.pronunciation = { status: 'error', message: 'Impossible de démarrer le micro. Vérifie les autorisations.' };
+session.recognition = null;
+renderSession();
+}
 }
 function quizView() {
   const e = session.current;
@@ -617,7 +709,7 @@ function grade(g) {
 const beforeStreak = state.stats.streak || 0;
 const prev = state.progress[e.id] || S.freshProgress(now);
 const next = S.schedule(prev, g, now);
-if (session.mode === 'recall' && g === 'good') next.said = (prev.said || 0) + 1;
+if ((session.mode === 'recall' || session.mode === 'pronounce') && g === 'good') next.said = (prev.said || 0) + 1;
 state.progress[e.id] = next;
   const xp = S.bumpStats(state, g, now);
   session.xp += xp; session.done++;
@@ -642,6 +734,7 @@ function quitSession() {
   closeSession();
 }
 function closeSession() {
+if (session && session.recognition) { try { session.recognition.abort(); } catch (e) { /* ignore */ } }
   session = null;
   const root = $('#session');
   if (root) { root.hidden = true; root.innerHTML = ''; }
@@ -690,6 +783,7 @@ function openSettings() {
 function openDetail(id) {
 const e = entries.filter(function (x) { return x.id === id; })[0];
 if (!e) return;
+ui.detailId = id;
 const p = state.progress[id];
 const status = S.statusOf(p);
 const totalReviews = p ? ((p.reps || 0) + (p.lapses || 0)) : 0;
@@ -700,13 +794,13 @@ plural((p && p.reps) || 0, 'réussite', 'réussites'),
 p && p.lapses ? plural(p.lapses, 'oubli', 'oublis') : ''].filter(Boolean)
 .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
 openModal('Fiche du mot', `
-<div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div><div class='detail-jp' lang='ja'>${rubyHtml(e.ruby, state.settings.furigana)}</div>
+<div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div><div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
 <div class='detail-romaji'>${esc(e.romaji)}</div><div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
 <div class='detail-context'><div class='context-label'>En contexte</div><p class='jp' lang='ja'>${contextHtml(e.context, e.hl)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
 <div class='detail-meta'>${meta}<span>${status === 'known' ? 'Connu' : status === 'learning' ? 'En cours' : 'Nouveau'}</span><span>${esc(e.source === 'import' ? 'Importé' : e.theme)}</span></div>
-<div class='modal-actions'><button class='btn primary small' data-action='review-one' data-id='${attr(e.id)}'>Réviser ce mot</button>${e.source === 'import' ? '<button class=\'btn ghost small\' data-action=\'edit-entry\' data-id=\'' + attr(e.id) + '\'>Modifier</button>' : ''}${p ? '<button class=\'btn ghost small\' data-action=\'reset-progress\' data-id=\'' + attr(e.id) + '\'>Réinitialiser la progression</button>' : ''}${e.source === 'import' ? '<button class=\'btn ghost small danger-text\' data-action=\'delete-entry\' data-id=\'' + attr(e.id) + '\'>Supprimer</button>' : ''}</div>`);
+<div class='modal-actions'><button class='btn primary small' data-action='review-one' data-id='${attr(e.id)}'>Réviser ce mot</button><button class="btn ghost small" data-action="pronounce-one">🎙️ Prononcer</button>${e.source === 'import' ? '<button class=\'btn ghost small\' data-action=\'edit-entry\' data-id=\'' + attr(e.id) + '\'>Modifier</button>' : ''}${p ? '<button class=\'btn ghost small\' data-action=\'reset-progress\' data-id=\'' + attr(e.id) + '\'>Réinitialiser la progression</button>' : ''}${e.source === 'import' ? '<button class=\'btn ghost small danger-text\' data-action=\'delete-entry\' data-id=\'' + attr(e.id) + '\'>Supprimer</button>' : ''}</div>`);
 }
 
 function openEdit(id) {
@@ -790,6 +884,10 @@ return;
     case 'speak-text': speak(el.getAttribute('data-text'), el.getAttribute('data-slow') ? Math.max(0.5, (state.settings.rate || 0.9) * 0.72) : (state.settings.rate || 0.9)); break;
     case 'detail': openDetail(id); break;
 case "review-one": startOne(id); break;
+case 'pronounce-one': startOne(ui.detailId, 'pronounce'); break;
+case 'pronounce-start': startPronunciation(); break;
+case 'pronounce-retry': startPronunciation(); break;
+case 'pronounce-finish': grade(el.getAttribute('data-good') === '1' ? 'good' : 'again'); break;
     case 'edit-entry': openEdit(id); break;
     case 'delete-entry': deleteEntry(id); break;
     case 'reset-progress': resetProgress(id); break;
