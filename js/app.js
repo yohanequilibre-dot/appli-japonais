@@ -4,7 +4,7 @@
 'use strict';
 
 if (!window.Kotoba || !window.Kotoba.Parser || !window.Kotoba.Store) {
-  document.body.innerHTML = '<p style="padding:2rem;font-family:system-ui">Kotoba n a pas pu charger ses modules. Recharge la page.</p>';
+  document.body.innerHTML = '<p style="padding:2rem;font-family:system-ui">Kotoba n\'a pas pu charger ses modules. Recharge la page.</p>';
   return;
 }
 
@@ -100,7 +100,7 @@ function toast(message) {
   toastTimer = setTimeout(function () { el.classList.remove('show'); }, 3000);
 }
 function persist() {
-  if (!S.save(state)) toast('Impossible d enregistrer (stockage du navigateur plein ?).');
+  if (!S.save(state)) toast('Impossible d\'enregistrer (stockage du navigateur plein ?).');
 }
 function applyTheme() {
   const pref = state.settings.theme || 'system';
@@ -126,7 +126,7 @@ function speak(text, rate) {
   const t = String(text || '').trim();
   if (!t) return;
   if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance === 'undefined') {
-    toast('La synthèse vocale n est pas disponible ici.');
+    toast('La synthèse vocale n\'est pas disponible ici.');
     return;
   }
   try {
@@ -137,7 +137,7 @@ function speak(text, rate) {
     const v = voices.filter(function (x) { return /^ja/i.test(x.lang); })[0];
     if (v) u.voice = v;
     window.speechSynthesis.speak(u);
-  } catch (e) { toast('Impossible de lire l audio.'); }
+  } catch (e) { toast('Impossible de lire l\'audio.'); }
 }
 function download(name, text) {
   const blob = new Blob([text], { type: 'application/json' });
@@ -237,7 +237,7 @@ function renderHome() {
     '<div><p class="eyebrow">' + esc(g.jp) + ' · ' + esc(g.fr) + '</p>' +
       '<h1>' + (c.due ? 'On révise un peu ?' : (c.new ? 'Prêt à apprendre ?' : 'Tout est à jour.')) + '</h1>' +
       '<p class="lead">' + (c.due
-        ? plural(c.due, 'carte t attend', 'cartes t attendent') + ' aujourd hui. Un petit tour et ta mémoire te dira merci.'
+        ? plural(c.due, 'carte t\'attend', 'cartes t\'attendent') + ' aujourd\'hui. Un petit tour et ta mémoire te dira merci.'
         : (c.new ? plural(c.new, 'nouveau mot', 'nouveaux mots') + ' à découvrir. Commence par cinq, tu verras.'
           : 'Reviens demain pour entretenir ta mémoire, ou révise tout ce que tu connais déjà.')) + '</p>' +
       '<div class="hero-actions"><button class="btn primary big" data-action="start" data-kind="' + primaryKind + '" data-mode="recall" data-testid="cta-main">' + primaryLabel + '</button>' +
@@ -270,14 +270,14 @@ function renderReview() {
     return '<div class="forecast-col"><div class="forecast-bar" style="height:' + Math.max(3, Math.round(n / max * 100)) + '%"></div><span class="forecast-label">' + labels[i] + '</span></div>';
   }).join('');
   $('#view-review').innerHTML = '<div class="panel"><div class="panel-head"><div><h2>Réviser</h2><p>' +
-    (c.due ? plural(c.due, 'carte t attend', 'cartes t attendent') : 'Rien n est dû pour le moment.') + '</p></div></div><div class="review-grid">' +
+    (c.due ? plural(c.due, 'carte t\'attend', 'cartes t\'attendent') : 'Rien n\'est dû pour le moment.') + '</p></div></div><div class="review-grid">' +
     '<div class="review-card"><span class="review-num">' + c.due + '</span><strong>Cartes dues</strong><span class="hint">Choisis ton mode : rappel, QCM ou écoute.</span><div class="mode-row">' +
       '<button class="mode-btn active" data-action="start" data-kind="due" data-mode="recall"' + (c.due ? '' : ' disabled') + '>Rappel</button>' +
       '<button class="mode-btn" data-action="start" data-kind="due" data-mode="choice"' + (c.due ? '' : ' disabled') + '>QCM</button>' +
       '<button class="mode-btn" data-action="start" data-kind="due" data-mode="listen"' + (c.due ? '' : ' disabled') + '>Écoute</button></div></div>' +
-    '<button class="review-card" data-action="start" data-kind="quick" data-mode="recall"' + (c.seen ? '' : ' disabled') + '><span class="review-num">' + Math.min(10, c.seen) + '</span><strong>Révision rapide</strong><span class="hint">Dix mots au hasard, même s ils ne sont pas dus.</span></button>' +
+    '<button class="review-card" data-action="start" data-kind="quick" data-mode="recall"' + (c.seen ? '' : ' disabled') + '><span class="review-num">' + Math.min(10, c.seen) + '</span><strong>Révision rapide</strong><span class="hint">Dix mots au hasard, même s\'ils ne sont pas dus.</span></button>' +
     '<button class="review-card" data-action="start" data-kind="all" data-mode="recall"' + (c.seen ? '' : ' disabled') + '><span class="review-num">' + c.seen + '</span><strong>Tout revoir</strong><span class="hint">Tous les mots déjà rencontrés.</span></button>' +
-    '<button class="review-card" data-action="start" data-kind="new" data-mode="recall"' + (c.new ? '' : ' disabled') + '><span class="review-num">' + c.new + '</span><strong>Nouveaux mots</strong><span class="hint">Découvre jusqu à dix nouveaux mots.</span></button>' +
+    '<button class="review-card" data-action="start" data-kind="new" data-mode="recall"' + (c.new ? '' : ' disabled') + '><span class="review-num">' + c.new + '</span><strong>Nouveaux mots</strong><span class="hint">Découvre jusqu\'à dix nouveaux mots.</span></button>' +
     '</div></div><section class="panel"><div class="panel-head"><h2>Prévisions</h2><p>Les 7 prochains jours</p></div><div class="forecast">' + bars + '</div></section>';
 }
 
@@ -325,13 +325,13 @@ function renderLibraryList() {
 
 /* ---------- Import ---------- */
 function renderImport() {
-  $('#view-import').innerHTML = '<div class="panel"><div class="panel-head"><div><h2>Importer des mots</h2><p>Colle une liste, un fichier ou une capture d écran.</p></div></div>' +
+  $('#view-import').innerHTML = '<div class="panel"><div class="panel-head"><div><h2>Importer des mots</h2><p>Colle une liste, un fichier ou une capture d\'écran.</p></div></div>' +
     '<p class="hint">Format conseillé : <b>français | japonais | romaji | phrase | traduction</b>. Les deux premiers champs suffisent. Le japonais peut être en kanji, en kana ou en romaji.</p>' +
     '<textarea class="import-text" id="importText" data-testid="import-textarea" placeholder="bonjour | kon-ni-chi-wa&#10;merci | arigatou&#10;manger | 食べる | taberu">' + esc(ui.importText) + '</textarea>' +
     '<div class="import-actions"><button class="btn primary" data-action="preview-import" data-testid="preview-import">Analyser la liste</button><button class="btn ghost" data-action="clear-import">Effacer</button></div>' +
     '<div id="importPreview" data-testid="import-preview"></div></div>' +
     '<div class="panel"><div class="panel-head"><h2>Depuis un fichier</h2><p>.txt, .csv, .tsv ou .json</p></div><div class="file-row"><input type="file" id="importFile" accept=".txt,.csv,.tsv,.json,text/plain,application/json"></div></div>' +
-    '<div class="panel"><div class="panel-head"><h2>Depuis une capture d écran</h2><p>OCR japonais + français</p></div>' +
+    '<div class="panel"><div class="panel-head"><h2>Depuis une capture d\'écran</h2><p>OCR japonais + français</p></div>' +
     '<div id="dropZone" class="drop-zone" data-testid="drop-zone">Glisse une image ici, colle-la avec Ctrl+V, ou <button class="btn ghost small" data-action="pick-image">choisir une image</button></div>' +
     '<input type="file" id="ocrFile" accept="image/*" hidden><div id="ocrStatus" class="ocr-status"></div></div>';
   if (ui.preview) renderPreview();
@@ -363,7 +363,7 @@ function previewImport() {
   if (!el) return;
   ui.importText = el.value;
   const p = P.parseText(el.value);
-  if (!p.entries.length && !p.errors.length) { toast('Colle d abord quelques mots.'); return; }
+  if (!p.entries.length && !p.errors.length) { toast('Colle d\'abord quelques mots.'); return; }
   ui.preview = p;
   renderPreview();
   const box = $('#importPreview');
@@ -376,6 +376,7 @@ function doImport() {
   ui.preview.entries.forEach(function (e) {
     if (keys.has(entryKey(e))) { skipped++; return; }
     state.entries[e.id] = e; keys.add(entryKey(e)); added++;
+    state.progress[e.id] = { level: 0, reps: 0, lapses: 0, due: Date.now() - 1, last: Date.now() - 1 };
   });
   if (!added) { toast('Ces mots sont déjà dans ta collection.'); return; }
   persist();
@@ -394,7 +395,7 @@ function readImportFile(file) {
       try {
         const data = JSON.parse(text);
         const arr = Array.isArray(data) ? data : (data.entries ? (Array.isArray(data.entries) ? data.entries : Object.keys(data.entries).map(function (k) { return data.entries[k]; })) : null);
-        if (!arr) throw new Error('JSON sans liste d entrées');
+        if (!arr) throw new Error('JSON sans liste d\'entrées');
         text = arr.filter(function (e) { return e && (e.jp || e.ruby) && e.fr; }).map(function (e) {
           return [e.fr, e.jp || e.ruby, e.romaji || '', e.context || '', e.contextFr || ''].join(' | ');
         }).join('\n');
@@ -418,7 +419,7 @@ function loadTesseract() {
     s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
     s.async = true;
     s.onload = function () { if (window.Tesseract) resolve(window.Tesseract); else reject(new Error('moteur OCR indisponible')); };
-    s.onerror = function () { tessPromise = null; reject(new Error('téléchargement de l OCR impossible')); };
+    s.onerror = function () { tessPromise = null; reject(new Error('téléchargement de l\'OCR impossible')); };
     document.head.appendChild(s);
   });
   return tessPromise;
@@ -426,10 +427,10 @@ function loadTesseract() {
 function handleImage(file) {
   if (!file || !/^image\//.test(file.type || '')) { toast('Choisis une image (PNG, JPG…).'); return; }
   const status = $('#ocrStatus');
-  if (status) status.textContent = 'Chargement de l OCR…';
+  if (status) status.textContent = 'Chargement de l\'OCR…';
   loadTesseract().then(function (T) {
     return T.createWorker(['jpn', 'fra'], 1, { logger: function (m) {
-      if (status) status.textContent = m.status === 'recognizing text' ? 'Lecture… ' + Math.round((m.progress || 0) * 100) + '%' : 'Préparation de l OCR…';
+      if (status) status.textContent = m.status === 'recognizing text' ? 'Lecture… ' + Math.round((m.progress || 0) * 100) + '%' : 'Préparation de l\'OCR…';
     } }).then(function (worker) {
       return worker.recognize(file).then(function (res) { return worker.terminate().then(function () { return res; }); });
     });
@@ -438,7 +439,7 @@ function handleImage(file) {
     if (!text) { if (status) status.textContent = 'Aucun texte détecté. Essaie une image plus nette.'; return; }
     ui.importText = text; ui.preview = null;
     renderImport();
-    if (status) status.textContent = 'Texte reconnu. Vérifie-le avant d importer.';
+    if (status) status.textContent = 'Texte reconnu. Vérifie-le avant d\'importer.';
     previewImport();
   }).catch(function (err) {
     if (status) status.textContent = '';
@@ -458,7 +459,7 @@ function startSession(kind, mode, unitId) {
   else if (kind === 'quick') list = shuffle(entries.filter(function (e) { const p = state.progress[e.id]; return p && p.last; })).slice(0, 10);
   else if (kind === 'all') list = entries.filter(function (e) { const p = state.progress[e.id]; return p && p.last; }).sort(byDue);
   else if (kind === 'unit') list = entries.filter(function (e) { return e.unitId === unitId; }).sort(byDue).slice(0, 15);
-  if (!list.length) { toast('Rien à réviser pour l instant.'); return; }
+  if (!list.length) { toast('Rien à réviser pour l\'instant.'); return; }
   if (kind === 'due') list = list.slice(0, 30);
   session = { kind: kind, mode: mode, queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
   document.body.style.overflow = 'hidden';
@@ -522,7 +523,7 @@ function recallView() {
   const answer = answerCard(e);
   if (session.phase === 'feedback') return answer + feedbackHtml();
   return answer + '<div class="grade-row" data-testid="grade-row"><button class="btn ghost danger-text" data-action="grade" data-grade="again" data-testid="grade-again">Je ne savais pas <kbd>1</kbd></button>' +
-    '<button class="btn primary" data-action="grade" data-grade="good" data-testid="grade-good">J ai prononcé ✓ <kbd>2</kbd></button></div>';
+    '<button class="btn primary" data-action="grade" data-grade="good" data-testid="grade-good">J\'ai prononcé ✓ <kbd>2</kbd></button></div>';
 }
 function quizView() {
   const e = session.current;
@@ -547,10 +548,10 @@ function summaryHtml() {
   const accuracy = session.done ? Math.round(session.correct / session.done * 100) : 0;
   const c = S.counts(entries, state, Date.now());
   const next = S.nextDue(entries, state, Date.now());
-  return '<div class="summary-card" data-testid="summary"><div class="summary-emoji">🎉</div><h1>Session terminée !</h1><p class="muted">' + (session.done ? 'Bien joué, continue comme ça.' : 'Rien à faire pour l instant.') + '</p>' +
+  return '<div class="summary-card" data-testid="summary"><div class="summary-emoji">🎉</div><h1>Session terminée !</h1><p class="muted">' + (session.done ? 'Bien joué, continue comme ça.' : 'Rien à faire pour l\'instant.') + '</p>' +
     '<div class="summary-stats"><div><b>' + session.done + '</b><span>cartes</span></div><div><b>' + accuracy + '%</b><span>réussite</span></div><div><b>+' + session.xp + '</b><span>XP</span></div></div>' +
     '<p class="hint">' + (next ? 'Prochaine révision : ' + S.dueLabel(next) + '.' : 'Tu es à jour.') + '</p><div class="summary-actions">' +
-    '<button class="btn primary" data-action="finish-session" data-testid="finish-session">Retour à l accueil</button>' +
+    '<button class="btn primary" data-action="finish-session" data-testid="finish-session">Retour à l\'accueil</button>' +
     (c.due ? '<button class="btn ghost" data-action="start-again" data-testid="start-again">Réviser encore</button>' : '') + '</div></div>';
 }
 function reveal() { if (session && session.phase === 'front') { session.phase = 'revealed'; renderSession(); } }
@@ -589,7 +590,7 @@ function finishSession() {
   try { history.replaceState(null, '', '#apprendre'); } catch (e) { /* ignore */ }
   showView('learn');
 }
-function startAgain() { closeSession(); if (S.counts(entries, state, Date.now()).due) startSession('due', 'recall'); else toast('Rien à réviser pour l instant.'); }
+function startAgain() { closeSession(); if (S.counts(entries, state, Date.now()).due) startSession('due', 'recall'); else toast('Rien à réviser pour l\'instant.'); }
 
 /* ---------- Modales ---------- */
 function openModal(title, body) {
@@ -620,7 +621,7 @@ function openSettings() {
     '<div class="setting-row"><div><strong>Vitesse audio</strong><small>Voix japonaise du navigateur</small></div><div style="display:flex;align-items:center;gap:8px"><input type="range" min="0.5" max="1.3" step="0.05" value="' + s.rate + '" data-setting="rate" style="width:110px"><button class="btn ghost small" data-action="test-voice">Tester</button></div></div>' +
     '<div class="setting-row"><div><strong>Sauvegarde</strong><small>Exporte ou restaure ta progression</small></div><div class="modal-actions" style="margin:0"><button class="btn ghost small" data-action="export-data">Exporter</button><button class="btn ghost small" data-action="import-data">Importer</button></div></div>' +
     '<input type="file" id="dataFile" accept=".json,application/json" hidden><div class="modal-actions"><button class="btn danger-text" data-action="reset-data">Tout effacer</button></div>' +
-    '<p class="hint">Kotoba stocke tout dans ce navigateur. Utilise l export pour passer d un appareil à l autre.</p>');
+    '<p class="hint">Kotoba stocke tout dans ce navigateur. Utilise l\'export pour passer d\'un appareil à l\'autre.</p>');
 }
 function openDetail(id) {
   const e = entries.filter(function (x) { return x.id === id; })[0];
