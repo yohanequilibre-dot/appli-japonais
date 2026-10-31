@@ -1,0 +1,14 @@
+{
+  "name": "kotoba",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Kotoba — apprendre et réviser le vocabulaire japonais",
+  "scripts": {
+    "test": "node tests/unit.js",
+    "test:e2e": "playwright test",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1"
+  }
+}
