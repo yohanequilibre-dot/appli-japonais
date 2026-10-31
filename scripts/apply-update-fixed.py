@@ -60,8 +60,7 @@ write('js/app.js', chr(10).join(lines) + chr(10))
 ''')
 
 replace_label('review-one', r'''lines = read('js/app.js').splitlines()
-needle = 'case ' + q + 'detail' + q + ': openDetail(id); break;'
-idx = [i for i, line in enumerate(lines) if needle in line]
+idx = [i for i, line in enumerate(lines) if 'openDetail(id)' in line and 'detail' in line]
 if len(idx) != 1:
     raise SystemExit('js/app.js / review-one : ' + str(len(idx)) + ' occurrence(s)')
 lines.insert(idx[0] + 1, 'case ' + q + 'review-one' + q + ': startOne(id); break;')
