@@ -1,16 +1,26 @@
 name: check
+
 on:
   push:
-  workflow_dispatch:
+    branches: [main]
+  pull_request:
+
 jobs:
-  syntax:
+  syntax-and-unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Vérifier la syntaxe JavaScript
+      - name: Syntaxe JavaScript
         run: |
-          node --check app.js
-          node --check data.js
+          set -e
+          for f in app.js data.js js/*.js tests/*.js; do
+            if [ -f "$f" ]; then
+              echo "check $f"
+              node --check "$f"
+            fi
+          done
+      - name: Tests unitaires
+        run: node tests/unit.js
