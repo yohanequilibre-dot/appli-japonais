@@ -6,7 +6,7 @@ q = chr(39)
 pos = src.index('filter-reviewed')
 start_marker = 'rep(' + q + 'js/app.js' + q + ','
 start = src.rfind(start_marker, 0, pos)
-end_marker = q + 'filter-reviewed' + q + ')'
+end_marker = q + ')'
 end = src.index(end_marker, pos) + len(end_marker)
 replacement = r'''lines = read('js/app.js').splitlines()
 needle = 'ui.filter === ' + chr(39) + 'new' + chr(39)
