@@ -202,6 +202,12 @@ test("détection français / romaji", function () {
   assert.equal(Parser.looksRomaji("kon-ni-chi-wa"), true);
 });
 
+test('aller | ikimasu donne la forme polie', function () {
+const e = entryOf('aller | ikimasu');
+assert.equal(e.jp, '行きます');
+assert.equal(e.romaji, 'ikimasu');
+assert.equal(e.context, '明日、東京に行きます。');
+});
 if (failed) {
   console.error("\n" + failed + " test(s) en échec.");
   process.exit(1);

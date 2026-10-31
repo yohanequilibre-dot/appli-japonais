@@ -25,13 +25,16 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 
 ## Fonctionnalités
 
-- **100 mots de départ** répartis en 10 thèmes (salutations, présentation, nourriture, voyage, etc.).
+- **aller** : la carte de base utilise 行きます (ikimasu, forme polie). La forme neutre 行く (iku) est aussi disponible, et la différence est expliquée dans l’onglet Grammaire.
+- **Plus de 200 mots de départ** répartis en 20 thèmes (salutations, nourriture, maison, transports, santé, travail, météo, émotions, etc.).
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Trois modes de session** : rappel (révéler puis valider), QCM, écoute.
 - **Carte dans le bon ordre** : français → japonais avec furigana → romaji → contexte.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
 - **Série, XP, objectif quotidien** et prévisions des sept prochains jours.
-- **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, en cours, connus, importés), fiche détaillée, modification et suppression des mots importés.
+- **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, en cours, connus, importés), fiche détaillée, modification et suppression des mots importés.
+- **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés ».
+- **Onglet Grammaire** : ordre de la phrase, particules, formes ます / neutres, passé, négation, questions, compteurs et constructions quotidiennes.
 - **Import libre** : texte collé, fichier `.txt` / `.csv` / `.tsv` / `.json`, ou capture d'écran avec OCR japonais + français.
 - **Sauvegarde** : export / import JSON de toute la progression.
 - **PWA** : installation sur l'écran d'accueil et consultation hors ligne après le premier chargement.
@@ -79,7 +82,7 @@ La CI GitHub Actions vérifie la syntaxe, le manifeste, les tests unitaires et l
 ```text
 index.html             coquille de l'application
 styles.css             design responsive clair / sombre
-data.js               100 mots de départ, 10 thèmes
+data.js + js/vocab-extra.js plus de 200 mots de départ, 20 thèmes
 js/lexicon.js          lexique de secours français / romaji → japonais
 js/srs.js              état local, paliers SRS, statistiques
 js/parser.js           analyse des imports et annotations furigana

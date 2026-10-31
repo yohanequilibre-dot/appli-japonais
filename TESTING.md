@@ -52,10 +52,12 @@ python3 -m http.server 8080 --bind 0.0.0.0
 3. **Validation** : clique sur « J'ai prononcé ». Le message « Bien joué ! » et la prochaine révision s'affichent. Clique sur « Continuer » : la carte suivante arrive.
 4. **Import** : va dans « Importer », colle `bonjour | kon-ni-chi-wa`, clique sur « Analyser la liste ». L'aperçu doit montrer こんにちは, le romaji et le contexte `こんにちは、花さん！`. Clique sur « Importer 1 mot ».
 5. **Mes mots** : clique sur le filtre « Importés ». La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
-6. **Réviser** : l'onglet « Réviser » propose les cartes dues, la révision rapide, tout revoir et les nouveaux mots. Les prévisions sur sept jours sont affichées. Un mot importé est dû immédiatement : il apparaît dans les cartes à réviser.
+6. **Réviser** : l’onglet « Réviser » propose les cartes dues, la révision rapide, tout revoir et les nouveaux mots. Clique sur la carte « Cartes dues » ou sur le bouton « Commencer » : la session doit s’ouvrir. Les prévisions sur sept jours sont affichées. Un mot importé est dû immédiatement : il apparaît dans les cartes à réviser.
 7. **Mobile** : ouvre les outils de développement du navigateur (F12), passe en largeur 390 px. La barre de navigation du bas doit apparaître, sans débordement horizontal.
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
+
+10. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche et que l’explication de 行きます / iku est présente.
 
 ## 4. Le test exact de ta demande
 
@@ -102,6 +104,8 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - l'import exact `bonjour | kon-ni-chi-wa` et l'affichage du contexte ;
 - les réglages (objectif et thème sombre) après rechargement ;
 - l'absence de débordement horizontal sur un écran mobile de 390 px.
+- l’ouverture de l’onglet Réviser et le compteur de prononciations ;
+- l’onglet Grammaire et le vocabulaire quotidien.
 
 Pour voir les tests dans une interface : `npx playwright test --ui`.
 

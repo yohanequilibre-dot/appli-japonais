@@ -88,7 +88,7 @@ window.UNITS_DATA = [
   ]},
   { id:"verbes", name:"Les verbes du quotidien", emoji:"🏃", words:[
     ["する","","suru","faire","宿題をする。","Je fais mes devoirs."],
-    ["行く","行[い]く","iku","aller","明日、東京に行く。","Demain, je vais à Tokyo."],
+["行きます","行[い]きます","ikimasu","aller (forme polie)","明日、東京に行きます。","Demain, j’irai à Tokyo. (forme neutre : 行く / iku)"],
     ["来る","来[く]る","kuru","venir","友達が家に来る。","Un ami vient à la maison."],
     ["見る","見[み]る","miru","voir / regarder","夜はテレビを見る。","Le soir, je regarde la télévision."],
     ["食べる","食[た]べる","taberu","manger","ご飯を食べる。","Je mange."],
@@ -97,6 +97,7 @@ window.UNITS_DATA = [
     ["起きる","起[お]きる","okiru","se lever","六時に起きる。","Je me lève à six heures."],
     ["働く","働[はたら]く","hataraku","travailler","会社で働く。","Je travaille dans une entreprise."],
     ["買う","買[か]う","kau","acheter","パンを買う。","J'achète du pain."]
+["行く","行[い]く","iku","aller (forme familière)","明日、東京に行く。","Demain, je vais à Tokyo."],
   ]},
   { id:"adjectifs", name:"Décrire les choses", emoji:"✨", words:[
     ["大きい","大[おお]きい","ōkii","grand","大きい犬がいる。","Il y a un grand chien."],

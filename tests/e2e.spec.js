@@ -77,3 +77,45 @@ test('mobile : navigation visible et pas de débordement horizontal', async ({ p
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
+
+
+test('onglet Réviser : une carte due s’ouvre au clic', async ({ page }) => {
+await page.goto('/#importer');
+await page.getByTestId('import-textarea').fill('bonjour | kon-ni-chi-wa');
+await page.getByTestId('preview-import').click();
+await page.getByTestId('do-import').click();
+await page.locator('.desktop-nav [data-nav=review]').click();
+await expect(page.locator('#view-review')).toBeVisible();
+await expect(page.getByTestId('review-card-due')).toBeVisible();
+await page.getByTestId('review-card-due').click();
+await expect(page.getByTestId('session-card')).toBeVisible();
+await expect(page.getByTestId('reveal')).toBeVisible();
+});
+
+test('compteur de prononciations et filtre Révisés', async ({ page }) => {
+await page.getByTestId('cta-main').click();
+await page.getByTestId('reveal').click();
+await page.getByTestId('grade-good').click();
+await page.locator('.desktop-nav [data-nav=library]').click();
+await page.locator('.chip[data-filter=reviewed]').click();
+await expect(page.locator('#libraryList .word-row').first()).toBeVisible();
+await page.locator('#libraryList .word-row').first().click();
+await expect(page.locator('.modal-panel')).toContainText('1 prononciation');
+});
+
+test('onglet Grammaire et leçon de structure', async ({ page }) => {
+await page.locator('.desktop-nav [data-nav=grammar]').click();
+await expect(page.locator('#view-grammar')).toBeVisible();
+await expect(page.locator('#view-grammar')).toContainText('L’ordre de la phrase');
+await expect(page.locator('#view-grammar')).toContainText('私は水を飲みます。');
+});
+
+test('plus de 200 mots et aller en forme polie', async ({ page }) => {
+const info = await page.evaluate(() => ({
+units: window.UNITS_DATA.length,
+words: window.UNITS_DATA.reduce((n, u) => n + ((u.words && u.words.length) || 0), 0),
+ikimasu: window.UNITS_DATA.some((u) => (u.words || []).some((w) => w[0] === '行きます' && w[2] === 'ikimasu'))
+}));
+expect(info.words).toBeGreaterThanOrEqual(200);
+expect(info.ikimasu).toBe(true);
+});

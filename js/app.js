@@ -22,8 +22,8 @@ let toastTimer = 0;
 let voices = [];
 let tessPromise = null;
 
-const VIEWS = { learn: '#view-learn', review: '#view-review', library: '#view-library', import: '#view-import' };
-const FROM_HASH = { apprendre: 'learn', reviser: 'review', mots: 'library', importer: 'import' };
+const VIEWS = { learn: '#view-learn', review: '#view-review', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
+const FROM_HASH = { apprendre: 'learn', reviser: 'review', mots: 'library', importer: 'import', grammaire: 'grammar' };
 
 /* ---------- Utilitaires ---------- */
 function esc(value) {
@@ -261,29 +261,40 @@ function renderHome() {
 
 /* ---------- Réviser ---------- */
 function renderReview() {
-  const now = Date.now();
-  const c = S.counts(entries, state, now);
-  const forecast = S.forecast(entries, state, now);
-  const max = Math.max.apply(null, forecast.concat([1]));
-  const labels = ['Auj.', 'Demain', '+2 j', '+3 j', '+4 j', '+5 j', '+6 j'];
-  const bars = forecast.map(function (n, i) {
-    return '<div class="forecast-col"><div class="forecast-bar" style="height:' + Math.max(3, Math.round(n / max * 100)) + '%"></div><span class="forecast-label">' + labels[i] + '</span></div>';
-  }).join('');
-  $('#view-review').innerHTML = '<div class="panel"><div class="panel-head"><div><h2>Réviser</h2><p>' +
-    (c.due ? plural(c.due, 'carte t\'attend', 'cartes t\'attendent') : 'Rien n\'est dû pour le moment.') + '</p></div></div><div class="review-grid">' +
-    '<div class="review-card"><span class="review-num">' + c.due + '</span><strong>Cartes dues</strong><span class="hint">Choisis ton mode : rappel, QCM ou écoute.</span><div class="mode-row">' +
-      '<button class="mode-btn active" data-action="start" data-kind="due" data-mode="recall"' + (c.due ? '' : ' disabled') + '>Rappel</button>' +
-      '<button class="mode-btn" data-action="start" data-kind="due" data-mode="choice"' + (c.due ? '' : ' disabled') + '>QCM</button>' +
-      '<button class="mode-btn" data-action="start" data-kind="due" data-mode="listen"' + (c.due ? '' : ' disabled') + '>Écoute</button></div></div>' +
-    '<button class="review-card" data-action="start" data-kind="quick" data-mode="recall"' + (c.seen ? '' : ' disabled') + '><span class="review-num">' + Math.min(10, c.seen) + '</span><strong>Révision rapide</strong><span class="hint">Dix mots au hasard, même s\'ils ne sont pas dus.</span></button>' +
-    '<button class="review-card" data-action="start" data-kind="all" data-mode="recall"' + (c.seen ? '' : ' disabled') + '><span class="review-num">' + c.seen + '</span><strong>Tout revoir</strong><span class="hint">Tous les mots déjà rencontrés.</span></button>' +
-    '<button class="review-card" data-action="start" data-kind="new" data-mode="recall"' + (c.new ? '' : ' disabled') + '><span class="review-num">' + c.new + '</span><strong>Nouveaux mots</strong><span class="hint">Découvre jusqu\'à dix nouveaux mots.</span></button>' +
-    '</div></div><section class="panel"><div class="panel-head"><h2>Prévisions</h2><p>Les 7 prochains jours</p></div><div class="forecast">' + bars + '</div></section>';
+const now = Date.now();
+const c = S.counts(entries, state, now);
+const forecast = S.forecast(entries, state, now);
+const max = Math.max.apply(null, forecast.concat([1]));
+const labels = ['Auj.', 'Demain', '+2 j', '+3 j', '+4 j', '+5 j', '+6 j'];
+const bars = forecast.map(function (n, i) {
+return `<div class='forecast-col'><div class='forecast-bar' style='height:${Math.max(3, Math.round(n / max * 100))}%'></div><span class='forecast-label'>${labels[i]}</span></div>`;
+}).join('');
+const primaryKind = c.due ? 'due' : (c.new ? 'new' : 'quick');
+const primaryLabel = c.due ? `Réviser ${plural(c.due, 'carte due', 'cartes dues')}` : (c.new ? `Découvrir ${plural(c.new, 'nouveau mot', 'nouveaux mots')}` : 'Révision rapide');
+const primaryHint = c.due ? 'Une session de rappel, puis tu valides ta prononciation.' : (c.new ? 'Commence par une série de nouveaux mots.' : 'Un petit tour sur les mots déjà connus.');
+const disabled = !(c.due || c.new || c.seen);
+$('#view-review').innerHTML = `
+<div class='panel review-hero'>
+<div><p class='eyebrow'>Ta session</p><h2>${c.due ? 'On révise un peu ?' : (c.new ? 'Prêt à découvrir ?' : 'Tout est à jour.')}</h2><p class='lead'>${primaryHint}</p></div>
+<div class='review-hero-actions'><button class='btn primary big' data-action='start' data-kind='${primaryKind}' data-mode='recall' data-testid='review-start-main'${disabled ? ' disabled' : ''}>${primaryLabel}</button></div>
+</div>
+<div class='panel'><div class='panel-head'><div><h2>Réviser</h2><p>${c.due ? plural(c.due, 'carte t’attend', 'cartes t’attendent') : 'Rien n’est dû pour le moment.'}</p></div></div>
+<div class='review-grid'>
+<div class='review-card' role='button' tabindex='0' data-action='start' data-kind='due' data-mode='recall' data-testid='review-card-due'>
+<span class='review-num'>${c.due}</span><strong>Cartes dues</strong><span class='hint'>Clique sur la carte pour commencer en rappel, ou choisis un mode.</span>
+<button class='btn primary small' data-action='start' data-kind='due' data-mode='recall'${c.due ? '' : ' disabled'}>Commencer</button>
+<div class='mode-row'><button class='mode-btn active' data-action='start' data-kind='due' data-mode='recall'${c.due ? '' : ' disabled'}>Rappel</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='choice'${c.due ? '' : ' disabled'}>QCM</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='listen'${c.due ? '' : ' disabled'}>Écoute</button></div>
+</div>
+<button class='review-card' data-action='start' data-kind='quick' data-mode='recall'${c.seen ? '' : ' disabled'}><span class='review-num'>${Math.min(10, c.seen)}</span><strong>Révision rapide</strong><span class='hint'>Dix mots au hasard, même s’ils ne sont pas dus.</span></button>
+<button class='review-card' data-action='start' data-kind='all' data-mode='recall'${c.seen ? '' : ' disabled'}><span class='review-num'>${c.seen}</span><strong>Tout revoir</strong><span class='hint'>Tous les mots déjà rencontrés.</span></button>
+<button class='review-card' data-action='start' data-kind='new' data-mode='recall' data-testid='review-start-new'${c.new ? '' : ' disabled'}><span class='review-num'>${c.new}</span><strong>Nouveaux mots</strong><span class='hint'>Découvre jusqu’à dix nouveaux mots.</span></button>
+</div></div>
+<section class='panel'><div class='panel-head'><h2>Prévisions</h2><p>Les 7 prochains jours</p></div><div class='forecast'>${bars}</div></section>`;
 }
 
 /* ---------- Mes mots ---------- */
 function renderLibrary() {
-  const filters = [['all', 'Tous'], ['due', 'À réviser'], ['new', 'Nouveaux'], ['learning', 'En cours'], ['known', 'Connus'], ['imported', 'Importés']];
+  const filters = [['all', 'Tous'], ['due', 'À réviser'], ['new', 'Nouveaux'], ['reviewed', 'Révisés'], ['learning', 'En cours'], ['known', 'Connus'], ['imported', 'Importés']];
   const chips = filters.map(function (f) {
     return '<button class="chip' + (ui.filter === f[0] ? ' active' : '') + '" data-action="filter" data-filter="' + f[0] + '">' + f[1] + '</button>';
   }).join('');
@@ -302,6 +313,7 @@ function renderLibraryList() {
   if (ui.filter === 'imported') list = list.filter(function (e) { return e.source === 'import'; });
   else if (ui.filter === 'due') list = list.filter(function (e) { return S.isDue(state.progress[e.id], now); });
   else if (ui.filter === 'new') list = list.filter(function (e) { return S.isNew(state.progress[e.id]); });
+else if (ui.filter === 'reviewed') list = list.filter(function (e) { const p = state.progress[e.id]; return p && p.last && ((p.reps || 0) + (p.lapses || 0)) > 0; });
   else if (ui.filter === 'learning') list = list.filter(function (e) { const p = state.progress[e.id]; return p && p.last && !S.isKnown(p); });
   else if (ui.filter === 'known') list = list.filter(function (e) { return S.isKnown(state.progress[e.id]); });
   if (q) list = list.filter(function (e) { return [e.fr, e.jp, e.ruby, e.romaji, e.context, e.contextFr].join(' ').toLowerCase().indexOf(q) >= 0; });
@@ -467,6 +479,16 @@ function startSession(kind, mode, unitId) {
   if (root) root.hidden = false;
   nextCard();
 }
+function startOne(id) {
+const e = entries.filter(function (x) { return x.id === id; })[0];
+if (!e) return;
+closeModal();
+session = { kind: 'single', mode: 'recall', queue: [e], current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: 1, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
+document.body.style.overflow = 'hidden';
+const root = $('#session');
+if (root) root.hidden = false;
+nextCard();
+}
 function nextCard() {
   if (!session) return;
   if (!session.queue.length) { session.current = null; session.phase = 'summary'; renderSession(); return; }
@@ -559,7 +581,9 @@ function grade(g) {
   if (!session || !session.current) return;
   const e = session.current, now = Date.now();
   const prev = state.progress[e.id] || S.freshProgress(now);
-  state.progress[e.id] = S.schedule(prev, g, now);
+const next = S.schedule(prev, g, now);
+if (session.mode === 'recall' && g === 'good') next.said = (prev.said || 0) + 1;
+state.progress[e.id] = next;
   const xp = S.bumpStats(state, g, now);
   session.xp += xp; session.done++;
   if (g === 'good') session.correct++;
@@ -624,23 +648,27 @@ function openSettings() {
     '<p class="hint">Kotoba stocke tout dans ce navigateur. Utilise l\'export pour passer d\'un appareil à l\'autre.</p>');
 }
 function openDetail(id) {
-  const e = entries.filter(function (x) { return x.id === id; })[0];
-  if (!e) return;
-  const p = state.progress[id];
-  const status = S.statusOf(p);
-  const meta = ['Niveau : ' + S.levelLabel(p), p && p.last ? 'Prochaine révision : ' + S.dueLabel(p.due) : 'Jamais révisé',
-    (p ? (p.reps || 0) : 0) + ' réussite(s)', p && p.lapses ? p.lapses + ' oubli(s)' : ''].filter(Boolean)
-    .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
-  openModal('Fiche du mot', '<div class="detail-top"><div class="detail-fr">' + frHtml(e.fr) + '</div><div class="detail-jp" lang="ja">' + rubyHtml(e.ruby, state.settings.furigana) + '</div>' +
-    '<div class="detail-romaji">' + esc(e.romaji) + '</div><div class="audio-row" style="justify-content:center"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
-    '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
-    '<div class="detail-context"><div class="context-label">En contexte</div><p class="jp" lang="ja">' + contextHtml(e.context, e.hl) + '</p><p class="muted small">' + esc(e.contextFr || '—') + '</p>' +
-    (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '') + '</div>' +
-    '<div class="detail-meta">' + meta + '<span>' + (status === 'known' ? 'Connu' : status === 'learning' ? 'En cours' : 'Nouveau') + '</span><span>' + esc(e.source === 'import' ? 'Importé' : e.theme) + '</span></div>' +
-    '<div class="modal-actions">' + (e.source === 'import' ? '<button class="btn ghost small" data-action="edit-entry" data-id="' + attr(e.id) + '">Modifier</button>' : '') +
-    (p ? '<button class="btn ghost small" data-action="reset-progress" data-id="' + attr(e.id) + '">Réinitialiser la progression</button>' : '') +
-    (e.source === 'import' ? '<button class="btn ghost small danger-text" data-action="delete-entry" data-id="' + attr(e.id) + '">Supprimer</button>' : '') + '</div>');
+const e = entries.filter(function (x) { return x.id === id; })[0];
+if (!e) return;
+const p = state.progress[id];
+const status = S.statusOf(p);
+const totalReviews = p ? ((p.reps || 0) + (p.lapses || 0)) : 0;
+const meta = ['Niveau : ' + S.levelLabel(p), p && p.last ? 'Prochaine révision : ' + S.dueLabel(p.due) : 'Jamais révisé',
+plural((p && p.said) || 0, 'prononciation', 'prononciations'),
+plural(totalReviews, 'révision', 'révisions'),
+plural((p && p.reps) || 0, 'réussite', 'réussites'),
+p && p.lapses ? plural(p.lapses, 'oubli', 'oublis') : ''].filter(Boolean)
+.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
+openModal('Fiche du mot', `
+<div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div><div class='detail-jp' lang='ja'>${rubyHtml(e.ruby, state.settings.furigana)}</div>
+<div class='detail-romaji'>${esc(e.romaji)}</div><div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
+<button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
+<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp' lang='ja'>${contextHtml(e.context, e.hl)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>
+${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
+<div class='detail-meta'>${meta}<span>${status === 'known' ? 'Connu' : status === 'learning' ? 'En cours' : 'Nouveau'}</span><span>${esc(e.source === 'import' ? 'Importé' : e.theme)}</span></div>
+<div class='modal-actions'><button class='btn primary small' data-action='review-one' data-id='${attr(e.id)}'>Réviser ce mot</button>${e.source === 'import' ? '<button class=\'btn ghost small\' data-action=\'edit-entry\' data-id=\'' + attr(e.id) + '\'>Modifier</button>' : ''}${p ? '<button class=\'btn ghost small\' data-action=\'reset-progress\' data-id=\'' + attr(e.id) + '\'>Réinitialiser la progression</button>' : ''}${e.source === 'import' ? '<button class=\'btn ghost small danger-text\' data-action=\'delete-entry\' data-id=\'' + attr(e.id) + '\'>Supprimer</button>' : ''}</div>`);
 }
+
 function openEdit(id) {
   const e = state.entries[id];
   if (!e) return;
@@ -688,6 +716,17 @@ function resetAll() {
 
 /* ---------- Événements ---------- */
 function onClick(event) {
+const nav = event.target.closest ? event.target.closest('[data-nav]') : null;
+if (nav) {
+event.preventDefault();
+const name = nav.getAttribute('data-nav');
+const hashes = { learn: '#apprendre', review: '#reviser', library: '#mots', import: '#importer', grammar: '#grammaire' };
+const hash = hashes[name];
+if (hash) { try { history.replaceState(null, '', hash); } catch (err) { location.hash = hash.slice(1); } }
+if (session) closeSession();
+showView(name);
+return;
+}
   const el = event.target.closest ? event.target.closest('[data-action]') : null;
   if (!el) return;
   const action = el.getAttribute('data-action');
@@ -710,6 +749,7 @@ function onClick(event) {
     case 'reset-data': resetAll(); break;
     case 'speak-text': speak(el.getAttribute('data-text'), el.getAttribute('data-slow') ? Math.max(0.5, (state.settings.rate || 0.9) * 0.72) : (state.settings.rate || 0.9)); break;
     case 'detail': openDetail(id); break;
+case "review-one": startOne(id); break;
     case 'edit-entry': openEdit(id); break;
     case 'delete-entry': deleteEntry(id); break;
     case 'reset-progress': resetProgress(id); break;

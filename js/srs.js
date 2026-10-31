@@ -106,7 +106,7 @@
   }
 
   function freshProgress(now) {
-    return { level: 0, reps: 0, lapses: 0, due: now || 0, last: 0 };
+    return { level: 0, reps: 0, lapses: 0, due: now || 0, last: 0, said: 0 };
   }
 
   function isNew(p) {
@@ -129,7 +129,7 @@
   // « again » remet le mot en apprentissage immédiat ; « good » monte d'un cran.
   function schedule(p, grade, now) {
     now = now == null ? Date.now() : now;
-    const s = Object.assign({ level: 0, reps: 0, lapses: 0, due: 0, last: 0 }, p || {});
+    const s = Object.assign({ level: 0, reps: 0, lapses: 0, due: 0, last: 0, said: 0 }, p || {});
     if (grade === "again") {
       s.lapses = (s.lapses || 0) + 1;
       s.level = 0;
