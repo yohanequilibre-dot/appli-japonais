@@ -1,0 +1,14 @@
+{
+  "name": "Kotoba — mes mots japonais",
+  "short_name": "Kotoba",
+  "description": "Apprendre et réviser le vocabulaire japonais : kanji, furigana, romaji, phrases de contexte, révision espacée et import libre.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f8f6",
+  "theme_color": "#58cc02",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

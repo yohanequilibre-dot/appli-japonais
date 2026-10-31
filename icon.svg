@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kotoba">
+  <rect width="512" height="512" rx="116" fill="#58cc02"/>
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="none" stroke="#ffffff" stroke-opacity=".22" stroke-width="10"/>
+  <text x="256" y="352" text-anchor="middle" font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, sans-serif" font-size="270" font-weight="700" fill="#ffffff">言</text>
+</svg>
