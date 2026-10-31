@@ -1,5 +1,5 @@
-/* Kotoba — cache hors ligne. */
-const CACHE = 'kotoba-v3-1';
+/* Kotoba — cache hors ligne, réseau d'abord. */
+const CACHE = 'kotoba-v3-2';
 const ASSETS = [
   './',
   './index.html',
@@ -33,25 +33,18 @@ self.addEventListener('fetch', function (event) {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).then(function (response) {
-        const copy = response.clone();
-        caches.open(CACHE).then(function (cache) { cache.put('./index.html', copy); });
-        return response;
-      }).catch(function () { return caches.match('./index.html'); })
-    );
-    return;
-  }
   event.respondWith(
-    caches.match(request).then(function (hit) {
-      if (hit) return hit;
-      return fetch(request).then(function (response) {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE).then(function (cache) { cache.put(request, copy); });
-        }
-        return response;
+    fetch(request).then(function (response) {
+      if (response && response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE).then(function (cache) { cache.put(request, copy); });
+      }
+      return response;
+    }).catch(function () {
+      return caches.match(request).then(function (hit) {
+        if (hit) return hit;
+        if (request.mode === 'navigate') return caches.match('./index.html');
+        return Response.error();
       });
     })
   );
