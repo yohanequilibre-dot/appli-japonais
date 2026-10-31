@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 src_path = Path('scripts/apply-update.py')
 src = src_path.read_text(encoding='utf-8')
@@ -17,6 +18,15 @@ src = src.replace(
     "line.startswith('E(' + q + '行く' + q)",
     "('E(' + q + '行く' + q) in line"
 )
+
+readme_pattern = re.compile(r"replace_line\('README\.md', 'data\.js[^\n]*\n[^\n]*\n\]\)")
+readme_block = """lines = read('README.md').splitlines()
+idx = [i for i, line in enumerate(lines) if 'data.js' in line and '100' in line]
+if len(idx) != 1:
+    raise SystemExit('README.md / structure : ' + str(len(idx)) + ' occurrence(s)')
+lines[idx[0]] = 'data.js + js/vocab-extra.js plus de 200 mots de départ, 20 thèmes'
+write('README.md', chr(10).join(lines) + chr(10))"""
+src = readme_pattern.sub(readme_block, src, count=1)
 
 
 def replace_label(label, replacement):
