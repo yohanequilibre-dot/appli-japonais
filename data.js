@@ -96,7 +96,7 @@ window.UNITS_DATA = [
     ["寝る","寝[ね]る","neru","dormir","十一時に寝る。","Je me couche à onze heures."],
     ["起きる","起[お]きる","okiru","se lever","六時に起きる。","Je me lève à six heures."],
     ["働く","働[はたら]く","hataraku","travailler","会社で働く。","Je travaille dans une entreprise."],
-    ["買う","買[か]う","kau","acheter","パンを買う。","J'achète du pain."]
+    ["買う","買[か]う","kau","acheter","パンを買う。","J'achète du pain."],
 ["行く","行[い]く","iku","aller (forme familière)","明日、東京に行く。","Demain, je vais à Tokyo."],
   ]},
   { id:"adjectifs", name:"Décrire les choses", emoji:"✨", words:[

@@ -98,8 +98,10 @@ test('plus de 200 mots et aller en forme polie', async ({ page }) => {
 const info = await page.evaluate(() => ({
 units: window.UNITS_DATA.length,
 words: window.UNITS_DATA.reduce((n, u) => n + ((u.words && u.words.length) || 0), 0),
+malformed: window.UNITS_DATA.some((u) => (u.words || []).some((w) => !Array.isArray(w))),
 ikimasu: window.UNITS_DATA.some((u) => (u.words || []).some((w) => w[0] === '行きます' && w[2] === 'ikimasu'))
 }));
 expect(info.words).toBeGreaterThanOrEqual(200);
+expect(info.malformed).toBe(false);
 expect(info.ikimasu).toBe(true);
 });
