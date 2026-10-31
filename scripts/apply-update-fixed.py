@@ -15,7 +15,7 @@ src = src.replace(
 )
 src = src.replace(
     "line.startswith('E(' + q + '行く' + q)",
-    "'E(' in line and '行く' in line"
+    "('E(' + q + '行く' + q) in line"
 )
 
 
