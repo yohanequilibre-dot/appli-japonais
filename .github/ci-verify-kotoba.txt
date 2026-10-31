@@ -1,1 +1,0 @@
-Vérification CI temporaire pour le mode prononciation et les furigana. Ce fichier sera supprimé après le contrôle.
