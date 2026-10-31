@@ -105,3 +105,20 @@ expect(info.words).toBeGreaterThanOrEqual(200);
 expect(info.malformed).toBe(false);
 expect(info.ikimasu).toBe(true);
 });
+
+test('série quotidienne, défi du jour et récompense', async ({ page }) => {
+await expect(page.getByTestId('streak-panel')).toContainText('0 jour');
+await page.getByTestId('daily-challenge').click();
+for (let i = 0; i < 3; i++) {
+await expect(page.getByTestId('reveal')).toBeVisible();
+await page.getByTestId('reveal').click();
+await page.getByTestId('grade-good').click();
+await expect(page.getByTestId('feedback')).toBeVisible();
+await page.getByTestId('session-next').click();
+}
+await expect(page.getByTestId('summary')).toBeVisible();
+await expect(page.getByTestId('daily-bonus')).toContainText('+20 XP');
+await page.getByTestId('finish-session').click();
+await expect(page.getByTestId('streak-panel')).toContainText('1 jour');
+await expect(page.getByTestId('daily-done')).toBeVisible();
+});

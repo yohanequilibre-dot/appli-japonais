@@ -114,7 +114,15 @@ function updateChrome() {
   const badge = $('#dueBadge');
   if (badge) { badge.textContent = String(c.due); badge.setAttribute('data-zero', c.due ? '0' : '1'); }
   const streak = $('#streakVal');
-  if (streak) streak.textContent = String(state.stats.streak || 0);
+  if (streak) {
+const streakValue = window.Kotoba.Motivation ? window.Kotoba.Motivation.currentStreak(state) : (state.stats.streak || 0);
+streak.textContent = String(streakValue);
+const streakPill = streak.closest ? streak.closest('.stat-pill') : null;
+if (streakPill) {
+streakPill.classList.toggle('is-lit', streakValue > 0 && state.stats.lastDay === S.todayKey());
+streakPill.title = streakValue ? 'Série de ' + streakValue + ' jour(s)' : 'Lance ta série aujourd’hui';
+}
+}
   const xp = $('#xpVal');
   if (xp) xp.textContent = String(todayXp());
 }
@@ -256,7 +264,8 @@ function renderHome() {
       '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context" lang="ja">' + contextHtml(wotd.context, wotd.hl) + '</p>' +
       '<p class="muted small">' + esc(wotd.contextFr) + '</p><button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
   }
-  $('#view-learn').innerHTML = body;
+  if (window.Kotoba.Motivation) body += window.Kotoba.Motivation.streakPanel(state, now);
+$('#view-learn').innerHTML = body;
 }
 
 /* ---------- Réviser ---------- */
@@ -471,6 +480,12 @@ function startSession(kind, mode, unitId) {
   else if (kind === 'quick') list = shuffle(entries.filter(function (e) { const p = state.progress[e.id]; return p && p.last; })).slice(0, 10);
   else if (kind === 'all') list = entries.filter(function (e) { const p = state.progress[e.id]; return p && p.last; }).sort(byDue);
   else if (kind === 'unit') list = entries.filter(function (e) { return e.unitId === unitId; }).sort(byDue).slice(0, 15);
+else if (kind === 'daily') {
+if (state.flags.daily === S.todayKey()) { toast('Défi du jour déjà relevé.'); return; }
+const seen = entries.filter(function (e) { const p = state.progress[e.id]; return p && p.last; }).sort(byDue);
+const fresh = entries.filter(function (e) { return S.isNew(state.progress[e.id]); });
+list = seen.concat(fresh).slice(0, 3);
+}
   if (!list.length) { toast('Rien à réviser pour l\'instant.'); return; }
   if (kind === 'due') list = list.slice(0, 30);
   session = { kind: kind, mode: mode, queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
@@ -489,9 +504,26 @@ const root = $('#session');
 if (root) root.hidden = false;
 nextCard();
 }
+function claimDaily() {
+const day = S.todayKey();
+if (state.flags.daily === day) return;
+const beforeXp = todayXp();
+state.flags.daily = day;
+S.addXp(state, 20, Date.now());
+if (session) session.xp += 20;
+persist();
+updateChrome();
+const goal = state.settings.goal || 50;
+const message = beforeXp < goal && todayXp() >= goal ? 'Objectif du jour atteint + défi relevé ! +20 XP' : 'Défi du jour relevé ! +20 XP';
+if (window.Kotoba.Motivation) window.Kotoba.Motivation.celebrate(message); else toast(message);
+}
 function nextCard() {
   if (!session) return;
-  if (!session.queue.length) { session.current = null; session.phase = 'summary'; renderSession(); return; }
+  if (!session.queue.length) {
+session.current = null; session.phase = 'summary';
+if (session.kind === 'daily') claimDaily();
+renderSession(); return;
+}
   session.current = session.queue.shift();
   session.phase = session.mode === 'recall' ? 'front' : 'question';
   session.options = session.mode === 'recall' ? [] : buildOptions(session.current, session.mode);
@@ -570,9 +602,10 @@ function summaryHtml() {
   const accuracy = session.done ? Math.round(session.correct / session.done * 100) : 0;
   const c = S.counts(entries, state, Date.now());
   const next = S.nextDue(entries, state, Date.now());
+const dailyBonus = (session.kind === 'daily' && state.flags.daily === S.todayKey()) ? '<div class="summary-bonus" data-testid="daily-bonus">Défi du jour relevé : +20 XP bonus.</div>' : '';
   return '<div class="summary-card" data-testid="summary"><div class="summary-emoji">🎉</div><h1>Session terminée !</h1><p class="muted">' + (session.done ? 'Bien joué, continue comme ça.' : 'Rien à faire pour l\'instant.') + '</p>' +
     '<div class="summary-stats"><div><b>' + session.done + '</b><span>cartes</span></div><div><b>' + accuracy + '%</b><span>réussite</span></div><div><b>+' + session.xp + '</b><span>XP</span></div></div>' +
-    '<p class="hint">' + (next ? 'Prochaine révision : ' + S.dueLabel(next) + '.' : 'Tu es à jour.') + '</p><div class="summary-actions">' +
+    '<p class="hint">' + (next ? 'Prochaine révision : ' + S.dueLabel(next) + '.' : 'Tu es à jour.') + '</p>' + dailyBonus + '<div class="summary-actions">' +
     '<button class="btn primary" data-action="finish-session" data-testid="finish-session">Retour à l\'accueil</button>' +
     (c.due ? '<button class="btn ghost" data-action="start-again" data-testid="start-again">Réviser encore</button>' : '') + '</div></div>';
 }
@@ -580,7 +613,9 @@ function reveal() { if (session && session.phase === 'front') { session.phase = 
 function grade(g) {
   if (!session || !session.current) return;
   const e = session.current, now = Date.now();
-  const prev = state.progress[e.id] || S.freshProgress(now);
+  const beforeXp = todayXp();
+const beforeStreak = state.stats.streak || 0;
+const prev = state.progress[e.id] || S.freshProgress(now);
 const next = S.schedule(prev, g, now);
 if (session.mode === 'recall' && g === 'good') next.said = (prev.said || 0) + 1;
 state.progress[e.id] = next;
@@ -591,7 +626,12 @@ state.progress[e.id] = next;
   if (g === 'again') session.queue.splice(Math.min(3, session.queue.length), 0, e);
   session.total = Math.max(session.total, session.done + session.queue.length);
   persist();
-  session.phase = 'feedback';
+  if (window.Kotoba.Motivation) {
+const goal = state.settings.goal || 50;
+if (beforeXp < goal && todayXp() >= goal) window.Kotoba.Motivation.celebrate('Objectif du jour atteint ! 🎯');
+else if (state.stats.streak > beforeStreak && [3, 7, 14, 30, 100].indexOf(state.stats.streak) >= 0) window.Kotoba.Motivation.celebrate('Série de ' + state.stats.streak + ' jours ! 🔥');
+}
+session.phase = 'feedback';
   renderSession();
   updateChrome();
 }

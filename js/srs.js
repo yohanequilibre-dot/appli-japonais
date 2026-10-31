@@ -170,7 +170,16 @@
     return xp;
   }
 
-  function counts(entries, state, now) {
+  function addXp(state, amount, now) {
+now = now == null ? Date.now() : now;
+const day = todayKey(now);
+const value = Math.max(0, Number(amount) || 0);
+if (!state.stats.daily) state.stats.daily = {};
+state.stats.xp = (state.stats.xp || 0) + value;
+state.stats.daily[day] = (state.stats.daily[day] || 0) + value;
+return value;
+}
+function counts(entries, state, now) {
     now = now == null ? Date.now() : now;
     let due = 0, fresh = 0, known = 0, learning = 0, seen = 0;
     (entries || []).forEach(function (e) {
@@ -270,6 +279,7 @@
     isKnown: isKnown,
     schedule: schedule,
     bumpStats: bumpStats,
+addXp: addXp,
     counts: counts,
     dueEntries: dueEntries,
     nextDue: nextDue,
