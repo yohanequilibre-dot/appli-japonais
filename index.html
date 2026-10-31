@@ -1,77 +1,232 @@
 <!doctype html>
-<html lang="fr">
+<html lang='fr'>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#58cc02">
-<meta name="description" content="Kotoba — apprends le vocabulaire japonais avec les kanji, les furigana, le romaji et des phrases de contexte. Révision espacée, import libre et OCR.">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
+<meta name='theme-color' content='#58cc02'>
+<meta name='description' content='Kotoba — apprends le vocabulaire japonais avec les kanji, les furigana, le romaji et des phrases de contexte. Plus de 200 mots, révision espacée, grammaire, import libre et OCR.'>
+<link rel='manifest' href='manifest.webmanifest'>
+<link rel='icon' href='icon.svg' type='image/svg+xml'>
+<link rel='apple-touch-icon' href='icon.svg'>
 <title>Kotoba — mes mots japonais</title>
-<link rel="stylesheet" href="styles.css">
+<link rel='stylesheet' href='styles.css'>
 </head>
 <body>
-<a class="skip" href="#main">Aller au contenu</a>
-
-<header class="app-header">
-  <div class="header-inner">
-    <a class="brand" href="#apprendre" aria-label="Kotoba, retour à l'accueil">
-      <span class="brand-mark" aria-hidden="true">言</span>
-      <span class="brand-text">Kotoba<small>japonais au quotidien</small></span>
-    </a>
-    <nav class="desktop-nav" aria-label="Navigation principale">
-      <a href="#apprendre" data-nav="learn">Apprendre</a>
-      <a href="#reviser" data-nav="review">Réviser <span class="nav-badge" id="dueBadge">0</span></a>
-      <a href="#mots" data-nav="library">Mes mots</a>
-      <a href="#importer" data-nav="import">Importer</a>
-    </nav>
-    <div class="header-stats">
-      <span class="stat-pill streak" title="Série de jours"><span aria-hidden="true">🔥</span><b id="streakVal">0</b></span>
-      <span class="stat-pill xp" title="XP aujourd'hui"><span aria-hidden="true">⚡</span><b id="xpVal">0</b></span>
-      <button class="icon-btn" id="settingsBtn" type="button" data-action="open-settings" aria-label="Ouvrir les réglages">⚙</button>
-    </div>
-  </div>
-</header>
-
-<main id="main">
-  <section class="view" id="view-learn" aria-label="Apprendre"></section>
-  <section class="view" id="view-review" aria-label="Réviser" hidden></section>
-  <section class="view" id="view-library" aria-label="Mes mots" hidden></section>
-  <section class="view" id="view-import" aria-label="Importer" hidden></section>
-</main>
-
-<nav class="bottom-nav" aria-label="Navigation mobile">
-  <a href="#apprendre" data-nav="learn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M8 7h6M8 11h6"/></svg>
-    <span>Apprendre</span>
-  </a>
-  <a href="#reviser" data-nav="review">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
-    <span>Réviser</span>
-  </a>
-  <a href="#mots" data-nav="library">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-    <span>Mes mots</span>
-  </a>
-  <a href="#importer" data-nav="import">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 20h16"/></svg>
-    <span>Importer</span>
-  </a>
+<a class='skip' href='#main'>Aller au contenu</a>
+<header class='app-header'>
+<div class='header-inner'>
+<a class='brand' href='#apprendre' aria-label='Kotoba, retour à l’accueil'>
+<span class='brand-mark' aria-hidden='true'>言</span>
+<span class='brand-text'>Kotoba<small>japonais au quotidien</small></span>
+</a>
+<nav class='desktop-nav' aria-label='Navigation principale'>
+<a href='#apprendre' data-nav='learn'>Apprendre</a>
+<a href='#reviser' data-nav='review'>Réviser <span class='nav-badge' id='dueBadge'>0</span></a>
+<a href='#mots' data-nav='library'>Mes mots</a>
+<a href='#grammaire' data-nav='grammar'>Grammaire</a>
+<a href='#importer' data-nav='import'>Importer</a>
 </nav>
-
-<div id="session" class="session" hidden></div>
-<div id="modal" class="modal" hidden></div>
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
-
+<div class='header-stats'>
+<span class='stat-pill streak' title='Série de jours'><span aria-hidden='true'>🔥</span><b id='streakVal'>0</b></span>
+<span class='stat-pill xp' title='XP aujourd’hui'><span aria-hidden='true'>⚡</span><b id='xpVal'>0</b></span>
+<button class='icon-btn' id='settingsBtn' type='button' data-action='open-settings' aria-label='Ouvrir les réglages'>⚙</button>
+</div>
+</div>
+</header>
+<main id='main'>
+<section class='view' id='view-learn' aria-label='Apprendre'></section>
+<section class='view' id='view-review' aria-label='Réviser' hidden></section>
+<section class='view' id='view-library' aria-label='Mes mots' hidden></section>
+<section class='view' id='view-import' aria-label='Importer' hidden></section>
+<section class='view' id='view-grammar' aria-label='Grammaire' hidden>
+<div class='panel grammar-intro'>
+<p class='eyebrow'>Guide de grammaire</p>
+<h2>Comment fonctionne une phrase japonaise</h2>
+<p class='lead'>Le verbe se place à la fin. Les particules marquent la fonction des mots : thème, objet, lieu, direction. Une fois que tu repères le verbe et les particules, la phrase devient logique.</p>
+<div class='grammar-recipe'><b>La recette de base</b><span>thème <code>は</code> + complément <code>を</code> + lieu <code>に / で</code> + verbe <code>ます</code></span></div>
+<p class='hint'>Les exemples sont en style poli です / ます. La forme neutre est expliquée dans la leçon sur les verbes.</p>
+</div>
+<div class='grammar-list'>
+<details class='grammar-item' open>
+<summary><span class='grammar-emoji' aria-hidden='true'>🧩</span><span><strong>L’ordre de la phrase</strong><small>Qui ? Quoi ? Où ? Puis le verbe.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-point'><h3>La base : thème + complément + verbe</h3><p>Le japonais place le verbe à la fin. Le thème est souvent marqué par は (prononcé wa), l’objet direct par を (prononcé o).</p>
+<div class='grammar-example'><div class='grammar-jp'>私は水を飲みます。</div><div class='grammar-romaji'>Watashi wa mizu o nomimasu.</div><div class='grammar-fr'>Je bois de l’eau.</div><button class='btn ghost small' data-action='speak-text' data-text='私は水を飲みます。'>🔊 Écouter</button></div>
+<div class='grammar-example'><div class='grammar-jp'>田中さんは日本語を勉強します。</div><div class='grammar-romaji'>Tanaka-san wa nihongo o benkyō shimasu.</div><div class='grammar-fr'>M. Tanaka étudie le japonais.</div><button class='btn ghost small' data-action='speak-text' data-text='田中さんは日本語を勉強します。'>🔊 Écouter</button></div>
+</div>
+<div class='grammar-point'><h3>Le thème avec は</h3><p>は se prononce wa. Il présente le thème dont on parle ; il ne marque pas forcément le sujet grammatical. On peut le traduire par « quant à ».</p>
+<div class='grammar-example'><div class='grammar-jp'>私は学生です。</div><div class='grammar-romaji'>Watashi wa gakusei desu.</div><div class='grammar-fr'>Je suis étudiant.</div><button class='btn ghost small' data-action='speak-text' data-text='私は学生です。'>🔊 Écouter</button></div>
+<div class='grammar-example'><div class='grammar-jp'>今日は暑いです。</div><div class='grammar-romaji'>Kyō wa atsui desu.</div><div class='grammar-fr'>Aujourd’hui, il fait chaud.</div><button class='btn ghost small' data-action='speak-text' data-text='今日は暑いです。'>🔊 Écouter</button></div>
+</div>
+<div class='grammar-point'><h3>Le sujet avec が</h3><p>が met en avant celui qui fait l’action ou apporte une information nouvelle. Avec あります / います, il indique ce qui existe.</p>
+<div class='grammar-example'><div class='grammar-jp'>猫がいます。</div><div class='grammar-romaji'>Neko ga imasu.</div><div class='grammar-fr'>Il y a un chat.</div><button class='btn ghost small' data-action='speak-text' data-text='猫がいます。'>🔊 Écouter</button></div>
+</div>
+<p class='grammar-tip'>Quand tu construis une phrase, cherche d’abord le verbe final, puis remonte : qui ? quoi ? où ?</p>
+</div>
+</details>
+<details class='grammar-item'>
+<summary><span class='grammar-emoji' aria-hidden='true'>🔗</span><span><strong>Les particules essentielles</strong><small>は, が, を, に, で, へ, と, も, の.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Particule</th><th>Rôle</th><th>Exemple</th></tr></thead><tbody>
+<tr><td>は (wa)</td><td>thème de la phrase</td><td>私は学生です。 / Je suis étudiant.</td></tr>
+<tr><td>が</td><td>sujet / information nouvelle</td><td>猫がいます。 / Il y a un chat.</td></tr>
+<tr><td>を (o)</td><td>complément d’objet direct</td><td>水を飲みます。 / Je bois de l’eau.</td></tr>
+<tr><td>に</td><td>direction, heure, destination</td><td>学校に行きます。 / Je vais à l’école.</td></tr>
+<tr><td>で</td><td>lieu de l’action, moyen</td><td>電車で行きます。 / J’y vais en train.</td></tr>
+<tr><td>へ (e)</td><td>direction</td><td>日本へ行きます。 / Je vais au Japon.</td></tr>
+<tr><td>と</td><td>avec, et</td><td>友達と話します。 / Je parle avec un ami.</td></tr>
+<tr><td>も</td><td>aussi</td><td>私も行きます。 / J’y vais aussi.</td></tr>
+<tr><td>の</td><td>possession, lien</td><td>私の本です。 / C’est mon livre.</td></tr>
+</tbody></table></div>
+<div class='grammar-point'><h3>に ou で ?</h3><p>に indique la direction ou le lieu où l’on va ; で indique le lieu où se déroule l’action.</p>
+<div class='grammar-example'><div class='grammar-jp'>学校に行きます。</div><div class='grammar-romaji'>Gakkō ni ikimasu.</div><div class='grammar-fr'>Je vais à l’école.</div></div>
+<div class='grammar-example'><div class='grammar-jp'>学校で勉強します。</div><div class='grammar-romaji'>Gakkō de benkyō shimasu.</div><div class='grammar-fr'>J’étudie à l’école.</div></div>
+</div>
+<p class='grammar-tip'>Une particule ne se traduit pas mot à mot : apprends-la avec la phrase.</p>
+</div>
+</details>
+<details class='grammar-item'>
+<summary><span class='grammar-emoji' aria-hidden='true'>🏃</span><span><strong>Les verbes : ます et forme neutre</strong><small>Pourquoi 行きます et 行く sont le même verbe.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-point'><h3>ます = la forme polie</h3><p>行きます (ikimasu) est la forme polie de 行く (iku). iki est le radical : il ne veut pas dire « aller » tout seul. Pour dire « je vais », utilise 行きます ou 行く.</p>
+<div class='grammar-example'><div class='grammar-jp'>明日、東京に行きます。</div><div class='grammar-romaji'>Ashita, Tōkyō ni ikimasu.</div><div class='grammar-fr'>Demain, j’irai à Tokyo.</div><button class='btn ghost small' data-action='speak-text' data-text='明日、東京に行きます。'>🔊 Écouter</button></div>
+<div class='grammar-example'><div class='grammar-jp'>友達と映画を見ます。</div><div class='grammar-romaji'>Tomodachi to eiga o mimasu.</div><div class='grammar-fr'>Je regarde un film avec un ami.</div></div>
+</div>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Forme</th><th>Poli (ます)</th><th>Neutre</th></tr></thead><tbody>
+<tr><td>Présent / futur</td><td>行きます (ikimasu)</td><td>行く (iku)</td></tr>
+<tr><td>Négatif</td><td>行きません (ikimasen)</td><td>行かない (ikanai)</td></tr>
+<tr><td>Passé</td><td>行きました (ikimashita)</td><td>行った (itta)</td></tr>
+<tr><td>Passé négatif</td><td>行きませんでした (ikimasen deshita)</td><td>行かなかった (ikanakatta)</td></tr>
+<tr><td>Forme て</td><td>行って (itte)</td><td>行って (itte)</td></tr>
+<tr><td>Forme たい</td><td>行きたいです (ikitai desu)</td><td>行きたい (ikitai)</td></tr>
+</tbody></table></div>
+<div class='grammar-point'><h3>Quelques verbes irréguliers</h3><p>する → します, 来る → 来ます. Les verbes en -eru / -iru, comme 食べる et 見る, perdent souvent le -ru : 食べます, 見ます.</p></div>
+<p class='grammar-tip'>Quand tu apprends un verbe, retiens les deux formes : 行く / 行きます. C’est comme ça que tu passes du style neutre au style poli.</p>
+</div>
+</details>
+<details class='grammar-item'>
+<summary><span class='grammar-emoji' aria-hidden='true'>⏳</span><span><strong>Présent, passé et négation</strong><small>Le japonais n’a pas de futur séparé.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-point'><h3>Noms et です</h3><p>です rend la phrase polie. Pour nier un nom, utilise じゃありません ; pour le passé, でした.</p>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Forme</th><th>Poli</th><th>Négatif</th><th>Passé</th></tr></thead><tbody>
+<tr><td>Nom + です</td><td>学生です</td><td>学生じゃありません</td><td>学生でした</td></tr>
+<tr><td>な-adjectif + です</td><td>好きです</td><td>好きじゃないです</td><td>好きでした</td></tr>
+</tbody></table></div>
+</div>
+<div class='grammar-point'><h3>Verbes en ます</h3><p>Le présent couvre aussi le futur. Le passé et la négation se marquent sur le verbe.</p>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Forme</th><th>Exemple</th></tr></thead><tbody>
+<tr><td>Présent / futur</td><td>行きます</td></tr>
+<tr><td>Négatif</td><td>行きません</td></tr>
+<tr><td>Passé</td><td>行きました</td></tr>
+<tr><td>Passé négatif</td><td>行きませんでした</td></tr>
+</tbody></table></div>
+</div>
+<div class='grammar-point'><h3>Adjectifs en い</h3><p>On enlève い et on ajoute くない / かった / くなかった.</p>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Forme</th><th>高い</th></tr></thead><tbody>
+<tr><td>Présent</td><td>高いです</td></tr>
+<tr><td>Négatif</td><td>高くないです</td></tr>
+<tr><td>Passé</td><td>高かったです</td></tr>
+<tr><td>Passé négatif</td><td>高くなかったです</td></tr>
+</tbody></table></div>
+</div>
+<p class='grammar-tip'>N’utilise pas です après un verbe : 行きますです est incorrect. です va avec un nom, un adjectif ou un adverbe.</p>
+</div>
+</details>
+<details class='grammar-item'>
+<summary><span class='grammar-emoji' aria-hidden='true'>❓</span><span><strong>Poser une question</strong><small>か, 何, 誰, どこ, いつ, どう.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-point'><h3>La question simple</h3><p>Ajoute か à la fin d’une phrase polie. L’ordre des mots ne change pas.</p>
+<div class='grammar-example'><div class='grammar-jp'>学生ですか。</div><div class='grammar-romaji'>Gakusei desu ka.</div><div class='grammar-fr'>Es-tu étudiant ?</div></div>
+<div class='grammar-example'><div class='grammar-jp'>日本語を話しますか。</div><div class='grammar-romaji'>Nihongo o hanashimasu ka.</div><div class='grammar-fr'>Parles-tu japonais ?</div></div>
+</div>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Mot</th><th>Sens</th><th>Exemple</th></tr></thead><tbody>
+<tr><td>何 (nani)</td><td>quoi</td><td>何を食べますか。 / Que manges-tu ?</td></tr>
+<tr><td>誰 (dare)</td><td>qui</td><td>あの人は誰ですか。 / Qui est cette personne ?</td></tr>
+<tr><td>どこ</td><td>où</td><td>駅はどこですか。 / Où est la gare ?</td></tr>
+<tr><td>いつ</td><td>quand</td><td>いつ来ますか。 / Quand viens-tu ?</td></tr>
+<tr><td>どう</td><td>comment</td><td>調子はどうですか。 / Comment vas-tu ?</td></tr>
+<tr><td>いくら</td><td>combien</td><td>これはいくらですか。 / Combien ça coûte ?</td></tr>
+</tbody></table></div>
+<p class='grammar-tip'>On répond souvent はい ou いいえ, mais はい peut aussi confirmer que l’on est d’accord.</p>
+</div>
+</details>
+<details class='grammar-item'>
+<summary><span class='grammar-emoji' aria-hidden='true'>🔢</span><span><strong>Compter avec les bons compteurs</strong><small>つ, 人, 枚, 本, 杯, 回, 歳.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Compteur</th><th>Pour</th><th>Exemple</th></tr></thead><tbody>
+<tr><td>つ</td><td>objets en général (1 à 9)</td><td>りんごを二つください。 / Deux pommes, s’il vous plaît.</td></tr>
+<tr><td>人 (にん)</td><td>personnes</td><td>三人で行きます。 / Nous y allons à trois.</td></tr>
+<tr><td>枚 (まい)</td><td>objets plats</td><td>切符を二枚買います。 / J’achète deux billets.</td></tr>
+<tr><td>本 (ほん)</td><td>objets longs</td><td>ペンを一本貸してください。 / Prête-moi un stylo.</td></tr>
+<tr><td>杯 (はい)</td><td>verres / tasses</td><td>コーヒーを一杯ください。 / Un café, s’il vous plaît.</td></tr>
+<tr><td>回 (かい)</td><td>fois</td><td>一日に三回食べます。 / Je mange trois fois par jour.</td></tr>
+<tr><td>歳 (さい)</td><td>âge</td><td>妹は六歳です。 / Ma petite sœur a six ans.</td></tr>
+</tbody></table></div>
+<p class='grammar-tip'>Quand tu ne connais pas le compteur, つ marche pour beaucoup d’objets, mais pas pour les personnes. Apprends le compteur avec le mot.</p>
+</div>
+</details>
+<details class='grammar-item'>
+<summary><span class='grammar-emoji' aria-hidden='true'>💬</span><span><strong>Demandes et vie quotidienne</strong><small>てください, てもいいですか, ています, たいです.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-table-wrap'><table class='grammar-table'><thead><tr><th>Motif</th><th>Sens</th><th>Exemple</th></tr></thead><tbody>
+<tr><td>～てください</td><td>fais… s’il te plaît</td><td>水を飲んでください。 / Bois de l’eau, s’il te plaît.</td></tr>
+<tr><td>～てもいいですか</td><td>puis-je… ?</td><td>写真を撮ってもいいですか。 / Puis-je prendre une photo ?</td></tr>
+<tr><td>～てはいけません</td><td>il ne faut pas…</td><td>ここで食べてはいけません。 / Il ne faut pas manger ici.</td></tr>
+<tr><td>～ています</td><td>être en train de… / état</td><td>日本語を勉強しています。 / J’étudie le japonais.</td></tr>
+<tr><td>～たいです</td><td>je veux…</td><td>日本に行きたいです。 / Je veux aller au Japon.</td></tr>
+<tr><td>～が好きです</td><td>j’aime…</td><td>コーヒーが好きです。 / J’aime le café.</td></tr>
+</tbody></table></div>
+<p class='grammar-tip'>La forme て est très utile : 食べて, 行って, 見て. Apprends-la avec chaque verbe.</p>
+</div>
+</details>
+<details class='grammar-item'>
+<summary><span class='grammar-emoji' aria-hidden='true'>🛠️</span><span><strong>Construire ses propres phrases</strong><small>La méthode et les erreurs à éviter.</small></span></summary>
+<div class='grammar-body'>
+<div class='grammar-point'><h3>La recette</h3><p>1. Verbe à la fin. 2. Qui ? は. 3. Quoi ? を. 4. Où ? に / で. 5. Quand ? に. 6. Ajoute です / ます pour la politesse.</p>
+<div class='grammar-example'><div class='grammar-jp'>私は毎朝、台所でコーヒーを飲みます。</div><div class='grammar-romaji'>Watashi wa maiasa, daidokoro de kōhī o nomimasu.</div><div class='grammar-fr'>Chaque matin, je bois du café dans la cuisine.</div></div>
+<div class='grammar-example'><div class='grammar-jp'>彼は電車で会社に行きます。</div><div class='grammar-romaji'>Kare wa densha de kaisha ni ikimasu.</div><div class='grammar-fr'>Il va au travail en train.</div></div>
+<div class='grammar-example'><div class='grammar-jp'>明日、友達と公園で写真を撮ります。</div><div class='grammar-romaji'>Ashita, tomodachi to kōen de shashin o torimasu.</div><div class='grammar-fr'>Demain, je prends des photos avec un ami dans le parc.</div></div>
+</div>
+<div class='grammar-point'><h3>Les erreurs à éviter</h3><p>Ne mets pas le verbe au milieu. N’utilise pas を avec 行きます : dis に ou へ. は se prononce wa. Ne dis pas 行きますです.</p></div>
+<p class='grammar-tip'>Écris trois phrases avec les mots de ta collection, puis importe-les pour les réviser.</p>
+</div>
+</details>
+</div>
+</section>
+</main>
+<nav class='bottom-nav' aria-label='Navigation mobile'>
+<a href='#apprendre' data-nav='learn'>
+<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z'/><path d='M8 7h6M8 11h6'/></svg>
+<span>Apprendre</span>
+</a>
+<a href='#reviser' data-nav='review'>
+<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M20 11a8 8 0 1 0-2.3 5.7'/><path d='M20 4v7h-7'/></svg>
+<span>Réviser</span>
+</a>
+<a href='#mots' data-nav='library'>
+<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><rect x='3' y='3' width='7' height='7' rx='1.5'/><rect x='14' y='3' width='7' height='7' rx='1.5'/><rect x='3' y='14' width='7' height='7' rx='1.5'/><rect x='14' y='14' width='7' height='7' rx='1.5'/></svg>
+<span>Mes mots</span>
+</a>
+<a href='#grammaire' data-nav='grammar'>
+<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/><path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/></svg>
+<span>Grammaire</span>
+</a>
+<a href='#importer' data-nav='import'>
+<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M12 16V4'/><path d='m7 9 5-5 5 5'/><path d='M4 20h16'/></svg>
+<span>Importer</span>
+</a>
+</nav>
+<div id='session' class='session' hidden></div>
+<div id='modal' class='modal' hidden></div>
+<div id='toast' class='toast' role='status' aria-live='polite'></div>
 <noscript>
-  <p class="noscript">Kotoba a besoin de JavaScript pour fonctionner. Active-le dans ton navigateur, puis recharge la page.</p>
+<p class='noscript'>Kotoba a besoin de JavaScript pour fonctionner. Active-le dans ton navigateur, puis recharge la page.</p>
 </noscript>
-
-<script src="data.js"></script>
-<script src="js/lexicon.js"></script>
-<script src="js/srs.js"></script>
-<script src="js/parser.js"></script>
-<script src="js/app.js"></script>
+<script src='data.js'></script>
+<script src='js/vocab-extra.js'></script>
+<script src='js/lexicon.js'></script>
+<script src='js/srs.js'></script>
+<script src='js/parser.js'></script>
+<script src='js/app.js'></script>
 </body>
 </html>
