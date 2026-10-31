@@ -52,7 +52,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 3. **Validation** : clique sur « J'ai prononcé ». Le message « Bien joué ! » et la prochaine révision s'affichent. Clique sur « Continuer » : la carte suivante arrive.
 4. **Import** : va dans « Importer », colle `bonjour | kon-ni-chi-wa`, clique sur « Analyser la liste ». L'aperçu doit montrer こんにちは, le romaji et le contexte `こんにちは、花さん！`. Clique sur « Importer 1 mot ».
 5. **Mes mots** : clique sur le filtre « Importés ». La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
-6. **Réviser** : l'onglet « Réviser » propose les cartes dues, la révision rapide, tout revoir et les nouveaux mots. Les prévisions sur sept jours sont affichées.
+6. **Réviser** : l'onglet « Réviser » propose les cartes dues, la révision rapide, tout revoir et les nouveaux mots. Les prévisions sur sept jours sont affichées. Un mot importé est dû immédiatement : il apparaît dans les cartes à réviser.
 7. **Mobile** : ouvre les outils de développement du navigateur (F12), passe en largeur 390 px. La barre de navigation du bas doit apparaître, sans débordement horizontal.
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
@@ -75,7 +75,7 @@ Résultat attendu dans l'aperçu puis dans la fiche du mot :
 | Contexte | こんにちは、花さん！ |
 | Traduction | Bonjour, Hana ! |
 
-Pour voir la carte dans l'ordre demandé, ouvre la fiche depuis « Mes mots » → « Importés », ou lance une session de révision. La carte de session montre le français d'abord ; la révélation ajoute le japonais, le romaji et le contexte.
+Pour voir la carte dans l'ordre demandé, ouvre la fiche depuis « Mes mots » → « Importés », ou lance une session de révision. La carte de session montre le français d'abord ; la révélation ajoute le japonais, le romaji et le contexte. Comme le mot importé est marqué dû immédiatement, il apparaît aussi dans « Réviser » → « Cartes dues ».
 
 ## 5. Tests automatisés
 
@@ -119,3 +119,9 @@ Pour voir les tests dans une interface : `npx playwright test --ui`.
 À chaque push sur `main`, GitHub Actions exécute la syntaxe, le manifeste, les tests unitaires et les tests Playwright (`.github/workflows/check.yml`). GitHub Pages redéploie ensuite le site automatiquement. En cas d'échec Playwright, le rapport et les traces sont attachés au run.
 
 Pour redéployer manuellement : pousse sur `main`, puis vérifie l'onglet **Actions** et l'onglet **Deployments** du dépôt.
+
+## 8. Après une mise à jour
+
+Le service worker privilégie le réseau et garde une copie hors ligne. Si une ancienne version s'affiche encore après un déploiement, recharge une fois avec Ctrl+F5 (Windows/Linux) ou Cmd+Shift+R (macOS), ou ferme puis rouvre l'onglet.
+
+Pour vérifier que tu es sur la bonne version, ouvre les outils de développement → Application → Service Workers, puis clique sur « Mettre à jour ».
