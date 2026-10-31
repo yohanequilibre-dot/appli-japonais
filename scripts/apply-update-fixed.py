@@ -28,7 +28,7 @@ write('js/app.js', chr(10).join(lines) + chr(10))
 
 replace_label('grade-said', r'''lines = read('js/app.js').splitlines()
 needle = 'const prev = state.progress[e.id] || S.freshProgress(now);'
-idx = [i for i, line in enumerate(lines) if line.startswith(needle)]
+idx = [i for i, line in enumerate(lines) if needle in line]
 if len(idx) != 1:
     raise SystemExit('js/app.js / grade-said : ' + str(len(idx)) + ' occurrence(s)')
 lines[idx[0] + 1] = 'const next = S.schedule(prev, g, now);'
@@ -39,7 +39,7 @@ write('js/app.js', chr(10).join(lines) + chr(10))
 ''')
 
 replace_label('onClick-nav', r'''lines = read('js/app.js').splitlines()
-idx = [i for i, line in enumerate(lines) if line == 'function onClick(event) {']
+idx = [i for i, line in enumerate(lines) if line.strip() == 'function onClick(event) {']
 if len(idx) != 1:
     raise SystemExit('js/app.js / onClick-nav : ' + str(len(idx)) + ' occurrence(s)')
 nav_lines = [
@@ -61,7 +61,7 @@ write('js/app.js', chr(10).join(lines) + chr(10))
 
 replace_label('review-one', r'''lines = read('js/app.js').splitlines()
 needle = 'case ' + q + 'detail' + q + ': openDetail(id); break;'
-idx = [i for i, line in enumerate(lines) if line.startswith(needle)]
+idx = [i for i, line in enumerate(lines) if needle in line]
 if len(idx) != 1:
     raise SystemExit('js/app.js / review-one : ' + str(len(idx)) + ' occurrence(s)')
 lines.insert(idx[0] + 1, 'case ' + q + 'review-one' + q + ': startOne(id); break;')
