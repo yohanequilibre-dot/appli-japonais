@@ -1,0 +1,52 @@
+name: fix-data
+on:
+  push:
+    paths:
+      - .github/workflows/fix-data.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corriger et nettoyer
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          p = Path('data.js')
+          s = p.read_text(encoding='utf-8')
+          old = '''["買う","買[か]う","kau","acheter","パンを買う。","J'achète du pain."]
+          ["行く"'''
+          new = '''["買う","買[か]う","kau","acheter","パンを買う。","J'achète du pain."],
+          ["行く"'''
+          if s.count(old) != 1:
+              raise SystemExit('ancre data.js introuvable')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          t = Path('tests/e2e.spec.js')
+          s = t.read_text(encoding='utf-8')
+          old = "ikimasu: window.UNITS_DATA.some((u) => (u.words || []).some((w) => w[0] === '行きます' && w[2] === 'ikimasu'))"
+          new = "malformed: window.UNITS_DATA.some((u) => (u.words || []).some((w) => !Array.isArray(w))),\n" + old
+          if s.count(old) != 1:
+              raise SystemExit('ancre test introuvable')
+          s = s.replace(old, new, 1)
+          old2 = "expect(info.words).toBeGreaterThanOrEqual(200);"
+          new2 = old2 + "\nexpect(info.malformed).toBe(false);"
+          if s.count(old2) != 1:
+              raise SystemExit('ancre expect introuvable')
+          t.write_text(s.replace(old2, new2, 1), encoding='utf-8')
+
+          for path in ('debug-output.txt', '.github/workflows/debug-e2e.yml'):
+              if os.path.exists(path):
+                  os.remove(path)
+          PY
+          git config user.name 'kotoba-bot'
+          git config user.email 'kotoba-bot@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: retablir la virgule du vocabulaire et verrouiller les donnees'
+          git rm .github/workflows/fix-data.yml
+          git commit -m 'chore: retirer le workflow de correction'
+          git push
