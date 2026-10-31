@@ -28,6 +28,11 @@ lines[idx[0]] = 'data.js + js/vocab-extra.js plus de 200 mots de départ, 20 th�
 write('README.md', chr(10).join(lines) + chr(10))"""
 src = readme_pattern.sub(readme_block, src, count=1)
 
+src = src.replace(
+    "insert_after('TESTING.md', 'débordement horizontal'",
+    "insert_after('TESTING.md', \"l'absence de débordement horizontal\""
+)
+
 
 def replace_label(label, replacement):
     global src
