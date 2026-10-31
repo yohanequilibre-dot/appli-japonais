@@ -4,6 +4,13 @@ await page.goto('/');
 await page.evaluate(() => localStorage.clear());
 await page.reload();
 });
+async function baseText(locator) {
+return locator.evaluate((el) => {
+const clone = el.cloneNode(true);
+clone.querySelectorAll('rt').forEach((node) => node.remove());
+return clone.textContent.replace(/\s+/g, ' ').trim();
+});
+}
 test('accueil, carte français puis japonais et contexte', async ({ page }) => {
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
@@ -13,7 +20,7 @@ await expect(page.getByTestId('reveal')).toBeVisible();
 await expect(page.getByTestId('session-card')).toContainText('bonjour');
 await expect(page.getByTestId('answer-jp')).toHaveCount(0);
 await page.getByTestId('reveal').click();
-await expect(page.getByTestId('answer-jp')).toContainText('こんにちは');
+expect(await baseText(page.getByTestId('answer-jp'))).toContain('こんにちは');
 await expect(page.getByTestId('answer-romaji')).toBeVisible();
 await expect(page.getByTestId('answer-context')).toContainText('こんにちは');
 expect(await page.locator('[data-testid="answer-jp"] rt').count()).toBeGreaterThan(0);
@@ -43,12 +50,12 @@ await expect(preview).toContainText('こんにちは、花さん！');
 await page.getByTestId('do-import').click();
 await expect(page.locator('#view-library')).toBeVisible();
 await page.locator('.chip[data-filter="imported"]').click();
-await expect(page.locator('#libraryList')).toContainText('こんにちは');
+expect(await baseText(page.locator('#libraryList'))).toContain('こんにちは');
 await expect(page.locator('#libraryList')).toContainText('bonjour');
 await page.locator('.word-row').click();
 await expect(page.locator('.modal-panel')).toContainText('bonjour');
-await expect(page.locator('.modal-panel')).toContainText('こんにちは');
-await expect(page.locator('.modal-panel')).toContainText('こんにちは、花さん！');
+expect(await baseText(page.locator('.modal-panel'))).toContain('こんにちは');
+expect(await baseText(page.locator('.modal-panel'))).toContain('こんにちは、花さん！');
 });
 test('réglages : objectif et thème sombre persistants', async ({ page }) => {
 await page.locator('#settingsBtn').click();
@@ -107,7 +114,6 @@ expect(info.words).toBeGreaterThanOrEqual(200);
 expect(info.malformed).toBe(false);
 expect(info.ikimasu).toBe(true);
 });
-
 test('série quotidienne, défi du jour et récompense', async ({ page }) => {
 await expect(page.getByTestId('streak-panel')).toContainText('0 jour');
 await page.getByTestId('daily-challenge').click();
@@ -124,7 +130,6 @@ await page.getByTestId('finish-session').click();
 await expect(page.getByTestId('streak-panel')).toContainText('1 jour');
 await expect(page.getByTestId('daily-done')).toBeVisible();
 });
-
 test('prononciation : carte dédiée et lecture du mot', async ({ page }) => {
 await page.locator('.desktop-nav [data-nav=library]').click();
 await page.locator('.word-row').first().click();
