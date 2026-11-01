@@ -315,6 +315,7 @@ test("prononciation : ください est accepté pour s'il vous plaît", function
   assert.equal(result.expected, "ください");
   assert.ok(entry.alternatives[0].usage.indexOf('Plus directe') >= 0);
   assert.ok(entry.contextNote.indexOf('Au café') >= 0);
+  assert.ok(entry.nuance.indexOf('plus forte') >= 0);
 });
 
 if (failed) {

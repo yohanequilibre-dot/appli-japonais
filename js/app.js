@@ -817,7 +817,7 @@ function inlinePronunciationHtml(st) {
     '<div class="inline-pronunciation-head"><b data-testid="inline-pronunciation-score">' + Math.round(Number(st.score) || 0) + ' %</b><span>' + (st.good ? '✅ C’est correct' : '❌ Tu t’es trompé') + '</span></div>' +
     lines +
     (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') +
-    (accepted ? '<p class="variant-note" data-testid="inline-variant">Autre formulation acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b>. « ' + esc(main || 'La forme principale') + ' » est plus doux et général ; « ' + esc(st.alternativeLabel || st.expected || '') + ' » est plus direct. Les deux sont polies.</p>' : '') +
+    (accepted ? '<p class="variant-note" data-testid="inline-variant">Autre formulation acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b>. « ' + esc(main || 'La forme principale') + ' » est plus doux et général ; « ' + esc(st.alternativeLabel || st.expected || '') + ' » est plus direct et peut sembler plus fort, mais il reste poli.</p>' : '') +
     (st.tip ? '<p class="hint inline-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
     '<div class="inline-pronunciation-actions">' + replay +
     '<button class="btn ghost small" data-action="pronounce-front-start" data-testid="inline-pronounce-retry">Réessayer</button></div></div>';
