@@ -35,7 +35,10 @@ var output = await pipe(new Float32Array(data.audio), {
 language: 'japanese',
 task: 'transcribe',
 chunk_length_s: 30,
-stride_length_s: 5
+stride_length_s: 5,
+num_beams: 3,
+no_repeat_ngram_size: 3,
+return_timestamps: false
 });
 var text = output && typeof output.text === 'string' ? output.text : (Array.isArray(output) && output[0] ? output[0].text : '');
 self.postMessage({ type: 'result', id: currentId, text: text || '' });

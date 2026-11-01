@@ -610,6 +610,29 @@ function pronunciationEntry(entry, target) {
   }
   return entry;
 }
+function pronunciationDiffHtml(diff) {
+  if (!Array.isArray(diff) || !diff.length) return '';
+  const parts = diff.map(function (op) {
+    if (!op) return '';
+    if (op.type === 'same') return esc(op.expected);
+    if (op.type === 'sub') return '<span class="pron-diff-bad" title="Entendu : ' + attr(op.heard) + '">' + esc(op.expected) + '</span>';
+    if (op.type === 'del') return '<span class="pron-diff-missing" title="Son manquant">' + esc(op.expected) + '</span>';
+    return '<span class="pron-diff-extra" title="Son en trop">+' + esc(op.heard) + '</span>';
+  }).join('');
+  return '<div class="pronounce-diff" data-testid="pronounce-diff"><span class="compare-label">Écart</span><span lang="ja">' + parts + '</span></div>';
+}
+function pronunciationMeterHtml() {
+  return '<div class="pronounce-meter" data-testid="pronounce-meter" aria-hidden="true"><span data-testid="pronounce-level"></span></div>' +
+    '<div class="pronounce-live"><span data-testid="pronounce-timer">0,0 s</span><span data-testid="pronounce-voice-hint">Parle maintenant…</span></div>';
+}
+function updatePronunciationMeter(level, info) {
+  const bar = document.querySelector('[data-testid="pronounce-level"]');
+  if (bar) bar.style.width = Math.max(0, Math.min(100, Math.round((Number(level) || 0) * 100))) + '%';
+  const timer = document.querySelector('[data-testid="pronounce-timer"]');
+  if (timer && info && info.elapsed != null) timer.textContent = (Math.max(0, Number(info.elapsed) || 0) / 1000).toFixed(1).replace('.', ',') + ' s';
+  const hint = document.querySelector('[data-testid="pronounce-voice-hint"]');
+  if (hint && info) hint.textContent = info.voiced ? 'Son détecté' : 'Parle maintenant…';
+}
 function savePronunciationScore(entry, result, target, engine) {
   if (!entry) return;
   const now = Date.now();
@@ -622,26 +645,48 @@ function savePronunciationScore(entry, result, target, engine) {
     good: !!result.good,
     target: target === 'phrase' ? 'phrase' : 'word',
     engine: engine === 'whisper' ? 'whisper' : 'browser',
-    transcript: String(result.transcript || '').slice(0, 180)
+    transcript: String(result.transcript || '').slice(0, 180),
+    expected: String(result.expected || '').slice(0, 120)
   });
   p.pronunciation = history;
   persist();
 }
-function finishPronunciation(transcript, engine, token) {
+function clearPronunciationTimer() {
+  if (session && session.pronunciationTimer) {
+    clearTimeout(session.pronunciationTimer);
+    session.pronunciationTimer = 0;
+  }
+}
+function finishPronunciation(transcript, engine, token, preset) {
   if (!session || !session.current) return;
   if (token != null && session.pronunciationToken !== token) return;
   const entry = session.current;
   const target = pronunciationTargetOf(entry);
-  const result = window.Kotoba.Pronunciation
-    ? window.Kotoba.Pronunciation.best([transcript], pronunciationEntry(entry, target))
-    : { transcript: String(transcript || ''), score: 0, good: false };
-  session.pronunciation = { status: 'done', transcript: result.transcript, score: result.score, good: result.good, target: target, engine: engine };
+  const readingOf = window.Kotoba.Reading && window.Kotoba.Reading.reading ? window.Kotoba.Reading.reading : null;
+  const result = preset || (window.Kotoba.Pronunciation
+    ? window.Kotoba.Pronunciation.best([transcript], pronunciationEntry(entry, target), { readingOf: readingOf })
+    : { transcript: String(transcript || ''), score: 0, good: false });
+  session.pronunciation = {
+    status: 'done',
+    transcript: result.transcript,
+    score: result.score,
+    good: result.good,
+    target: target,
+    engine: engine,
+    expected: result.expected || '',
+    heard: result.heard || '',
+    diff: result.diff || [],
+    tip: result.tip || '',
+    variant: !!result.variant
+  };
   session.recognition = null;
+  clearPronunciationTimer();
   savePronunciationScore(entry, result, target, engine);
   renderSession();
 }
 function abortPronunciation() {
   if (session) {
+    clearPronunciationTimer();
     session.pronunciationToken = (session.pronunciationToken || 0) + 1;
     if (session.recognition) {
       try { session.recognition.abort(); } catch (e) { /* ignore */ }
@@ -651,6 +696,7 @@ function abortPronunciation() {
   if (window.Kotoba.Whisper) { try { window.Kotoba.Whisper.abort(); } catch (e) { /* ignore */ } }
 }
 function stopPronunciation() {
+  clearPronunciationTimer();
   if (window.Kotoba.Whisper) { try { window.Kotoba.Whisper.stop(); } catch (e) { /* ignore */ } }
   if (session && session.recognition && session.recognition.stop) {
     try { session.recognition.stop(); } catch (e) { /* ignore */ }
@@ -707,9 +753,12 @@ interaction = '<button class="btn primary big mic-btn" data-action="pronounce-st
 ? 'Whisper tourne en local dans ton navigateur, sans clé ni serveur. Le modèle se télécharge au premier essai, puis reste en cache.'
 : 'Autorise le micro, puis répète ' + (target === 'phrase' ? 'la phrase' : 'le mot') + '. La reconnaissance se fait dans ton navigateur.') + '</p>';
 } else if (st.status === 'listening') {
-interaction = '<div class="pronounce-status listening" data-testid="pronounce-status">🎙️ J’écoute… Parle maintenant.</div>';
+interaction = '<div class="pronounce-status listening" data-testid="pronounce-status" aria-live="polite">🎙️ J’écoute… Parle maintenant.</div>' +
+'<p class="hint" data-testid="pronounce-interim">' + esc(st.interim || 'La transcription apparaîtra ici.') + '</p>';
 } else if (st.status === 'recording') {
-interaction = '<div class="pronounce-status listening" data-testid="pronounce-status">🎙️ J’écoute… Parle maintenant, puis appuie sur « J’ai fini ».</div>' +
+interaction = '<div class="pronounce-status listening" data-testid="pronounce-status" aria-live="polite">🎙️ J’écoute… Parle maintenant.</div>' +
+pronunciationMeterHtml() +
+'<p class="hint">La capture s’arrête toute seule après un silence, ou appuie sur « J’ai fini ».</p>' +
 '<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-stop" data-testid="pronounce-stop">J’ai fini</button></div>';
 } else if (st.status === 'loading' || st.status === 'transcribing') {
 const pct = Math.max(0, Math.min(100, Number(st.progress) || 0));
@@ -721,11 +770,17 @@ interaction = '<div class="pronounce-status error" data-testid="pronounce-status
 '<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-retry">Réessayer</button>' +
 '<button class="btn ghost" data-action="pronounce-finish" data-good="0" data-testid="pronounce-finish">Passer</button></div>';
 } else {
+const compare = (st.expected || st.heard) ? '<div class="pronounce-compare">' +
+'<div><span class="compare-label">Attendu</span><span lang="ja" data-testid="pronounce-expected">' + esc(st.expected || '—') + '</span></div>' +
+'<div><span class="compare-label">Entendu</span><span lang="ja" data-testid="pronounce-heard">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
+(st.score < 100 ? pronunciationDiffHtml(st.diff) : '') + '</div>' : '';
 interaction = '<div class="pronounce-result ' + (st.good ? 'good' : 'retry') + '" data-testid="pronounce-result">' +
 '<div class="pronounce-score">' + (st.good ? '✅' : '🔁') + '</div>' +
 '<div><strong>' + (st.good ? 'Bien prononcé !' : 'Presque !') + '</strong>' +
-'<span>Score : ' + st.score + ' % · ' + (st.target === 'phrase' ? 'phrase' : 'mot') + '</span>' +
+'<span>Score : <b data-testid="pronounce-score">' + st.score + ' %</b> · ' + (st.target === 'phrase' ? 'phrase' : 'mot') + '</span>' +
 '<p class="hint">Entendu : ' + esc(st.transcript || '—') + '</p></div></div>' +
+compare +
+(st.tip ? '<p class="hint pronounce-tip" data-testid="pronounce-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
 '<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-finish" data-good="' + (st.good ? '1' : '0') + '" data-testid="pronounce-finish">' + (st.good ? 'Valider et continuer' : 'Continuer sans valider') + '</button>' +
 '<button class="btn ghost" data-action="pronounce-retry">Réessayer</button></div>';
 }
@@ -746,7 +801,8 @@ function startWhisper(token) {
   s.pronunciation = { status: 'loading', message: 'Préparation du moteur IA…', progress: 0 };
   renderSession();
   W.listen({
-    maxMs: target === 'phrase' ? 12000 : 8000,
+    maxMs: target === 'phrase' ? 15000 : 10000,
+    silenceMs: 1200,
     onStatus: function (status, message) {
       if (session !== s || s.pronunciationToken !== token || !s.pronunciation) return;
       s.pronunciation.status = status;
@@ -760,6 +816,10 @@ function startWhisper(token) {
       s.pronunciation.progress = progress;
       s.pronunciation.message = message || '';
       renderSession();
+    },
+    onLevel: function (level, info) {
+      if (session !== s || s.pronunciationToken !== token) return;
+      updatePronunciationMeter(level, info);
     }
   }).then(function (text) {
     if (session !== s || s.pronunciationToken !== token) return;
@@ -792,51 +852,97 @@ return;
 if (session.recognition) { try { session.recognition.abort(); } catch (e) { /* ignore */ } session.recognition = null; }
 const rec = new Ctor();
 rec.lang = 'ja-JP';
-rec.interimResults = false;
+rec.interimResults = true;
 rec.continuous = false;
-rec.maxAlternatives = 3;
+rec.maxAlternatives = 5;
 session.recognition = rec;
 session.pronunciation = { status: 'listening' };
 renderSession();
+let finished = false;
+let interimList = [];
+const failRecognition = function (message) {
+  if (finished) return;
+  finished = true;
+  clearPronunciationTimer();
+  if (!session || session.pronunciationToken !== token) return;
+  session.pronunciation = { status: 'error', message: message };
+  session.recognition = null;
+  renderSession();
+};
+const finishOnce = function (list) {
+  if (finished || !session || session.pronunciationToken !== token) return;
+  finished = true;
+  clearPronunciationTimer();
+  const target = pronunciationTargetOf(session.current);
+  const readingOf = window.Kotoba.Reading && window.Kotoba.Reading.reading ? window.Kotoba.Reading.reading : null;
+  const best = window.Kotoba.Pronunciation
+    ? window.Kotoba.Pronunciation.best(list, pronunciationEntry(session.current, target), { readingOf: readingOf })
+    : { transcript: list[0] || '', score: 0, good: false };
+  finishPronunciation(best.transcript, 'browser', token, best);
+};
 rec.onresult = function (event) {
-if (!session || session.pronunciationToken !== token) return;
-const list = [];
-const first = event.results && event.results[0];
-if (first) { for (let i = 0; i < first.length; i++) list.push(first[i].transcript); }
-if (!list.length) {
-session.pronunciation = { status: 'error', message: 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.' };
-session.recognition = null;
-renderSession();
-return;
-}
-const target = pronunciationTargetOf(session.current);
-const best = window.Kotoba.Pronunciation ? window.Kotoba.Pronunciation.best(list, pronunciationEntry(session.current, target)) : { transcript: list[0] || '', score: 0, good: false };
-finishPronunciation(best.transcript, 'browser', token);
+  if (!session || session.pronunciationToken !== token || finished) return;
+  const list = [];
+  const results = (event && event.results) || [];
+  for (let r = 0; r < results.length; r++) {
+    const result = results[r];
+    if (!result) continue;
+    for (let i = 0; i < result.length; i++) {
+      const transcript = String((result[i] && result[i].transcript) || '').trim();
+      if (transcript) {
+        if (result.isFinal) list.push(transcript);
+        else if (interimList.indexOf(transcript) < 0) interimList.push(transcript);
+      }
+    }
+  }
+  if (list.length) {
+    finishOnce(list);
+    try { rec.stop(); } catch (e) { /* ignore */ }
+    return;
+  }
+  if (interimList.length && session.pronunciation) {
+    session.pronunciation.interim = interimList[interimList.length - 1];
+    const live = document.querySelector('[data-testid="pronounce-interim"]');
+    if (live) live.textContent = session.pronunciation.interim;
+  }
 };
 rec.onerror = function (event) {
-if (!session || session.pronunciationToken !== token) return;
-const messages = {
-'not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
-'service-not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
-'no-speech': 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.',
-'audio-capture': 'Aucun micro détecté. Vérifie ton matériel.',
-'network': 'La reconnaissance vocale a besoin d’une connexion réseau.'
-};
-session.pronunciation = { status: 'error', message: messages[event.error] || 'Je n’ai pas pu écouter. Réessaie.' };
-session.recognition = null;
-renderSession();
+  const messages = {
+    'not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+    'service-not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+    'no-speech': 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.',
+    'audio-capture': 'Aucun micro détecté. Vérifie ton matériel.',
+    'network': 'La reconnaissance vocale a besoin d’une connexion réseau.'
+  };
+  failRecognition(messages[event.error] || 'Je n’ai pas pu écouter. Réessaie.');
 };
 rec.onend = function () {
-if (session && session.pronunciationToken === token && session.pronunciation && session.pronunciation.status === 'listening') {
-session.pronunciation = { status: 'error', message: 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.' };
-renderSession();
-}
-if (session) session.recognition = null;
+  if (!session || session.pronunciationToken !== token) return;
+  if (!finished && interimList.length) {
+    finishOnce(interimList);
+    return;
+  }
+  if (!finished) {
+    finished = true;
+    clearPronunciationTimer();
+    session.pronunciation = { status: 'error', message: 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.' };
+    renderSession();
+  }
+  if (session.recognition === rec) session.recognition = null;
 };
+session.pronunciationTimer = setTimeout(function () {
+  if (!session || session.pronunciationToken !== token || finished) return;
+  finished = true;
+  try { rec.abort(); } catch (e) { /* ignore */ }
+  clearPronunciationTimer();
+  if (session) {
+    session.recognition = null;
+    session.pronunciation = { status: 'error', message: 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.' };
+    renderSession();
+  }
+}, 15000);
 try { rec.start(); } catch (e) {
-session.pronunciation = { status: 'error', message: 'Impossible de démarrer le micro. Vérifie les autorisations.' };
-session.recognition = null;
-renderSession();
+  failRecognition('Impossible de démarrer le micro. Vérifie les autorisations.');
 }
 }
 function quizView() {

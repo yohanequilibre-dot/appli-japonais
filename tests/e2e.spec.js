@@ -178,6 +178,8 @@ expect(await page.locator('[data-testid="pronounce-phrase"] rt').count()).toBeGr
 await page.getByTestId('pronounce-start').click();
 await expect(page.getByTestId('pronounce-result')).toContainText('100 %');
 await expect(page.getByTestId('pronounce-result')).toContainText('phrase');
+await expect(page.getByTestId('pronounce-expected')).toContainText('みずおのみます');
+await expect(page.getByTestId('pronounce-tip')).toBeVisible();
 await page.getByTestId('pronounce-finish').click();
 await expect(page.getByTestId('feedback')).toBeVisible();
 await page.getByTestId('session-next').click();
@@ -187,4 +189,57 @@ await page.locator('.desktop-nav [data-nav=library]').click();
 await page.locator('.word-row').first().click();
 await expect(page.getByTestId('pronunciation-history')).toContainText('100 %');
 await expect(page.getByTestId('pronunciation-history')).toContainText('Phrase');
+});
+
+test('prononciation : écart syllabique et conseil', async ({ page }) => {
+await page.addInitScript(() => {
+class FakeRecognition {
+constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+start() {
+const self = this;
+setTimeout(function () {
+const alternative = { transcript: 'みずをのみす' };
+const result = [alternative];
+result.isFinal = true;
+if (self.onresult) self.onresult({ results: [result] });
+}, 20);
+}
+stop() {}
+abort() {}
+}
+window.SpeechRecognition = FakeRecognition;
+window.webkitSpeechRecognition = FakeRecognition;
+});
+await page.goto('/#importer');
+await page.reload();
+await page.getByTestId('import-textarea').fill('hydratation | 水分 | suibun | 水を飲みます。 | Je bois de l’eau.');
+await page.getByTestId('preview-import').click();
+await page.getByTestId('do-import').click();
+await page.locator('.chip[data-filter="imported"]').click();
+await page.locator('.word-row').first().click();
+await page.locator('[data-action=pronounce-one]').click();
+await page.getByTestId('pronounce-target-phrase').click();
+await page.getByTestId('pronounce-start').click();
+await expect(page.getByTestId('pronounce-diff')).toBeVisible();
+await expect(page.getByTestId('pronounce-tip')).toBeVisible();
+await expect(page.getByTestId('pronounce-score')).toContainText('%');
+});
+
+test('prononciation : une écoute sans résultat propose de réessayer', async ({ page }) => {
+await page.addInitScript(() => {
+class SilentRecognition {
+constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+start() { const self = this; setTimeout(function () { if (self.onend) self.onend(); }, 30); }
+stop() {}
+abort() {}
+}
+window.SpeechRecognition = SilentRecognition;
+window.webkitSpeechRecognition = SilentRecognition;
+});
+await page.reload();
+await page.locator('.desktop-nav [data-nav=library]').click();
+await page.locator('.word-row').first().click();
+await page.locator('[data-action=pronounce-one]').click();
+await page.getByTestId('pronounce-start').click();
+await expect(page.getByTestId('pronounce-status')).toContainText('rien entendu');
 });

@@ -29,7 +29,7 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Plus de 200 mots de départ** répartis en 20 thèmes (salutations, nourriture, maison, transports, santé, travail, météo, émotions, etc.).
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Quatre modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation.
-- **Prononciation guidée** : carte dédiée au mot ou à la phrase entière, score sur 100 et historique des dernières tentatives dans la fiche du mot. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API).
+- **Prononciation guidée** : carte dédiée au mot ou à la phrase entière, score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop et un conseil. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
 - **Furigana partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement.
 - **Carte dans le bon ordre** : français → japonais avec furigana → romaji → contexte.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
@@ -108,7 +108,7 @@ tests/                 tests unitaires, E2E et serveur de test
 - L'OCR télécharge Tesseract.js et les modèles japonais / français au premier usage : une connexion est nécessaire la première fois. Une image nette et contrastée améliore beaucoup le résultat.
 - Les lectures et les phrases de contexte sont un point de départ : l'import permet d'ajouter ton propre vocabulaire, avec tes propres phrases.
 - La reconnaissance du navigateur peut envoyer l'audio au service du navigateur. Le moteur « IA locale » Whisper reste dans le navigateur, mais télécharge le modèle (plusieurs dizaines de Mo) au premier usage, puis le garde en cache.
-- Le score de prononciation est indicatif : il compare la transcription à la lecture attendue, ce n'est pas un jugement humain.
+- Le score de prononciation est indicatif : il compare la transcription à la lecture attendue, en convertissant les kanji en kana et en tolérant les particules は / を / へ, mais ce n'est pas un jugement humain.
 
 ## Inspiration
 

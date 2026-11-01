@@ -222,6 +222,41 @@ const result = Pron.best(["おはよう", "ありがとう"], entry);
 assert.equal(result.good, true);
 assert.equal(result.transcript, "ありがとう");
 });
+test("prononciation : un transcript en kanji est lu en kana", function () {
+const entry = { jp: "水を飲みます。", reading: "みずをのみます。" };
+const result = Pron.compare("水を飲みます", entry, {
+readingOf: function (text) { return text === "水を飲みます" ? "みずをのみます" : text; }
+});
+assert.equal(result.good, true);
+assert.equal(result.score, 100);
+assert.equal(result.expected, "みずおのみます");
+assert.equal(result.heard, "みずおのみます");
+});
+test("prononciation : les particules は et を sont normalisées", function () {
+const entry = { jp: "私は水を飲みます。", reading: "わたしはみずをのみます。" };
+const result = Pron.compare("わたしわみずおのみます", entry);
+assert.equal(result.good, true);
+assert.equal(result.score, 100);
+});
+test("prononciation : l'alignement signale le son manquant", function () {
+const entry = { jp: "水を飲みます。", reading: "みずをのみます。" };
+const result = Pron.compare("みずおのみす", entry);
+assert.ok(result.score < 100);
+assert.ok(result.diff.some(function (op) { return op.type === "del"; }));
+assert.ok(result.tip.length > 0);
+});
+test("prononciation : une voyelle longue manquante est signalée", function () {
+const entry = { jp: "コーヒー", reading: "コーヒー" };
+const result = Pron.compare("こひ", entry);
+assert.ok(result.score < 100);
+assert.equal(result.good, false);
+assert.ok(/voyelle longue/.test(result.tip));
+assert.equal(Pron.compare("こーひー", entry).score, 100);
+});
+test("prononciation : は/わ n'est pas confondu dans un mot", function () {
+const result = Pron.compare("はわ", { jp: "母", reading: "はは" });
+assert.equal(result.good, false);
+});
 if (failed) {
   console.error("\n" + failed + " test(s) en échec.");
   process.exit(1);
