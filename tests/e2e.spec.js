@@ -45,6 +45,24 @@ await expect(page.getByTestId('session-card')).toBeVisible();
 await expect(page.getByTestId('reveal')).toBeVisible();
 expect(errors).toEqual([]);
 });
+test('la réponse lance automatiquement le mot puis le contexte', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__spoken = [];
+    class FakeUtterance {
+      constructor(text) { this.text = text; }
+    }
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: FakeUtterance });
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
+      cancel() {},
+      getVoices() { return []; },
+      speak(utterance) { window.__spoken.push(utterance.text); }
+    } });
+  });
+  await page.reload();
+  await page.getByTestId('cta-main').click();
+  await page.getByTestId('reveal').click();
+  await expect.poll(() => page.evaluate(() => window.__spoken)).toEqual(['こんにちは', 'こんにちは、元気ですか。']);
+});
 test('la progression et l XP sont conservés après rechargement', async ({ page }) => {
 await page.getByTestId('cta-main').click();
 await page.getByTestId('reveal').click();
@@ -413,4 +431,15 @@ test('la carte et la fiche précisent les variantes de au revoir', async ({ page
   await expect(page.getByTestId('prompt-register')).toHaveText('Version formelle');
   await expect(page.getByTestId('prompt-register')).not.toContainText('さようなら');
   await expect(page.getByTestId('prompt-register')).not.toContainText('sayonara');
+});
+
+test('un contexte sans kanji affiche sa prononciation au-dessus', async ({ page }) => {
+  await page.locator('.desktop-nav [data-nav=library]').click();
+  await page.getByTestId('search').fill('oui');
+  await page.getByRole('button', { name: /^oui\b/ }).click();
+  await page.locator('[data-action="review-one"]').click();
+  await page.getByTestId('reveal').click();
+  const readings = await page.locator('[data-testid="answer-context"] rt').allTextContents();
+  expect(readings).toContain('hai');
+  expect(readings.join('').toLowerCase()).toContain('soudesu');
 });

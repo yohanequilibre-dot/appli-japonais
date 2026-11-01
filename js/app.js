@@ -82,9 +82,32 @@ function registerHintOf(entry) {
   if (!entry) return '';
   return REGISTER_HINTS[jpKeyOf(entry)] || '';
 }
+function kanaContextHtml(text, highlight) {
+  const raw = String(text || '');
+  const target = String(highlight || '').trim();
+  const segmenter = window.Intl && window.Intl.Segmenter
+    ? new window.Intl.Segmenter('ja', { granularity: 'word' })
+    : null;
+  function render(part) {
+    const chunks = segmenter
+      ? Array.from(segmenter.segment(part), function (item) { return item.segment; })
+      : (window.Kotoba.Reading && window.Kotoba.Reading.kanaUnits ? window.Kotoba.Reading.kanaUnits(part) : Array.from(part));
+    return chunks.map(function (chunk) {
+      if (!/[\u3040-\u30ff]/.test(chunk)) return esc(chunk);
+      const romaji = P.kanaToRomaji(chunk);
+      return romaji ? '<ruby>' + esc(chunk) + '<rt>' + esc(romaji) + '</rt></ruby>' : esc(chunk);
+    }).join('');
+  }
+  if (!target || raw.indexOf(target) < 0) return render(raw);
+  const idx = raw.indexOf(target);
+  return render(raw.slice(0, idx)) + '<mark>' + render(target) + '</mark>' + render(raw.slice(idx + target.length));
+}
 function contextHtml(context, hl) {
   const text = String(context || '').trim();
-if (text && window.Kotoba.Reading) return window.Kotoba.Reading.annotate(text, hl, state.settings.furigana);
+  if (text && window.Kotoba.Reading) {
+    if (!P.hasKanji(text) && state.settings.furigana) return kanaContextHtml(text, hl);
+    return window.Kotoba.Reading.annotate(text, hl, state.settings.furigana);
+  }
   if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>';
   const target = String(hl || '').trim();
   const safe = esc(text);
@@ -179,6 +202,28 @@ function speak(text, rate) {
     if (v) u.voice = v;
     window.speechSynthesis.speak(u);
   } catch (e) { toast('Impossible de lire l\'audio.'); }
+}
+function speakSequence(texts) {
+  const list = (texts || []).map(function (text) { return String(text || '').trim(); }).filter(Boolean);
+  if (!list.length) return;
+  if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance === 'undefined') return;
+  try {
+    window.speechSynthesis.cancel();
+    const v = voices.filter(function (x) { return /^ja/i.test(x.lang); })[0];
+    list.forEach(function (text) {
+      const u = new window.SpeechSynthesisUtterance(text);
+      u.lang = 'ja-JP';
+      u.rate = state.settings.rate || 0.9;
+      if (v) u.voice = v;
+      window.speechSynthesis.speak(u);
+    });
+  } catch (e) { /* le bouton Écouter reste disponible */ }
+}
+function autoSpeakAnswer(entry) {
+  if (!session || !entry) return;
+  if (session.autoSpokenFor === entry.id) return;
+  session.autoSpokenFor = entry.id;
+  speakSequence([entry.jp, entry.context]);
 }
 function download(name, text) {
   const blob = new Blob([text], { type: 'application/json' });
@@ -578,6 +623,7 @@ if (session.kind === 'daily') claimDaily();
 renderSession(); return;
 }
   session.current = session.queue.shift();
+  session.autoSpokenFor = null;
   session.pronunciation = null;
   if (!session.pronunciationTarget) session.pronunciationTarget = state.settings.pronunciationTarget === 'phrase' ? 'phrase' : 'word';
   if (!session.pronunciationEngine) {
@@ -860,6 +906,7 @@ function finishPronunciation(transcript, engine, token, preset) {
   savePronunciationScore(entry, result, target, engine);
   if (session.mode === 'recall' && session.phase === 'front') session.phase = 'revealed';
   renderSession();
+  if (session.mode === 'recall' && session.phase === 'revealed') autoSpeakAnswer(entry);
 }
 function abortPronunciation() {
   if (session) {
@@ -1169,6 +1216,7 @@ function reveal() {
   }
   session.phase = 'revealed';
   renderSession();
+  autoSpeakAnswer(session.current);
 }
 function flashValidation(grade) {
   const flash = $('#validationFlash');
@@ -1215,6 +1263,7 @@ else if (state.stats.streak > beforeStreak && [3, 7, 14, 30, 100].indexOf(state.
   }
 session.phase = 'feedback';
   renderSession();
+  autoSpeakAnswer(e);
   updateChrome();
 }
 function choose(id) { if (session && session.phase === 'question' && session.current) { session.lastChoice = id; grade(id === session.current.id ? 'good' : 'again'); } }

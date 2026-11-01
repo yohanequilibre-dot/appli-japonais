@@ -48,7 +48,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 ## 3. Le parcours à vérifier en cinq minutes
 
 1. **Accueil** : la carte « Prêt à apprendre ? » et le bouton « Apprendre de nouveaux mots » s'affichent. Le compteur de cartes dues et l'objectif XP sont visibles.
-2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Tu dois voir le japonais avec furigana, puis la phrase de contexte avec les furigana au-dessus des kanji et sa traduction. Le romaji reste disponible dans la fiche du mot.
+2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Le mot puis la phrase de contexte sont lus automatiquement. Tu dois voir le japonais avec furigana, puis la phrase de contexte avec les furigana au-dessus des kanji — ou la lecture au-dessus des mots si le contexte est entièrement en kana — et sa traduction. Le romaji reste disponible dans la fiche du mot.
 3. **Validation** : clique sur « Passer au suivant ». La carte suivante arrive immédiatement, sans écran intermédiaire.
 4. **Import** : va dans « Importer », colle `bonjour | kon-ni-chi-wa`, clique sur « Analyser la liste ». L'aperçu doit montrer こんにちは, le romaji et le contexte `こんにちは、花さん！`. Clique sur « Importer 1 mot ».
 5. **Mes mots** : clique sur le filtre « Importés ». Le filtre « Mal prononcés » garde les mots dont le dernier essai micro était rouge. La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
@@ -109,6 +109,8 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - l’ouverture de l’onglet Réviser et le compteur de prononciations ;
 - le micro sur la carte de révision, la lueur verte/rouge et la révélation automatique de la fiche ;
 - les furigana du contexte au-dessus des kanji, sans ligne romaji ;
+- la lecture au-dessus des mots d’un contexte sans kanji ;
+- la lecture automatique du mot puis de la phrase dès l’affichage de la réponse ;
 - le démarrage du micro uniquement au clic ;
 - l'enregistrement d'un mot mal prononcé dans le filtre « Mal prononcés » ;
 - le registre seul sur la carte, puis les variantes dans la fiche ;
