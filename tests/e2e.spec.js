@@ -21,7 +21,19 @@ await expect(page.getByTestId('session-card')).toContainText('bonjour');
 await expect(page.getByTestId('answer-jp')).toHaveCount(0);
 await page.getByTestId('reveal').click();
 expect(await baseText(page.getByTestId('answer-jp'))).toContain('こんにちは');
-await expect(page.getByTestId('answer-romaji')).toBeVisible();
+await expect(page.getByTestId('answer-romaji')).toHaveCount(0);
+await expect(page.getByTestId('grade-again')).toContainText('Je ne connaissais pas ce mot');
+await expect(page.getByTestId('grade-good')).toContainText('Passer au suivant');
+const answerLayout = await page.evaluate(() => {
+const head = document.querySelector('.answer-head').getBoundingClientRect();
+const context = document.querySelector('.context-card').getBoundingClientRect();
+const fr = parseFloat(getComputedStyle(document.querySelector('.answer-head .fr-small')).fontSize);
+const jp = parseFloat(getComputedStyle(document.querySelector('[data-testid="answer-jp"]')).fontSize);
+return { contextRight: context.left >= head.left, fr, jp };
+});
+expect(answerLayout.contextRight).toBe(true);
+expect(answerLayout.fr).toBeGreaterThan(30);
+expect(Math.abs(answerLayout.fr - answerLayout.jp)).toBeLessThan(2);
 await expect(page.getByTestId('answer-context')).toContainText('こんにちは');
 expect(await page.locator('[data-testid="answer-jp"] rt').count()).toBeGreaterThan(0);
 expect(await page.locator('[data-testid="answer-context"] rt').count()).toBeGreaterThan(0);
@@ -316,7 +328,55 @@ test('révision : le micro valide puis révèle la fiche', async ({ page }) => {
   await page.getByTestId('pronounce-front-start').click();
   await expect(page.getByTestId('inline-pronunciation')).toBeVisible();
   await expect(page.getByTestId('inline-pronunciation-score')).toContainText('100');
+  await expect(page.getByTestId('session-card')).toHaveClass(/glow-good/);
   await expect(page.getByTestId('answer-jp')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Modèle/ })).toHaveCount(0);
+  const inlineLayout = await page.evaluate(() => {
+    const card = document.querySelector('.answer-card').getBoundingClientRect();
+    const context = document.querySelector('.context-card').getBoundingClientRect();
+    const inline = document.querySelector('[data-testid="inline-pronunciation"]').getBoundingClientRect();
+    return {
+      below: inline.top >= context.bottom,
+      centered: Math.abs((inline.left + inline.width / 2) - (card.left + card.width / 2)) < 4
+    };
+  });
+  expect(inlineLayout.below).toBe(true);
+  expect(inlineLayout.centered).toBe(true);
   await page.getByTestId('grade-good').click();
   await expect(page.getByTestId('feedback')).toContainText('Bien joué');
+});
+
+test('révision : une mauvaise prononciation est enregistrée', async ({ page }) => {
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      constructor() {
+        this.lang = '';
+        this.interimResults = false;
+        this.continuous = false;
+        this.maxAlternatives = 1;
+      }
+      start() {
+        const result = [{ transcript: 'おはよう' }];
+        result.isFinal = true;
+        const results = [result];
+        setTimeout(() => {
+          if (this.onresult) this.onresult({ results });
+          if (this.onend) this.onend();
+        }, 30);
+      }
+      stop() {}
+      abort() {}
+    }
+    window.SpeechRecognition = FakeRecognition;
+    window.webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.reload();
+  await page.getByTestId('cta-main').click();
+  await page.getByTestId('pronounce-front-start').click();
+  await expect(page.getByTestId('inline-pronunciation')).toContainText('À retravailler');
+  await expect(page.getByTestId('session-card')).toHaveClass(/glow-bad/);
+  await page.locator('[data-action="quit-session"]').click();
+  await page.locator('.desktop-nav [data-nav=library]').click();
+  await page.locator('.chip[data-filter="bad"]').click();
+  await expect(page.locator('#libraryList')).toContainText('bonjour');
 });

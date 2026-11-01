@@ -11,8 +11,9 @@ Kotoba est une application web gratuite pour apprendre et réviser le vocabulair
 Une carte montre d'abord le mot **français**. Tu peux le prononcer avec le micro — le score s'affiche et la fiche se révèle automatiquement — ou révéler directement :
 
 1. le japonais en kanji / kana, avec le **furigana** au-dessus ;
-2. le **romaji** ;
-3. une **phrase de contexte** japonaise avec sa traduction, à droite sur grand écran et sous la carte sur mobile.
+2. une **phrase de contexte** japonaise avec sa traduction, à droite sur grand écran et sous la carte sur mobile.
+
+Le romaji reste disponible dans la fiche du mot et dans le mode prononciation.
 
 Tu valides ensuite avec « Je ne savais pas » ou « J'ai prononcé ». La répétition espacée décide du prochain rendez-vous.
 
@@ -30,13 +31,13 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Parcours par étapes** : un mot passe de « Nouveau » à « En révision », puis à « Validé » après 10 révisions et à « Ultime » après 30. Les onglets du parcours ouvrent directement le filtre correspondant dans Mes mots, et chaque fiche montre sa barre de progression.
 - **Quatre modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation.
-- **Micro intégré à la révision** : sur la carte française, « 🎙️ Prononcer » écoute, donne un score et révèle la fiche dans tous les cas, même si la prononciation est imparfaite. Le retry reste disponible depuis le résultat.
+- **Micro intégré à la révision** : sur la carte française, « 🎙️ Prononcer » écoute, donne un score et révèle la fiche dans tous les cas, même si la prononciation est imparfaite. La carte s'illumine en vert ou en rouge selon le résultat, le détail est centré sous la fiche et le retry reste disponible.
 - **Prononciation guidée** : carte dédiée au mot ou à la phrase entière, score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop et un conseil. En mode IA locale, réécoute ta prise à côté de la voix modèle. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
 - **Furigana partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement.
-- **Carte dans le bon ordre** : français → japonais avec furigana → romaji → contexte.
+- **Carte dans le bon ordre** : français → japonais avec furigana → contexte, avec le romaji disponible dans la fiche et le mode prononciation.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
 - **Série, XP, objectif quotidien** et prévisions des sept prochains jours.
-- **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, en révision, validés, ultimes, connus, importés), fiche détaillée, modification et suppression des mots importés.
+- **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, mal prononcés, en révision, validés, ultimes, connus, importés), fiche détaillée, modification et suppression des mots importés.
 - **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés », cinq derniers scores dans la fiche et panneau de progression avec moyenne récente, meilleur score et mots à retravailler.
 - **Onglet Grammaire** : ordre de la phrase, particules, formes ます / neutres, passé, négation, questions, compteurs et constructions quotidiennes.
 - **Import libre** : texte collé, fichier `.txt` / `.csv` / `.tsv` / `.json`, ou capture d'écran avec OCR japonais + français.

@@ -48,10 +48,10 @@ python3 -m http.server 8080 --bind 0.0.0.0
 ## 3. Le parcours à vérifier en cinq minutes
 
 1. **Accueil** : la carte « Prêt à apprendre ? » et le bouton « Apprendre de nouveaux mots » s'affichent. Le compteur de cartes dues et l'objectif XP sont visibles.
-2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart. Tu dois voir, dans cet ordre : le japonais avec furigana, le romaji, puis la phrase de contexte et sa traduction.
+2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Tu dois voir, dans cet ordre : le japonais avec furigana, puis la phrase de contexte et sa traduction. Le romaji reste disponible dans la fiche du mot.
 3. **Validation** : clique sur « J'ai prononcé ». Le message « Bien joué ! » et la prochaine révision s'affichent. Clique sur « Continuer » : la carte suivante arrive.
 4. **Import** : va dans « Importer », colle `bonjour | kon-ni-chi-wa`, clique sur « Analyser la liste ». L'aperçu doit montrer こんにちは, le romaji et le contexte `こんにちは、花さん！`. Clique sur « Importer 1 mot ».
-5. **Mes mots** : clique sur le filtre « Importés ». La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
+5. **Mes mots** : clique sur le filtre « Importés ». Le filtre « Mal prononcés » garde les mots dont le dernier essai micro était rouge. La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
 6. **Réviser** : l’onglet « Réviser » propose les cartes dues, la révision rapide, tout revoir et les nouveaux mots. Clique sur la carte « Cartes dues » ou sur le bouton « Commencer » : la session doit s’ouvrir. Les prévisions sur sept jours sont affichées. Un mot importé est dû immédiatement : il apparaît dans les cartes à réviser.
 7. **Mobile** : ouvre les outils de développement du navigateur (F12), passe en largeur 390 px. La barre de navigation du bas doit apparaître, sans débordement horizontal.
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
@@ -107,7 +107,8 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - les réglages (objectif et thème sombre) après rechargement ;
 - l'absence de débordement horizontal sur un écran mobile de 390 px.
 - l’ouverture de l’onglet Réviser et le compteur de prononciations ;
-- le micro sur la carte de révision et la révélation automatique de la fiche ;
+- le micro sur la carte de révision, la lueur verte/rouge et la révélation automatique de la fiche ;
+- l'enregistrement d'un mot mal prononcé dans le filtre « Mal prononcés » ;
 - le parcours par étapes et les filtres Validés / Ultimes ;
 - la prononciation du mot et de la phrase entière, avec score, écart syllabique, réécoute et historique ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;

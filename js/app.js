@@ -318,7 +318,7 @@ $('#view-review').innerHTML = `
 
 /* ---------- Mes mots ---------- */
 function renderLibrary() {
-  const filters = [['all', 'Tous'], ['due', 'À réviser'], ['new', 'Nouveaux'], ['reviewed', 'Révisés'], ['learning', 'En révision'], ['validated', 'Validés'], ['ultimate', 'Ultimes'], ['known', 'Connus'], ['imported', 'Importés']];
+  const filters = [['all', 'Tous'], ['due', 'À réviser'], ['new', 'Nouveaux'], ['reviewed', 'Révisés'], ['bad', 'Mal prononcés'], ['learning', 'En révision'], ['validated', 'Validés'], ['ultimate', 'Ultimes'], ['known', 'Connus'], ['imported', 'Importés']];
   const chips = filters.map(function (f) {
     return '<button class="chip' + (ui.filter === f[0] ? ' active' : '') + '" data-action="filter" data-filter="' + f[0] + '">' + f[1] + '</button>';
   }).join('');
@@ -338,6 +338,7 @@ function renderLibraryList() {
   else if (ui.filter === 'due') list = list.filter(function (e) { return S.isDue(state.progress[e.id], now); });
   else if (ui.filter === 'new') list = list.filter(function (e) { return S.isNew(state.progress[e.id]); });
 else if (ui.filter === 'reviewed') list = list.filter(function (e) { const p = state.progress[e.id]; return p && p.last && ((p.reps || 0) + (p.lapses || 0)) > 0; });
+  else if (ui.filter === 'bad') list = list.filter(badPronunciation);
   else if (ui.filter === 'learning') list = list.filter(function (e) { return S.reviewStage(state.progress[e.id]) === 'learning'; });
   else if (ui.filter === 'validated') list = list.filter(function (e) { return S.reviewStage(state.progress[e.id]) === 'validated'; });
   else if (ui.filter === 'ultimate') list = list.filter(function (e) { return S.reviewStage(state.progress[e.id]) === 'ultimate'; });
@@ -596,21 +597,21 @@ function renderSession() {
   try { root.focus({ preventScroll: true }); } catch (e) { root.focus(); }
 }
 function answerCard(e) {
-  const inline = session && session.mode === 'recall' ? inlinePronunciationHtml(session.pronunciation) : '';
-  return '<div class="session-card answer-card" data-testid="session-card"><div class="answer-head"><div class="fr-small">' + frHtml(e.fr) + '</div>' +
+  const st = session && session.pronunciation;
+  const tone = st && st.status === 'done' ? (st.good ? ' glow-good' : ' glow-bad') : '';
+  const inline = session && session.mode === 'recall' ? inlinePronunciationHtml(st) : '';
+  return '<div class="session-card answer-card' + tone + '" data-testid="session-card"><div class="answer-main">' +
+    '<div class="answer-head"><div class="fr-small">' + frHtml(e.fr) + '</div>' +
     '<div class="jp-big" lang="ja" data-testid="answer-jp">' + wordRubyHtml(e) + '</div>' +
-    (state.settings.romaji ? '<div class="romaji" data-testid="answer-romaji">' + esc(e.romaji) + '</div>' : '') +
     '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
     '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
-    inline +
     '<aside class="context-card" data-testid="answer-context"><div class="context-label">En contexte</div><p class="context-jp" lang="ja">' + contextHtml(e.context, e.hl) + '</p>' +
     '<p class="context-fr">' + esc(e.contextFr || '—') + '</p>' +
-    (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '<p class="hint">Pas encore de phrase. Ajoute-en une depuis Mes mots.</p>') + '</aside></div>';
+    (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '<p class="hint">Pas encore de phrase. Ajoute-en une depuis Mes mots.</p>') + '</aside></div>' +
+    inline + '</div>';
 }
 function inlinePronunciationHtml(st) {
   if (!st || st.status !== 'done') return '';
-  const entry = session && session.current;
-  const audioText = st.target === 'phrase' && entry && entry.context ? entry.context : (entry ? entry.jp : '');
   const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba.Whisper.hasRecording && window.Kotoba.Whisper.hasRecording()
     ? '<button class="btn ghost small" data-action="pronounce-play" data-testid="inline-pronounce-play">🎧 Ma voix</button>' : '';
   return '<div class="inline-pronunciation ' + (st.good ? 'good' : 'retry') + '" data-testid="inline-pronunciation">' +
@@ -618,7 +619,7 @@ function inlinePronunciationHtml(st) {
     '<div class="inline-pronunciation-lines"><span>Attendu</span><span lang="ja">' + esc(st.expected || '—') + '</span><span>Entendu</span><span lang="ja">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
     (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') +
     (st.tip ? '<p class="hint inline-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
-    '<div class="inline-pronunciation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(audioText) + '">🔊 Modèle</button>' + replay +
+    '<div class="inline-pronunciation-actions">' + replay +
     '<button class="btn ghost small" data-action="pronounce-front-start" data-testid="inline-pronounce-retry">Réessayer</button></div></div>';
 }
 function frontPronunciationHtml() {
@@ -658,12 +659,19 @@ function recallView() {
   }
   const answer = answerCard(e);
   if (session.phase === 'feedback') return answer + feedbackHtml();
-  return answer + '<div class="grade-row" data-testid="grade-row"><button class="btn ghost danger-text" data-action="grade" data-grade="again" data-testid="grade-again">Je ne savais pas <kbd>1</kbd></button>' +
-    '<button class="btn primary" data-action="grade" data-grade="good" data-testid="grade-good">J\'ai prononcé ✓ <kbd>2</kbd></button></div>';
+  return answer + '<div class="grade-row" data-testid="grade-row"><button class="btn ghost danger-text" data-action="grade" data-grade="again" data-testid="grade-again">Je ne connaissais pas ce mot <kbd>1</kbd></button>' +
+    '<button class="btn primary" data-action="grade" data-grade="good" data-testid="grade-good">Passer au suivant <kbd>2</kbd></button></div>';
 }
 function pronunciations(entry) {
   const p = entry && state.progress ? state.progress[entry.id] : null;
   return p && Array.isArray(p.pronunciation) ? p.pronunciation : [];
+}
+function badPronunciation(entry) {
+  const p = entry && state.progress ? state.progress[entry.id] : null;
+  if (p && typeof p.pronunciationBad === 'boolean') return p.pronunciationBad;
+  const history = pronunciations(entry);
+  const last = history[history.length - 1];
+  return !!last && last.good === false;
 }
 function pronunciationStats() {
   const rows = [];
@@ -675,7 +683,7 @@ function pronunciationStats() {
       return sum + Math.max(0, Math.min(100, Number(item && item.score) || 0));
     }, 0) / recent.length);
     const last = Math.round(Math.max(0, Math.min(100, Number(history[history.length - 1] && history[history.length - 1].score) || 0)));
-    rows.push({ entry: entry, average: average, last: last, attempts: history.length });
+    rows.push({ entry: entry, average: average, last: last, attempts: history.length, bad: badPronunciation(entry) });
   });
   const all = [];
   rows.forEach(function (row) {
@@ -693,16 +701,20 @@ function pronunciationStats() {
   const weak = rows.filter(function (row) { return row.last < 75 || row.average < 75; })
     .sort(function (a, b) { return a.last - b.last || a.average - b.average; })
     .slice(0, 3);
-  return { attempts: all.length, practiced: rows.length, average: average, best: Math.round(best), weak: weak };
+  const bad = rows.filter(function (row) { return row.bad; }).length;
+  return { attempts: all.length, practiced: rows.length, average: average, best: Math.round(best), weak: weak, bad: bad };
 }
 function pronunciationPanelHtml(stats) {
   const weak = stats.weak.map(function (row) {
     return '<button type="button" class="pron-weak-chip" data-action="detail" data-id="' + attr(row.entry.id) + '">' +
       '<span>' + esc(row.entry.fr) + '</span><b>' + row.last + ' %</b></button>';
   }).join('');
+  const actions = stats.bad || weak ? '<div class="head-actions">' +
+    (stats.bad ? '<button class="btn ghost small" data-action="open-stage" data-stage="bad" data-testid="bad-pronunciation">⚠️ Mots mal prononcés · ' + stats.bad + '</button>' : '') +
+    (weak ? '<button class="btn ghost small" data-action="practice-pronunciation" data-testid="practice-pronunciation">Travailler</button>' : '') + '</div>' : '';
   return '<section class="panel pronunciation-panel" data-testid="pronunciation-progress">' +
     '<div class="panel-head"><div><h2>Prononciation</h2><p>' + stats.practiced + ' mot(s) travaillé(s) · ' + stats.attempts + ' essai(s)</p></div>' +
-    (weak ? '<button class="btn ghost small" data-action="practice-pronunciation" data-testid="practice-pronunciation">Travailler</button>' : '') + '</div>' +
+    actions + '</div>' +
     '<div class="pron-stats"><div><b data-testid="pronunciation-average">' + stats.average + ' %</b><span>moyenne récente</span></div>' +
     '<div><b>' + stats.best + ' %</b><span>meilleur score</span></div>' +
     '<div><b>' + stats.weak.length + '</b><span>mot(s) à retravailler</span></div></div>' +
@@ -724,7 +736,7 @@ function journeyPanelHtml(stages) {
     }).join('') + '</div></section>';
 }
 function openStage(stage) {
-  const allowed = ['new', 'learning', 'validated', 'ultimate', 'due', 'reviewed', 'known', 'imported'];
+  const allowed = ['new', 'learning', 'validated', 'ultimate', 'due', 'reviewed', 'bad', 'known', 'imported'];
   ui.filter = allowed.indexOf(stage) >= 0 ? stage : 'all';
   try { history.replaceState(null, '', '#mots'); } catch (e) { location.hash = 'mots'; }
   showView('library');
@@ -785,6 +797,7 @@ function savePronunciationScore(entry, result, target, engine) {
     expected: String(result.expected || '').slice(0, 120)
   });
   p.pronunciation = history;
+  p.pronunciationBad = !result.good;
   persist();
 }
 function clearPronunciationTimer() {
@@ -909,7 +922,6 @@ interaction = '<div class="pronounce-status error" data-testid="pronounce-status
 } else {
 const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba.Whisper.hasRecording && window.Kotoba.Whisper.hasRecording()
 ? '<div class="pronounce-replay" data-testid="pronounce-replay">' +
-'<button class="btn ghost small" data-action="speak-text" data-text="' + attr(audioText) + '">🔊 Modèle</button>' +
 '<button class="btn ghost small" data-action="pronounce-play" data-testid="pronounce-play">🎧 Ma voix</button></div>'
 : '';
 const compare = (st.expected || st.heard) ? '<div class="pronounce-compare">' +
