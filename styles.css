@@ -510,6 +510,7 @@ kbd {
 .session-card.front { max-width: 720px; margin: 0 auto; text-align: center; }
 .prompt-fr { margin: 8px 0 10px; font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 900; line-height: 1.12; overflow-wrap: anywhere; }
 .prompt-fr .fr-note { display: block; font-size: .4em; margin-top: 6px; }
+.prompt-nuance { max-width: 560px; margin: 0 auto 16px; padding: 9px 13px; border-radius: 12px; background: var(--green-soft); color: var(--text); font-size: .82rem; font-weight: 700; line-height: 1.55; }
 .prompt-hint { margin: 0 0 22px; color: var(--muted); font-size: .92rem; }
 .answer-main { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr); gap: clamp(18px, 3vw, 34px); align-items: center; }
 .answer-card { display: block; transition: border-color .2s ease, box-shadow .2s ease; }

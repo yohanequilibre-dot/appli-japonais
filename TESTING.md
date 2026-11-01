@@ -110,7 +110,7 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - le micro sur la carte de révision, la lueur verte/rouge et la révélation automatique de la fiche ;
 - la prononciation romaji du contexte et le lancement direct du micro depuis une fiche ;
 - l'enregistrement d'un mot mal prononcé dans le filtre « Mal prononcés » ;
-- la nuance de registre de « au revoir » ;
+- les variantes de « au revoir » dès la carte de rappel et dans la fiche ;
 - le parcours par étapes et les filtres Validés / Ultimes ;
 - la prononciation du mot et de la phrase entière, avec score, écart syllabique, réécoute et historique ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;

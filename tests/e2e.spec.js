@@ -399,10 +399,14 @@ test('révision : une mauvaise prononciation est enregistrée', async ({ page })
   await expect(page.locator('#libraryList')).toContainText('bonjour');
 });
 
-test('la fiche précise le registre de au revoir', async ({ page }) => {
+test('la carte et la fiche précisent les variantes de au revoir', async ({ page }) => {
   await page.locator('.desktop-nav [data-nav=library]').click();
   await page.getByTestId('search').fill('au revoir');
   await page.locator('#libraryList .word-row').first().click();
-  await expect(page.getByTestId('detail-nuance')).toContainText('Formel');
+  await expect(page.getByTestId('detail-nuance')).toContainText('sayonara');
+  await expect(page.getByTestId('detail-nuance')).toContainText('jaa ne');
   await expect(page.getByTestId('detail-nuance')).toContainText('じゃあね');
+  await page.locator('[data-action="review-one"]').click();
+  await expect(page.getByTestId('prompt-nuance')).toContainText('さようなら');
+  await expect(page.getByTestId('prompt-nuance')).toContainText('じゃあね');
 });

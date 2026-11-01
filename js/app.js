@@ -60,8 +60,8 @@ if (kanaOnly && window.Kotoba.Reading && state.settings.furigana) return window.
 return rubyHtml(e && e.ruby, state.settings.furigana);
 }
 const REGISTER_NOTES = {
-  'さようなら': 'Formel · au revoir poli. La version familière est じゃあね (jaa ne).',
-  'じゃあね': 'Familier · au revoir entre amis. La version formelle est さようなら.'
+  'さようなら': 'Au revoir : さようなら (sayonara), formel, ou じゃあね (jaa ne), familier.',
+  'じゃあね': 'Au revoir : じゃあね (jaa ne), familier, ou さようなら (sayonara), formel.'
 };
 function nuanceOf(entry) {
   if (!entry) return '';
@@ -691,7 +691,9 @@ function frontPronunciationHtml() {
 function recallView() {
   const e = session.current;
   if (session.phase === 'front') {
+    const nuance = nuanceOf(e);
     return '<div class="session-card front" data-testid="session-card"><p class="eyebrow">' + esc(e.theme) + '</p><h1 class="prompt-fr">' + frHtml(e.fr) + '</h1>' +
+      (nuance ? '<p class="prompt-nuance" data-testid="prompt-nuance">' + esc(nuance) + '</p>' : '') +
       '<p class="prompt-hint">Prononce à voix haute : le micro valide, puis la fiche s’affiche.</p>' +
       frontPronunciationHtml() + '</div>';
   }
