@@ -28,12 +28,14 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **aller** : la carte de base utilise 行きます (ikimasu, forme polie). La forme neutre 行く (iku) est aussi disponible, et la différence est expliquée dans l’onglet Grammaire.
 - **Plus de 200 mots de départ** répartis en 20 thèmes (salutations, nourriture, maison, transports, santé, travail, météo, émotions, etc.).
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
-- **Trois modes de session** : rappel (révéler puis valider), QCM, écoute.
+- **Quatre modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation.
+- **Prononciation guidée** : carte dédiée au mot ou à la phrase entière, score sur 100 et historique des dernières tentatives dans la fiche du mot. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API).
+- **Furigana partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement.
 - **Carte dans le bon ordre** : français → japonais avec furigana → romaji → contexte.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
 - **Série, XP, objectif quotidien** et prévisions des sept prochains jours.
 - **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, en cours, connus, importés), fiche détaillée, modification et suppression des mots importés.
-- **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés ».
+- **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés » et cinq derniers scores de prononciation dans la fiche.
 - **Onglet Grammaire** : ordre de la phrase, particules, formes ます / neutres, passé, négation, questions, compteurs et constructions quotidiennes.
 - **Import libre** : texte collé, fichier `.txt` / `.csv` / `.tsv` / `.json`, ou capture d'écran avec OCR japonais + français.
 - **Sauvegarde** : export / import JSON de toute la progression.
@@ -86,6 +88,11 @@ data.js + js/vocab-extra.js plus de 200 mots de départ, 20 thèmes
 js/lexicon.js          lexique de secours français / romaji → japonais
 js/srs.js              état local, paliers SRS, statistiques
 js/parser.js           analyse des imports et annotations furigana
+js/reading.js          lectures kana et furigana automatiques
+js/grammar-reading.js  furigana des exemples de grammaire
+js/pronunciation.js    comparaison et score de prononciation
+js/whisper.js          micro et transcription Whisper locale
+js/whisper-worker.js   worker du modèle Whisper (Transformers.js)
 js/app.js              interface, sessions, import, réglages
 manifest.webmanifest   installation PWA
 sw.js                  cache hors ligne
@@ -100,6 +107,8 @@ tests/                 tests unitaires, E2E et serveur de test
 - La voix japonaise dépend des voix installées sur l'ordinateur ou le téléphone. L'application reste utilisable sans audio.
 - L'OCR télécharge Tesseract.js et les modèles japonais / français au premier usage : une connexion est nécessaire la première fois. Une image nette et contrastée améliore beaucoup le résultat.
 - Les lectures et les phrases de contexte sont un point de départ : l'import permet d'ajouter ton propre vocabulaire, avec tes propres phrases.
+- La reconnaissance du navigateur peut envoyer l'audio au service du navigateur. Le moteur « IA locale » Whisper reste dans le navigateur, mais télécharge le modèle (plusieurs dizaines de Mo) au premier usage, puis le garde en cache.
+- Le score de prononciation est indicatif : il compare la transcription à la lecture attendue, ce n'est pas un jugement humain.
 
 ## Inspiration
 

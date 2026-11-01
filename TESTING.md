@@ -57,7 +57,8 @@ python3 -m http.server 8080 --bind 0.0.0.0
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
 
-10. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche et que l’explication de 行きます / iku est présente.
+10. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis choisis « La phrase » si le mot a un contexte. Lance la reconnaissance : le score s’affiche, et la fiche du mot garde les derniers scores. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai).
+11. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche, que l’explication de 行きます / iku est présente et que les exemples ont des furigana.
 
 ## 4. Le test exact de ta demande
 
@@ -105,7 +106,10 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - les réglages (objectif et thème sombre) après rechargement ;
 - l'absence de débordement horizontal sur un écran mobile de 390 px.
 - l’ouverture de l’onglet Réviser et le compteur de prononciations ;
-- l’onglet Grammaire et le vocabulaire quotidien.
+- la prononciation du mot et de la phrase entière, avec score et historique ;
+- les furigana de l’onglet Grammaire et le vocabulaire quotidien.
+
+Le test de prononciation simule la reconnaissance du navigateur pour rester rapide et déterministe. Le modèle Whisper n’est pas téléchargé en CI : son chargement réel se vérifie une fois à la main, dans un navigateur avec micro.
 
 Pour voir les tests dans une interface : `npx playwright test --ui`.
 

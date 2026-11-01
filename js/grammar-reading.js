@@ -119,4 +119,5 @@ var view = document.getElementById('view-grammar');
 if (view && window.MutationObserver) {
 new MutationObserver(function () { if (!view.hidden) schedule(); }).observe(view, { attributes: true, attributeFilter: ['hidden'] });
 }
+window.Kotoba.GrammarReading = { apply: apply };
 })();

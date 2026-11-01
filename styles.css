@@ -852,3 +852,24 @@ will-change: transform, opacity;
 .pronounce-card .jp-big { font-size: 2.7rem; }
 .pronounce-result { align-items: flex-start; }
 }
+
+.pronounce-targets { display: inline-flex; gap: 4px; padding: 4px; margin: 4px auto 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; }
+.pronounce-target { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .78rem; font-weight: 800; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.pronounce-target.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.pronounce-target:disabled { opacity: .45; cursor: not-allowed; }
+.pronounce-engine { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 0 auto 12px; font-size: .72rem; color: var(--muted); }
+.pronounce-engine-label { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: .62rem; }
+.pronounce-engine button { border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 5px 10px; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.pronounce-engine button.active { border-color: var(--green); color: var(--green-dark); background: var(--green-soft); }
+.pronounce-engine button:disabled { opacity: .45; cursor: not-allowed; }
+.pronounce-phrase { font-size: clamp(1.4rem, 5vw, 2rem); line-height: 1.9; margin: 12px auto 6px; max-width: 620px; }
+.pronounce-target-hint { margin-top: 0; }
+.pronounce-progress { width: min(320px, 80%); height: 8px; margin: 8px auto 0; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.pronounce-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--green), #a3e635); transition: width .2s ease; }
+.pronunciation-history { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.pronunciation-history ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.pronunciation-history li { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
+.pronunciation-history .pron-score { min-width: 52px; text-align: center; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text); font-weight: 900; font-size: .78rem; }
+.pronunciation-history .pron-score.good { background: var(--green-soft); color: var(--green-dark); }
+.pronunciation-history .pron-transcript { font-family: var(--jp); color: var(--text); }
+@media (max-width: 560px) { .pronounce-card .pronounce-phrase { font-size: 1.55rem; } }

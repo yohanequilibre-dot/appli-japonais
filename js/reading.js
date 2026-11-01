@@ -204,8 +204,29 @@ if (index === lastIndex && unit === 'へ' && /e$/.test(wordRomaji)) romaji = 'e'
 return '<ruby>' + esc(unit) + '<rt>' + esc(romaji) + '</rt></ruby>';
 }).join('');
 }
+function reading(text) {
+var d = dictionary();
+var s = String(text || '');
+var out = '';
+var i = 0;
+while (i < s.length) {
+var hit = '';
+for (var k = 0; k < d.keys.length; k++) {
+if (s.startsWith(d.keys[k], i)) { hit = d.keys[k]; break; }
+}
+if (hit) {
+out += String(d.map.get(hit)).replace(/([^\s\[\]]+?)\[([^\]]+)\]/g, '$2');
+i += hit.length;
+} else {
+out += s.charAt(i);
+i++;
+}
+}
+return out;
+}
 return {
 annotate: annotate,
+reading: reading,
 kanaReading: kanaReading,
 kanaUnits: kanaUnits,
 dictionary: dictionary

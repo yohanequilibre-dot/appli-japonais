@@ -101,7 +101,8 @@ test('onglet Grammaire et leçon de structure', async ({ page }) => {
 await page.locator('.desktop-nav [data-nav=grammar]').click();
 await expect(page.locator('#view-grammar')).toBeVisible();
 await expect(page.locator('#view-grammar')).toContainText('L’ordre de la phrase');
-await expect(page.locator('#view-grammar')).toContainText('私は水を飲みます。');
+await expect(page.locator('#view-grammar .grammar-jp rt').first()).toBeAttached();
+expect(await baseText(page.locator('#view-grammar .grammar-jp').first())).toContain('私は水を飲みます。');
 });
 test('plus de 200 mots et aller en forme polie', async ({ page }) => {
 const info = await page.evaluate(() => ({
@@ -138,4 +139,52 @@ await page.locator('[data-action=pronounce-one]').click();
 await expect(page.getByTestId('pronounce-card')).toBeVisible();
 await expect(page.getByTestId('pronounce-start')).toBeVisible();
 expect(await page.locator('[data-testid="pronounce-word"] rt').count()).toBeGreaterThan(0);
+});
+test('prononciation : phrase entière, score IA et historique', async ({ page }) => {
+await page.addInitScript(() => {
+class FakeRecognition {
+constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+start() {
+const self = this;
+setTimeout(function () {
+const alternative = { transcript: 'みずをのみます' };
+const result = [alternative];
+result.isFinal = true;
+if (self.onresult) self.onresult({ results: [result] });
+}, 20);
+}
+stop() {}
+abort() {}
+}
+window.SpeechRecognition = FakeRecognition;
+window.webkitSpeechRecognition = FakeRecognition;
+});
+await page.goto('/#importer');
+await page.reload();
+await page.getByTestId('import-textarea').fill('hydratation | 水分 | suibun | 水を飲みます。 | Je bois de l’eau.');
+await page.getByTestId('preview-import').click();
+await page.getByTestId('do-import').click();
+await page.locator('.chip[data-filter="imported"]').click();
+await page.locator('.word-row').first().click();
+await page.locator('[data-action=pronounce-one]').click();
+await expect(page.getByTestId('pronounce-card')).toBeVisible();
+await expect(page.getByTestId('pronounce-engine-whisper')).toBeVisible();
+await page.getByTestId('pronounce-engine-whisper').click();
+await expect(page.locator('[data-testid="pronounce-card"]')).toContainText('Whisper');
+await page.getByTestId('pronounce-engine-browser').click();
+await page.getByTestId('pronounce-target-phrase').click();
+await expect(page.getByTestId('pronounce-phrase')).toBeVisible();
+expect(await page.locator('[data-testid="pronounce-phrase"] rt').count()).toBeGreaterThan(0);
+await page.getByTestId('pronounce-start').click();
+await expect(page.getByTestId('pronounce-result')).toContainText('100 %');
+await expect(page.getByTestId('pronounce-result')).toContainText('phrase');
+await page.getByTestId('pronounce-finish').click();
+await expect(page.getByTestId('feedback')).toBeVisible();
+await page.getByTestId('session-next').click();
+await expect(page.getByTestId('summary')).toBeVisible();
+await page.getByTestId('finish-session').click();
+await page.locator('.desktop-nav [data-nav=library]').click();
+await page.locator('.word-row').first().click();
+await expect(page.getByTestId('pronunciation-history')).toContainText('100 %');
+await expect(page.getByTestId('pronunciation-history')).toContainText('Phrase');
 });
