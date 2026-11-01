@@ -257,6 +257,41 @@ test("prononciation : は/わ n'est pas confondu dans un mot", function () {
 const result = Pron.compare("はわ", { jp: "母", reading: "はは" });
 assert.equal(result.good, false);
 });
+test("parcours : 10 révisions valident, 30 rendent ultime", function () {
+  let p = Store.freshProgress(0);
+  assert.equal(Store.reviewStage(p), "new");
+  for (let i = 0; i < 10; i++) p = Store.schedule(p, "good", 0);
+  assert.equal(Store.reviewCount(p), 10);
+  assert.equal(Store.reviewStage(p), "validated");
+  assert.equal(Store.stageLabel(p), "Validé");
+  for (let i = 0; i < 20; i++) p = Store.schedule(p, "good", 0);
+  assert.equal(Store.reviewCount(p), 30);
+  assert.equal(Store.reviewStage(p), "ultimate");
+  assert.equal(Store.stageLabel(p), "Ultime");
+  assert.equal(Store.stageProgress(p).pct, 100);
+});
+
+test("parcours : les échecs comptent aussi comme révisions", function () {
+  let p = Store.freshProgress(0);
+  p = Store.schedule(p, "again", 0);
+  assert.equal(Store.reviewCount(p), 1);
+  assert.equal(Store.reviewStage(p), "learning");
+});
+
+test("parcours : comptage par étape", function () {
+  const entries = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+  const state = Store.defaultState();
+  state.progress.b = Store.freshProgress(0);
+  for (let i = 0; i < 10; i++) state.progress.b = Store.schedule(state.progress.b, "good", 0);
+  state.progress.c = Store.freshProgress(0);
+  for (let i = 0; i < 30; i++) state.progress.c = Store.schedule(state.progress.c, "good", 0);
+  const c = Store.stageCounts(entries, state);
+  assert.equal(c.new, 2);
+  assert.equal(c.learning, 0);
+  assert.equal(c.validated, 1);
+  assert.equal(c.ultimate, 1);
+});
+
 if (failed) {
   console.error("\n" + failed + " test(s) en échec.");
   process.exit(1);

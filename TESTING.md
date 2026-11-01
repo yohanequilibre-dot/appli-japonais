@@ -48,7 +48,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 ## 3. Le parcours à vérifier en cinq minutes
 
 1. **Accueil** : la carte « Prêt à apprendre ? » et le bouton « Apprendre de nouveaux mots » s'affichent. Le compteur de cartes dues et l'objectif XP sont visibles.
-2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Prononce-le, puis clique sur « Révéler la réponse ». Tu dois voir, dans cet ordre : le japonais avec furigana, le romaji, puis la phrase de contexte et sa traduction.
+2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart. Tu dois voir, dans cet ordre : le japonais avec furigana, le romaji, puis la phrase de contexte et sa traduction.
 3. **Validation** : clique sur « J'ai prononcé ». Le message « Bien joué ! » et la prochaine révision s'affichent. Clique sur « Continuer » : la carte suivante arrive.
 4. **Import** : va dans « Importer », colle `bonjour | kon-ni-chi-wa`, clique sur « Analyser la liste ». L'aperçu doit montrer こんにちは, le romaji et le contexte `こんにちは、花さん！`. Clique sur « Importer 1 mot ».
 5. **Mes mots** : clique sur le filtre « Importés ». La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
@@ -57,8 +57,9 @@ python3 -m http.server 8080 --bind 0.0.0.0
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
 
-10. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis choisis « La phrase » si le mot a un contexte. Lance la reconnaissance : le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
-11. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche, que l’explication de 行きます / iku est présente et que les exemples ont des furigana.
+10. **Parcours** : sur l'accueil, « Mon parcours » montre Nouveaux, En révision, Validés (10 révisions) et Ultimes (30). Clique sur une carte pour ouvrir le filtre correspondant dans Mes mots ; la fiche d'un mot affiche sa barre de progression.
+11. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis choisis « La phrase » si le mot a un contexte. Lance la reconnaissance : le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
+12. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche, que l’explication de 行きます / iku est présente et que les exemples ont des furigana.
 
 ## 4. Le test exact de ta demande
 
@@ -106,6 +107,8 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - les réglages (objectif et thème sombre) après rechargement ;
 - l'absence de débordement horizontal sur un écran mobile de 390 px.
 - l’ouverture de l’onglet Réviser et le compteur de prononciations ;
+- le micro sur la carte de révision et la révélation automatique de la fiche ;
+- le parcours par étapes et les filtres Validés / Ultimes ;
 - la prononciation du mot et de la phrase entière, avec score, écart syllabique, réécoute et historique ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;
 - les furigana de l’onglet Grammaire et le vocabulaire quotidien.

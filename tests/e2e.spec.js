@@ -275,3 +275,48 @@ await expect(page.getByTestId('pronounce-play')).toBeVisible();
 await page.getByTestId('pronounce-play').click();
 expect(await page.evaluate(() => window.__pronunciationPlayed)).toBe(true);
 });
+
+test('parcours : onglets et filtre des étapes', async ({ page }) => {
+  await expect(page.getByTestId('journey-panel')).toBeVisible();
+  await expect(page.getByTestId('journey-new')).toContainText('Nouveaux');
+  await page.getByTestId('journey-new').click();
+  await expect(page.locator('#view-library')).toBeVisible();
+  await expect(page.locator('.chip[data-filter="new"]')).toHaveClass(/active/);
+  await expect(page.locator('.chip[data-filter="validated"]')).toBeVisible();
+  await expect(page.locator('.chip[data-filter="ultimate"]')).toBeVisible();
+});
+
+test('révision : le micro valide puis révèle la fiche', async ({ page }) => {
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      constructor() {
+        this.lang = '';
+        this.interimResults = false;
+        this.continuous = false;
+        this.maxAlternatives = 1;
+      }
+      start() {
+        const result = [{ transcript: 'こんにちは' }];
+        result.isFinal = true;
+        const results = [result];
+        setTimeout(() => {
+          if (this.onresult) this.onresult({ results });
+          if (this.onend) this.onend();
+        }, 30);
+      }
+      stop() {}
+      abort() {}
+    }
+    window.SpeechRecognition = FakeRecognition;
+    window.webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.reload();
+  await page.getByTestId('cta-main').click();
+  await expect(page.getByTestId('pronounce-front-start')).toBeVisible();
+  await page.getByTestId('pronounce-front-start').click();
+  await expect(page.getByTestId('inline-pronunciation')).toBeVisible();
+  await expect(page.getByTestId('inline-pronunciation-score')).toContainText('100');
+  await expect(page.getByTestId('answer-jp')).toBeVisible();
+  await page.getByTestId('grade-good').click();
+  await expect(page.getByTestId('feedback')).toContainText('Bien joué');
+});

@@ -121,6 +121,52 @@
     return !!p && p.level >= 3;
   }
 
+  function reviewCount(p) {
+    return Math.max(0, Number(p && p.reps) || 0) + Math.max(0, Number(p && p.lapses) || 0);
+  }
+
+  function reviewStage(p) {
+    if (isNew(p)) return "new";
+    const n = reviewCount(p);
+    if (n >= 30) return "ultimate";
+    if (n >= 10) return "validated";
+    return "learning";
+  }
+
+  function stageLabel(p) {
+    const stage = reviewStage(p);
+    if (stage === "validated") return "Validé";
+    if (stage === "ultimate") return "Ultime";
+    if (stage === "learning") return "En révision";
+    return "Nouveau";
+  }
+
+  function stageDetail(p) {
+    const stage = reviewStage(p);
+    const n = reviewCount(p);
+    if (stage === "new") return "Nouveau · 0/10 révisions avant validation";
+    if (stage === "learning") return "En révision · " + n + "/10 avant validation";
+    if (stage === "validated") return "Validé · " + n + "/30 avant la révision ultime";
+    return "Révision ultime · objectif atteint";
+  }
+
+  function stageProgress(p) {
+    const stage = reviewStage(p);
+    const count = reviewCount(p);
+    const target = stage === "learning" || stage === "new" ? 10 : 30;
+    const pct = stage === "ultimate" ? 100 : Math.min(100, Math.round(count / target * 100));
+    return { stage: stage, count: count, target: target, pct: pct, label: stageLabel(p), detail: stageDetail(p) };
+  }
+
+  function stageCounts(entries, state) {
+    const out = { new: 0, learning: 0, validated: 0, ultimate: 0 };
+    (entries || []).forEach(function (e) {
+      const p = state && state.progress ? state.progress[e.id] : null;
+      out[reviewStage(p)]++;
+    });
+    return out;
+  }
+
   function dueFor(level, now) {
     if (level <= 0) return now + LEVELS[0];
     return now + LEVELS[Math.min(level, LEVELS.length - 1)] * DAY;
@@ -277,6 +323,12 @@ function counts(entries, state, now) {
     isNew: isNew,
     isDue: isDue,
     isKnown: isKnown,
+    reviewCount: reviewCount,
+    reviewStage: reviewStage,
+    stageLabel: stageLabel,
+    stageDetail: stageDetail,
+    stageProgress: stageProgress,
+    stageCounts: stageCounts,
     schedule: schedule,
     bumpStats: bumpStats,
 addXp: addXp,
