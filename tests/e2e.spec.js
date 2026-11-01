@@ -35,19 +35,20 @@ expect(answerLayout.contextRight).toBe(true);
 expect(answerLayout.fr).toBeGreaterThan(30);
 expect(Math.abs(answerLayout.fr - answerLayout.jp)).toBeLessThan(2);
 await expect(page.getByTestId('answer-context')).toContainText('こんにちは');
+await expect(page.getByTestId('answer-context-pronunciation')).toContainText('konnichiwa');
 expect(await page.locator('[data-testid="answer-jp"] rt').count()).toBeGreaterThan(0);
 expect(await page.locator('[data-testid="answer-context"] rt').count()).toBeGreaterThan(0);
 await page.getByTestId('grade-good').click();
-await expect(page.getByTestId('feedback')).toContainText('Bien joué');
-await page.getByTestId('session-next').click();
+await expect(page.getByTestId('feedback')).toHaveCount(0);
 await expect(page.getByTestId('session-card')).toBeVisible();
+await expect(page.getByTestId('reveal')).toBeVisible();
 expect(errors).toEqual([]);
 });
 test('la progression et l XP sont conservés après rechargement', async ({ page }) => {
 await page.getByTestId('cta-main').click();
 await page.getByTestId('reveal').click();
 await page.getByTestId('grade-good').click();
-await expect(page.getByTestId('feedback')).toBeVisible();
+await expect(page.getByTestId('reveal')).toBeVisible();
 await page.reload();
 await expect(page.locator('#xpVal')).toHaveText('10');
 });
@@ -101,7 +102,7 @@ test('compteur de prononciations et filtre Révisés', async ({ page }) => {
 await page.getByTestId('cta-main').click();
 await page.getByTestId('reveal').click();
 await page.getByTestId('grade-good').click();
-await expect(page.getByTestId('feedback')).toBeVisible();
+await expect(page.getByTestId('reveal')).toBeVisible();
 await page.reload();
 await page.locator('.desktop-nav [data-nav=library]').click();
 await page.locator('.chip[data-filter=reviewed]').click();
@@ -134,8 +135,6 @@ for (let i = 0; i < 3; i++) {
 await expect(page.getByTestId('reveal')).toBeVisible();
 await page.getByTestId('reveal').click();
 await page.getByTestId('grade-good').click();
-await expect(page.getByTestId('feedback')).toBeVisible();
-await page.getByTestId('session-next').click();
 }
 await expect(page.getByTestId('summary')).toBeVisible();
 await expect(page.getByTestId('daily-bonus')).toContainText('+20 XP');
@@ -144,12 +143,23 @@ await expect(page.getByTestId('streak-panel')).toContainText('1 jour');
 await expect(page.getByTestId('daily-done')).toBeVisible();
 });
 test('prononciation : carte dédiée et lecture du mot', async ({ page }) => {
+await page.evaluate(() => {
+class AutoRecognition {
+constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+start() {}
+stop() {}
+abort() {}
+}
+window.SpeechRecognition = AutoRecognition;
+window.webkitSpeechRecognition = AutoRecognition;
+});
 await page.locator('.desktop-nav [data-nav=library]').click();
 await page.locator('.word-row').first().click();
 await expect(page.locator('.modal-panel')).toContainText('Prononcer');
 await page.locator('[data-action=pronounce-one]').click();
 await expect(page.getByTestId('pronounce-card')).toBeVisible();
-await expect(page.getByTestId('pronounce-start')).toBeVisible();
+await expect(page.getByTestId('pronounce-start')).toHaveCount(0);
+await expect(page.getByTestId('pronounce-status')).toContainText('J’écoute');
 expect(await page.locator('[data-testid="pronounce-word"] rt').count()).toBeGreaterThan(0);
 });
 test('prononciation : phrase entière, score IA et historique', async ({ page }) => {
@@ -204,7 +214,7 @@ await expect(page.getByTestId('pronunciation-history')).toContainText('Phrase');
 await page.keyboard.press('Escape');
 await page.locator('.desktop-nav [data-nav=learn]').click();
 await expect(page.getByTestId('pronunciation-progress')).toBeVisible();
-await expect(page.getByTestId('pronunciation-average')).toContainText('100 %');
+await expect(page.getByTestId('pronunciation-average')).toContainText('50 %');
 });
 
 test('prononciation : écart syllabique et conseil', async ({ page }) => {
@@ -256,7 +266,6 @@ await page.reload();
 await page.locator('.desktop-nav [data-nav=library]').click();
 await page.locator('.word-row').first().click();
 await page.locator('[data-action=pronounce-one]').click();
-await page.getByTestId('pronounce-start').click();
 await expect(page.getByTestId('pronounce-status')).toContainText('rien entendu');
 });
 
@@ -267,6 +276,14 @@ await page.getByTestId('preview-import').click();
 await page.getByTestId('do-import').click();
 await page.evaluate(() => {
 window.__pronunciationPlayed = false;
+class SilentAuto {
+constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+start() {}
+stop() {}
+abort() {}
+}
+window.SpeechRecognition = SilentAuto;
+window.webkitSpeechRecognition = SilentAuto;
 window.Kotoba.Whisper = {
 supported: function () { return true; },
 hasRecording: function () { return true; },
@@ -343,7 +360,8 @@ test('révision : le micro valide puis révèle la fiche', async ({ page }) => {
   expect(inlineLayout.below).toBe(true);
   expect(inlineLayout.centered).toBe(true);
   await page.getByTestId('grade-good').click();
-  await expect(page.getByTestId('feedback')).toContainText('Bien joué');
+  await expect(page.getByTestId('feedback')).toHaveCount(0);
+  await expect(page.getByTestId('reveal')).toBeVisible();
 });
 
 test('révision : une mauvaise prononciation est enregistrée', async ({ page }) => {
@@ -379,4 +397,12 @@ test('révision : une mauvaise prononciation est enregistrée', async ({ page })
   await page.locator('.desktop-nav [data-nav=library]').click();
   await page.locator('.chip[data-filter="bad"]').click();
   await expect(page.locator('#libraryList')).toContainText('bonjour');
+});
+
+test('la fiche précise le registre de au revoir', async ({ page }) => {
+  await page.locator('.desktop-nav [data-nav=library]').click();
+  await page.getByTestId('search').fill('au revoir');
+  await page.locator('#libraryList .word-row').first().click();
+  await expect(page.getByTestId('detail-nuance')).toContainText('Formel');
+  await expect(page.getByTestId('detail-nuance')).toContainText('じゃあね');
 });
