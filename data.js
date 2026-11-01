@@ -11,7 +11,7 @@ window.UNITS_DATA = [
     ["すみません","","sumimasen","excusez-moi / pardon","すみません、駅はどこですか。","Excusez-moi, où est la gare ?"],
     ["はい","","hai","oui","はい、そうです。","Oui, c'est ça."],
     ["いいえ","","iie","non","いいえ、違います。","Non, ce n'est pas ça."],
-    ["お願いします","お願[ねが]いします","onegai shimasu","s'il vous plaît","コーヒーをお願いします。","Un café, s'il vous plaît.","",[{"jp":"ください","reading":"ください","romaji":"kudasai"}]],
+    ["お願いします","お願[ねが]いします","onegai shimasu","s'il vous plaît","コーヒーをお願いします。","Un café, s'il vous plaît.","",[{"jp":"ください","reading":"ください","romaji":"kudasai","usage":"Plus directe, mais polie. Très courante pour commander ou demander un objet.","example":"コーヒーをください。","exampleRomaji":"Kōhī o kudasai."}],{"nuance":"Formule polie pour demander quelque chose. « ください » est plus direct.","contextNote":"Au café, « コーヒーをお願いします » est la formule polie. « コーヒーをください » est plus directe, mais reste polie : les deux se disent."}],
     ["大丈夫","大丈夫[だいじょうぶ]","daijōbu","ça va / pas de problème","大丈夫ですか。","Ça va ?"]
   ]},
   { id:"presentation", name:"Se présenter", emoji:"🙋", words:[

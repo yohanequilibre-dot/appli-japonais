@@ -60,11 +60,34 @@ function rubyReadingHtml(reading) {
     (romaji ? '<span class="rt-romaji">' + esc(romaji) + '</span>' : '') +
     '<span class="rt-kana">' + esc(reading) + '</span></rt>';
 }
+function wholeReadingRuby(base, reading, romaji, className) {
+  const text = P.stripAnnotations(base || '');
+  const kana = P.stripAnnotations(reading || '');
+  if (!text || !kana || text === kana || !P.hasKanji(text) || P.hasKanji(kana)) return esc(text);
+  const latin = String(romaji || '').trim() || (P.kanaToRomaji ? P.kanaToRomaji(kana) : '');
+  return '<ruby' + (className ? ' class="' + className + '"' : '') + '>' + esc(text) + '<rt>' +
+    (latin ? '<span class="rt-romaji">' + esc(latin) + '</span>' : '') +
+    '<span class="rt-kana">' + esc(kana) + '</span></rt></ruby>';
+}
+function kanaFromRuby(value) {
+  const raw = String(value || '');
+  if (!raw) return '';
+  return raw.indexOf('[') >= 0
+    ? raw.replace(/([^\s\[\]]+?)\[([^\]]+)\]/g, function (match, base, reading) {
+      const prefix = (String(base).match(/^[\u3040-\u30ff]+/) || [''])[0];
+      return prefix + reading;
+    })
+    : P.stripAnnotations(raw);
+}
 function wordRubyHtml(e) {
-var jp = e && e.jp ? String(e.jp) : '';
-var kanaOnly = jp && !/[一-鿿]/.test(jp);
-if (kanaOnly && window.Kotoba.Reading && state.settings.furigana) return window.Kotoba.Reading.kanaReading(e);
-return rubyHtml(e && e.ruby, state.settings.furigana);
+  const jp = e && e.jp ? P.stripAnnotations(e.jp) : '';
+  if (!jp) return '';
+  if (!state.settings.furigana) return esc(jp);
+  const kanaOnly = !P.hasKanji(jp);
+  if (kanaOnly && window.Kotoba.Reading) return window.Kotoba.Reading.kanaReading(e);
+  const kana = e ? kanaFromRuby(e.reading || e.ruby) : '';
+  if (kana && kana !== jp && !P.hasKanji(kana)) return wholeReadingRuby(jp, kana, e.romaji, 'word-ruby');
+  return rubyHtml(e && e.ruby, true);
 }
 const REGISTER_NOTES = {
   'さようなら': 'Formel : さようなら · Familier : じゃあね.',
@@ -92,12 +115,24 @@ function registerHintOf(entry) {
 function alternativesHtml(entry) {
   const alts = entry && Array.isArray(entry.alternatives) ? entry.alternatives : [];
   if (!alts.length) return '';
-  const labels = alts.map(function (alt) {
+  const items = alts.map(function (alt) {
     const jp = alt && (alt.jp || alt.reading) || '';
     const romaji = alt && alt.romaji || '';
-    return '<b lang="ja">' + esc(jp) + '</b>' + (romaji ? ' · ' + esc(romaji) : '');
-  }).join('<span class="alt-sep"> · </span>');
-  return '<p class="answer-also" data-testid="answer-also">Aussi : ' + labels + '</p>';
+    const usage = alt && alt.usage ? String(alt.usage) : '';
+    const example = alt && alt.example ? String(alt.example) : '';
+    const exampleRomaji = alt && alt.exampleRomaji ? String(alt.exampleRomaji) : '';
+    return '<div class="answer-also-item">' +
+      '<p class="answer-also-title">Aussi : <b lang="ja">' + esc(jp) + '</b>' + (romaji ? ' · ' + esc(romaji) : '') + '</p>' +
+      (usage ? '<p class="answer-also-usage">' + esc(usage) + '</p>' : '') +
+      (example ? '<p class="answer-also-example" lang="ja">' + esc(example) + '</p>' : '') +
+      (exampleRomaji ? '<p class="answer-also-example-romaji">' + esc(exampleRomaji) + '</p>' : '') +
+    '</div>';
+  }).join('');
+  return '<div class="answer-also" data-testid="answer-also">' + items + '</div>';
+}
+function contextNoteHtml(entry) {
+  const note = entry && entry.contextNote ? String(entry.contextNote) : '';
+  return note ? '<p class="context-note" data-testid="answer-context-note">' + esc(note) + '</p>' : '';
 }
 function kanaContextHtml(text, highlight) {
   const raw = String(text || '');
@@ -119,14 +154,23 @@ function kanaContextHtml(text, highlight) {
   const idx = raw.indexOf(target);
   return render(raw.slice(0, idx)) + '<mark>' + render(target) + '</mark>' + render(raw.slice(idx + target.length));
 }
-function contextHtml(context, hl) {
+function contextHtml(context, hl, entry) {
   const text = String(context || '').trim();
+  const target = P.stripAnnotations(String(hl || '').trim());
   if (text && window.Kotoba.Reading) {
-    if (!P.hasKanji(text) && state.settings.furigana) return kanaContextHtml(text, hl);
-    return window.Kotoba.Reading.annotate(text, hl, state.settings.furigana);
+    if (!P.hasKanji(text) && state.settings.furigana) return kanaContextHtml(text, target);
+    const base = entry ? jpKeyOf(entry) : '';
+    const kana = entry ? kanaFromRuby(entry.reading || entry.ruby || '') : '';
+    if (state.settings.furigana && target && target === base && kana &&
+      P.hasKanji(target) && !P.hasKanji(kana) && text.indexOf(target) >= 0) {
+      const idx = text.indexOf(target);
+      const before = window.Kotoba.Reading.annotate(text.slice(0, idx), '', true);
+      const after = window.Kotoba.Reading.annotate(text.slice(idx + target.length), '', true);
+      return before + '<mark>' + wholeReadingRuby(target, kana, entry && entry.romaji, 'context-ruby') + '</mark>' + after;
+    }
+    return window.Kotoba.Reading.annotate(text, target, state.settings.furigana);
   }
   if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>';
-  const target = String(hl || '').trim();
   const safe = esc(text);
   if (!target) return safe;
   const escTarget = esc(target);
@@ -281,9 +325,11 @@ function buildEntries() {
         id: 'u:' + unit.id + ':' + i,
         unitId: unit.id, theme: unit.name, emoji: unit.emoji || '📘',
         jp: P.stripAnnotations(jp), ruby: ruby,
-        reading: P.stripAnnotations(ruby), romaji: w[2] || '', fr: fr,
+        reading: kanaFromRuby(ruby), romaji: w[2] || '', fr: fr,
         context: w[4] || '', contextFr: w[5] || '',
-        hl: w[6] || P.stripAnnotations(jp), alternatives: Array.isArray(w[7]) ? w[7] : [], source: 'base'
+        hl: w[6] || P.stripAnnotations(jp), alternatives: Array.isArray(w[7]) ? w[7] : [],
+        nuance: w[8] && w[8].nuance ? String(w[8].nuance) : '',
+        contextNote: w[8] && w[8].contextNote ? String(w[8].contextNote) : '', source: 'base'
       });
     });
   });
@@ -293,7 +339,7 @@ function buildEntries() {
     list.push(Object.assign({ theme: 'Mes mots importés', emoji: '📥', source: 'import' }, e, {
       id: e.id || key,
       ruby: e.ruby || e.jp,
-      reading: e.reading || P.stripAnnotations(e.ruby || e.jp),
+      reading: e.reading && !P.hasKanji(e.reading) ? P.stripAnnotations(e.reading) : kanaFromRuby(e.ruby || e.jp),
       hl: e.hl || e.jp
     }));
   });
@@ -378,7 +424,7 @@ function renderHome() {
   if (wotd) {
     body += '<section class="panel"><div class="panel-head"><h2>Mot du jour</h2><button class="btn ghost small" data-action="speak-text" data-text="' + attr(wotd.jp) + '">🔊 Écouter</button></div>' +
       '<div class="wotd"><div><div class="wotd-fr">' + frHtml(wotd.fr) + '</div><div class="wotd-jp" lang="ja">' + wordRubyHtml(wotd) + '</div>' +
-      '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context" lang="ja">' + contextHtml(wotd.context, wotd.hl) + '</p>' +
+      '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context" lang="ja">' + contextHtml(wotd.context, wotd.hl, wotd) + '</p>' +
       '<p class="muted small">' + esc(wotd.contextFr) + '</p><button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
   }
   if (window.Kotoba.Motivation) body += window.Kotoba.Motivation.streakPanel(state, now);
@@ -709,7 +755,7 @@ function answerVerdictHtml(st, graded) {
     return '<div class="answer-verdict ' + (st.good ? 'good' : 'bad') + '" data-testid="answer-verdict" role="status">' +
       '<b>' + (st.good ? '✅ C’est correct' : '❌ Ce n’est pas correct') + '</b>' +
       '<span>' + (st.good
-        ? (alternative ? 'Variante acceptée : ' + esc(st.alternativeLabel) + '. Prononciation validée.' : 'Tu as bien prononcé « ' + esc(target) + ' ».')
+        ? (alternative ? 'Autre formulation acceptée : ' + esc(st.alternativeLabel) + '. La fiche explique la différence.' : 'Tu as bien prononcé « ' + esc(target) + ' ».')
         : 'Tu t’es trompé. On attendait « ' + esc(target) + ' »' + (st.heard ? ', tu as dit « ' + esc(st.heard) + ' »' : '') + '. Réessaie en écoutant le modèle.') + '</span></div>';
   }
   if (graded) {
@@ -738,8 +784,9 @@ function answerCard(e) {
     '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
     '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
     '<aside class="context-card" data-testid="answer-context"><div class="context-label">En contexte</div>' +
-    '<p class="context-jp" lang="ja">' + contextHtml(e.context, e.hl) + '</p>' +
+    '<p class="context-jp" lang="ja">' + contextHtml(e.context, e.hl, e) + '</p>' +
     '<p class="context-fr">' + esc(e.contextFr || '—') + '</p>' +
+    contextNoteHtml(e) +
     (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '<p class="hint">Pas encore de phrase. Ajoute-en une depuis Mes mots.</p>') + '</aside></div>' +
     inline + '</div>';
 }
@@ -751,7 +798,7 @@ function inlinePronunciationHtml(st) {
     '<div class="inline-pronunciation-head"><b data-testid="inline-pronunciation-score">' + Math.round(Number(st.score) || 0) + ' %</b><span>' + (st.good ? '✅ C’est correct' : '❌ Tu t’es trompé') + '</span></div>' +
     '<div class="inline-pronunciation-lines"><span>Attendu</span><span lang="ja">' + esc(st.expected || '—') + '</span><span>Entendu</span><span lang="ja">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
     (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') +
-    (st.alternative && st.good ? '<p class="variant-note" data-testid="inline-variant">Variante acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b></p>' : '') +
+    (st.alternative && st.good ? '<p class="variant-note" data-testid="inline-variant">Autre formulation acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b>. La fiche ci-dessous explique la différence.</p>' : '') +
     (st.tip ? '<p class="hint inline-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
     '<div class="inline-pronunciation-actions">' + replay +
     '<button class="btn ghost small" data-action="pronounce-front-start" data-testid="inline-pronounce-retry">Réessayer</button></div></div>';
@@ -1023,8 +1070,9 @@ const engines = '<div class="pronounce-engine" role="group" aria-label="Moteur d
 '<button type="button" class="' + (engine === 'whisper' ? 'active' : '') + '" data-action="pronounce-engine" data-engine="whisper" data-testid="pronounce-engine-whisper"' + (whisperOk ? '' : ' disabled title="Indisponible dans ce navigateur"') + '>IA locale</button></div>';
 let shown = '';
 if (target === 'phrase' && phrase) {
-shown = '<div class="jp-big pronounce-phrase" lang="ja" data-testid="pronounce-phrase">' + contextHtml(phrase, '', state.settings.furigana) + '</div>' +
-'<p class="hint pronounce-target-hint">' + esc(e.contextFr || 'Toute la phrase, sans t’arrêter.') + '</p>';
+shown = '<div class="jp-big pronounce-phrase" lang="ja" data-testid="pronounce-phrase">' + contextHtml(phrase, '', e) + '</div>' +
+'<p class="hint pronounce-target-hint">' + esc(e.contextFr || 'Toute la phrase, sans t’arrêter.') + '</p>' +
+contextNoteHtml(e);
 } else {
 shown = '<div class="jp-big" lang="ja" data-testid="pronounce-word">' + wordRubyHtml(e) + '</div>' +
 (state.settings.romaji ? '<div class="romaji">' + esc(e.romaji) + '</div>' : '');
@@ -1416,7 +1464,7 @@ openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
 <div class='detail-romaji'>${esc(e.romaji)}</div>${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
-<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp' lang='ja'>${contextHtml(e.context, e.hl)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>
+<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp' lang='ja'>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${contextNoteHtml(e)}
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
 ${stageHtml}
 ${pronunciationHistory}
@@ -1612,7 +1660,18 @@ function onKeydown(event) {
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   if (!/^https?:$/.test(location.protocol)) return;
-  const run = function () { navigator.serviceWorker.register('./sw.js').catch(function () { /* offline bonus */ }); };
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!hadController || refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+  const run = function () {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(function (reg) {
+      if (reg && reg.update) reg.update().catch(function () { /* hors ligne */ });
+    }).catch(function () { /* offline bonus */ });
+  };
   if (document.readyState === 'complete') run(); else window.addEventListener('load', run);
 }
 

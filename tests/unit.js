@@ -292,12 +292,6 @@ test("parcours : comptage par étape", function () {
   assert.equal(c.ultimate, 1);
 });
 
-if (failed) {
-  console.error("\n" + failed + " test(s) en échec.");
-  process.exit(1);
-}
-console.log("\nTous les tests unitaires passent.");
-
 test("prononciation : ください est accepté pour s'il vous plaît", function () {
   const entry = Lex.lookup({ jp: "お願いします" });
   const result = Pron.compare("ください", entry);
@@ -305,4 +299,12 @@ test("prononciation : ください est accepté pour s'il vous plaît", function
   assert.equal(result.score, 100);
   assert.equal(result.alternative, true);
   assert.equal(result.expected, "ください");
+  assert.ok(entry.alternatives[0].usage.indexOf('Plus directe') >= 0);
+  assert.ok(entry.contextNote.indexOf('Au café') >= 0);
 });
+
+if (failed) {
+  console.error("\n" + failed + " test(s) en échec.");
+  process.exit(1);
+}
+console.log("\nTous les tests unitaires passent.");
