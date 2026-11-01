@@ -21,7 +21,7 @@ await expect(page.getByTestId('session-card')).toContainText('bonjour');
 await expect(page.getByTestId('answer-jp')).toHaveCount(0);
 await page.getByTestId('reveal').click();
 expect(await baseText(page.getByTestId('answer-jp'))).toContain('こんにちは');
-await expect(page.getByTestId('answer-romaji')).toHaveCount(0);
+await expect(page.getByTestId('answer-romaji')).toContainText('konnichiwa');
 await expect(page.getByTestId('grade-again')).toContainText('Je ne connaissais pas ce mot');
 await expect(page.getByTestId('grade-good')).toContainText('Passer au suivant');
 const answerLayout = await page.evaluate(() => {
@@ -38,7 +38,8 @@ await expect(page.getByTestId('answer-context')).toContainText('こんにちは'
 await expect(page.locator('.context-pronunciation')).toHaveCount(0);
 expect(await page.locator('[data-testid="answer-jp"] rt').count()).toBeGreaterThan(0);
 expect(await page.locator('[data-testid="answer-context"] rt').count()).toBeGreaterThan(0);
-await expect(page.locator('[data-testid="answer-context"] rt').first()).toHaveText('げんき');
+await expect(page.locator('[data-testid="answer-context"] .rt-kana').first()).toHaveText('げんき');
+await expect(page.locator('[data-testid="answer-context"] .rt-romaji').first()).toHaveText('genki');
 await page.getByTestId('grade-good').click();
 await expect(page.getByTestId('feedback')).toHaveCount(0);
 await expect(page.getByTestId('session-card')).toBeVisible();
@@ -61,6 +62,46 @@ test('la réponse lance automatiquement le mot puis le contexte', async ({ page 
   await page.reload();
   await page.getByTestId('cta-main').click();
   await page.getByTestId('reveal').click();
+  await expect.poll(() => page.evaluate(() => window.__spoken)).toEqual(['こんにちは', 'こんにちは、元気ですか。']);
+});
+
+test('le micro rend la correction explicite et relit la réponse', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__spoken = [];
+    class FakeUtterance { constructor(text) { this.text = text; } }
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: FakeUtterance });
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
+      paused: false,
+      cancel() {},
+      resume() {},
+      getVoices() { return []; },
+      speak(utterance) { window.__spoken.push(utterance.text); }
+    } });
+    class FakeRecognition {
+      constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+      start() {
+        const result = [{ transcript: 'おはよう' }];
+        result.isFinal = true;
+        const results = [result];
+        setTimeout(() => {
+          if (this.onresult) this.onresult({ results });
+          if (this.onend) this.onend();
+        }, 30);
+      }
+      stop() {}
+      abort() {}
+    }
+    window.SpeechRecognition = FakeRecognition;
+    window.webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.reload();
+  await page.getByTestId('cta-main').click();
+  await page.getByTestId('pronounce-front-start').click();
+  await expect(page.getByTestId('answer-verdict')).toContainText('Ce n’est pas correct');
+  await expect(page.getByTestId('inline-pronunciation')).toContainText('Tu t’es trompé');
+  await expect(page.locator('[data-testid="answer-context"] .rt-romaji').first()).toHaveText('genki');
+  await expect(page.getByTestId('answer-romaji')).toContainText('konnichiwa');
+  await expect(page.getByTestId('answer-verdict')).toHaveClass(/bad/);
   await expect.poll(() => page.evaluate(() => window.__spoken)).toEqual(['こんにちは', 'こんにちは、元気ですか。']);
 });
 test('la progression et l XP sont conservés après rechargement', async ({ page }) => {
@@ -412,7 +453,8 @@ test('révision : une mauvaise prononciation est enregistrée', async ({ page })
   await page.reload();
   await page.getByTestId('cta-main').click();
   await page.getByTestId('pronounce-front-start').click();
-  await expect(page.getByTestId('inline-pronunciation')).toContainText('À retravailler');
+  await expect(page.getByTestId('inline-pronunciation')).toContainText('Tu t’es trompé');
+  await expect(page.getByTestId('answer-verdict')).toContainText('Ce n’est pas correct');
   await expect(page.getByTestId('session-card')).toHaveClass(/glow-bad/);
   await page.locator('[data-action="quit-session"]').click();
   await page.locator('.desktop-nav [data-nav=library]').click();
@@ -442,4 +484,38 @@ test('un contexte sans kanji affiche sa prononciation au-dessus', async ({ page 
   const readings = await page.locator('[data-testid="answer-context"] rt').allTextContents();
   expect(readings).toContain('hai');
   expect(readings.join('').toLowerCase()).toContain('soudesu');
+});
+
+test('« s’il vous plaît » accepte ください et affiche les lectures latines', async ({ page }) => {
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+      start() {
+        const result = [{ transcript: '下さい' }];
+        result.isFinal = true;
+        const results = [result];
+        setTimeout(() => {
+          if (this.onresult) this.onresult({ results });
+          if (this.onend) this.onend();
+        }, 30);
+      }
+      stop() {}
+      abort() {}
+    }
+    window.SpeechRecognition = FakeRecognition;
+    window.webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.reload();
+  await page.locator('.desktop-nav [data-nav=library]').click();
+  await page.getByTestId('search').fill('onegai');
+  await page.locator('#libraryList .word-row').first().click();
+  await page.locator('[data-action="review-one"]').click();
+  await page.getByTestId('pronounce-front-start').click();
+  await expect(page.getByTestId('answer-verdict')).toContainText('C’est correct');
+  await expect(page.getByTestId('inline-variant')).toContainText('ください');
+  await expect(page.getByTestId('answer-also')).toContainText('ください');
+  await expect(page.getByTestId('answer-also')).toContainText('kudasai');
+  await expect(page.locator('[data-testid="answer-jp"] .rt-romaji').first()).toHaveText('nega');
+  await expect(page.getByTestId('answer-romaji')).toHaveText('onegai shimasu');
+  await expect(page.locator('[data-testid="answer-context"] .rt-romaji').first()).toHaveText('nega');
 });

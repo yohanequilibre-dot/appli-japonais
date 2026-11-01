@@ -297,3 +297,12 @@ if (failed) {
   process.exit(1);
 }
 console.log("\nTous les tests unitaires passent.");
+
+test("prononciation : ください est accepté pour s'il vous plaît", function () {
+  const entry = Lex.lookup({ jp: "お願いします" });
+  const result = Pron.compare("ください", entry);
+  assert.equal(result.good, true);
+  assert.equal(result.score, 100);
+  assert.equal(result.alternative, true);
+  assert.equal(result.expected, "ください");
+});

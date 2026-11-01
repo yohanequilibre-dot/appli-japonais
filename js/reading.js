@@ -43,7 +43,8 @@ var EXTRA = [
 ['夏祭り', '夏祭り[なつまつり]'],
 ['お元気', 'お元気[おげんき]'],
 ['お名前', 'お名前[おなまえ]'],
-['お会計', 'お会計[おかいけい]']
+['お会計', 'お会計[おかいけい]'],
+['下さい', '下さい[ください]']
 ];
 var DIGRAPHS = new Set([
 'きゃ', 'きゅ', 'きょ', 'しゃ', 'しゅ', 'しょ', 'ちゃ', 'ちゅ', 'ちょ',
@@ -106,6 +107,13 @@ keys: Array.from(map.keys()).sort(function (a, b) { return b.length - a.length; 
 };
 return cache;
 }
+function rtHtml(reading) {
+var romaji = P && P.kanaToRomaji ? P.kanaToRomaji(reading) : '';
+return '<rt>' +
+(romaji ? '<span class="rt-romaji">' + esc(romaji) + '</span>' : '') +
+'<span class="rt-kana">' + esc(reading) + '</span>' +
+'</rt>';
+}
 function rubyHtml(annotated) {
 var s = String(annotated || '');
 var out = '';
@@ -114,7 +122,7 @@ var re = /([^\s\[\]]+?)\[([^\]]+)\]/g;
 var m;
 while ((m = re.exec(s))) {
 out += esc(s.slice(last, m.index));
-out += '<ruby>' + esc(m[1]) + '<rt>' + esc(m[2]) + '</rt></ruby>';
+out += '<ruby>' + esc(m[1]) + rtHtml(m[2]) + '</ruby>';
 last = re.lastIndex;
 }
 out += esc(s.slice(last));
@@ -201,7 +209,7 @@ return units.map(function (unit, index) {
 var romaji = P ? P.kanaToRomaji(unit) : '';
 if (index === lastIndex && unit === 'は' && /wa$/.test(wordRomaji)) romaji = 'wa';
 if (index === lastIndex && unit === 'へ' && /e$/.test(wordRomaji)) romaji = 'e';
-return '<ruby>' + esc(unit) + '<rt>' + esc(romaji) + '</rt></ruby>';
+return '<ruby>' + esc(unit) + '<rt class="rt-romaji">' + esc(romaji) + '</rt></ruby>';
 }).join('');
 }
 function reading(text) {

@@ -21,6 +21,7 @@ const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus
 let toastTimer = 0;
 let voices = [];
 let tessPromise = null;
+let speechPrimed = false;
 
 const VIEWS = { learn: '#view-learn', review: '#view-review', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
 const FROM_HASH = { apprendre: 'learn', reviser: 'review', mots: 'library', importer: 'import', grammaire: 'grammar' };
@@ -47,11 +48,17 @@ function rubyHtml(annotated, showFurigana) {
   let m;
   while ((m = re.exec(s))) {
     out += esc(s.slice(last, m.index));
-    out += '<ruby>' + esc(m[1]) + '<rt>' + esc(m[2]) + '</rt></ruby>';
+    out += '<ruby>' + esc(m[1]) + rubyReadingHtml(m[2]) + '</ruby>';
     last = re.lastIndex;
   }
   out += esc(s.slice(last));
   return out;
+}
+function rubyReadingHtml(reading) {
+  const romaji = P && P.kanaToRomaji ? P.kanaToRomaji(reading) : '';
+  return '<rt>' +
+    (romaji ? '<span class="rt-romaji">' + esc(romaji) + '</span>' : '') +
+    '<span class="rt-kana">' + esc(reading) + '</span></rt>';
 }
 function wordRubyHtml(e) {
 var jp = e && e.jp ? String(e.jp) : '';
@@ -82,6 +89,16 @@ function registerHintOf(entry) {
   if (!entry) return '';
   return REGISTER_HINTS[jpKeyOf(entry)] || '';
 }
+function alternativesHtml(entry) {
+  const alts = entry && Array.isArray(entry.alternatives) ? entry.alternatives : [];
+  if (!alts.length) return '';
+  const labels = alts.map(function (alt) {
+    const jp = alt && (alt.jp || alt.reading) || '';
+    const romaji = alt && alt.romaji || '';
+    return '<b lang="ja">' + esc(jp) + '</b>' + (romaji ? ' · ' + esc(romaji) : '');
+  }).join('<span class="alt-sep"> · </span>');
+  return '<p class="answer-also" data-testid="answer-also">Aussi : ' + labels + '</p>';
+}
 function kanaContextHtml(text, highlight) {
   const raw = String(text || '');
   const target = String(highlight || '').trim();
@@ -95,7 +112,7 @@ function kanaContextHtml(text, highlight) {
     return chunks.map(function (chunk) {
       if (!/[\u3040-\u30ff]/.test(chunk)) return esc(chunk);
       const romaji = P.kanaToRomaji(chunk);
-      return romaji ? '<ruby>' + esc(chunk) + '<rt>' + esc(romaji) + '</rt></ruby>' : esc(chunk);
+      return romaji ? '<ruby>' + esc(chunk) + '<rt class="rt-romaji">' + esc(romaji) + '</rt></ruby>' : esc(chunk);
     }).join('');
   }
   if (!target || raw.indexOf(target) < 0) return render(raw);
@@ -183,6 +200,17 @@ function loadVoices() {
   if (!('speechSynthesis' in window)) return;
   try { voices = window.speechSynthesis.getVoices() || []; } catch (e) { voices = []; }
 }
+function primeSpeech() {
+  if (speechPrimed || !('speechSynthesis' in window) || !('speaking' in window.speechSynthesis)) return;
+  speechPrimed = true;
+  try {
+    const u = new window.SpeechSynthesisUtterance(' ');
+    u.lang = 'ja-JP';
+    u.rate = 2;
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+  } catch (e) { /* la lecture manuelle reste disponible */ }
+}
 function speak(text, rate) {
   const t = String(text || '').trim();
   if (!t) return;
@@ -208,7 +236,9 @@ function speakSequence(texts) {
   if (!list.length) return;
   if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance === 'undefined') return;
   try {
+    loadVoices();
     window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused && window.speechSynthesis.resume) window.speechSynthesis.resume();
     const v = voices.filter(function (x) { return /^ja/i.test(x.lang); })[0];
     list.forEach(function (text) {
       const u = new window.SpeechSynthesisUtterance(text);
@@ -223,7 +253,11 @@ function autoSpeakAnswer(entry) {
   if (!session || !entry) return;
   if (session.autoSpokenFor === entry.id) return;
   session.autoSpokenFor = entry.id;
-  speakSequence([entry.jp, entry.context]);
+  const id = entry.id;
+  setTimeout(function () {
+    if (!session || !session.current || session.current.id !== id) return;
+    speakSequence([entry.jp, entry.context]);
+  }, 220);
 }
 function download(name, text) {
   const blob = new Blob([text], { type: 'application/json' });
@@ -249,7 +283,7 @@ function buildEntries() {
         jp: P.stripAnnotations(jp), ruby: ruby,
         reading: P.stripAnnotations(ruby), romaji: w[2] || '', fr: fr,
         context: w[4] || '', contextFr: w[5] || '',
-        hl: w[6] || P.stripAnnotations(jp), source: 'base'
+        hl: w[6] || P.stripAnnotations(jp), alternatives: Array.isArray(w[7]) ? w[7] : [], source: 'base'
       });
     });
   });
@@ -663,6 +697,28 @@ function renderSession() {
   root.tabIndex = -1;
   root.style.outline = 'none';
   try { root.focus({ preventScroll: true }); } catch (e) { root.focus(); }
+  if (session.current && (session.phase === 'revealed' || session.phase === 'feedback' ||
+    (session.mode === 'pronounce' && session.pronunciation && session.pronunciation.status === 'done'))) {
+    autoSpeakAnswer(session.current);
+  }
+}
+function answerVerdictHtml(st, graded) {
+  if (st && st.status === 'done') {
+    const alternative = st.good && st.alternative && st.alternativeLabel;
+    const target = st.expected || 'le mot';
+    return '<div class="answer-verdict ' + (st.good ? 'good' : 'bad') + '" data-testid="answer-verdict" role="status">' +
+      '<b>' + (st.good ? '✅ C’est correct' : '❌ Ce n’est pas correct') + '</b>' +
+      '<span>' + (st.good
+        ? (alternative ? 'Variante acceptée : ' + esc(st.alternativeLabel) + '. Prononciation validée.' : 'Tu as bien prononcé « ' + esc(target) + ' ».')
+        : 'Tu t’es trompé. On attendait « ' + esc(target) + ' »' + (st.heard ? ', tu as dit « ' + esc(st.heard) + ' »' : '') + '. Réessaie en écoutant le modèle.') + '</span></div>';
+  }
+  if (graded) {
+    const good = session.lastGrade === 'good';
+    return '<div class="answer-verdict ' + (good ? 'good' : 'bad') + '" data-testid="answer-verdict" role="status">' +
+      '<b>' + (good ? '✅ Bonne réponse' : '❌ Mauvaise réponse') + '</b>' +
+      '<span>' + (good ? 'Continue comme ça.' : 'La bonne réponse est affichée. Prends le temps de la relire.') + '</span></div>';
+  }
+  return '';
 }
 function answerCard(e) {
   const st = session && session.pronunciation;
@@ -672,10 +728,13 @@ function answerCard(e) {
     : (graded ? (session.lastGrade === 'good' ? ' glow-good' : ' glow-bad') : '');
   const inline = session && session.mode === 'recall' ? inlinePronunciationHtml(st) : '';
   const nuance = nuanceOf(e);
-  return '<div class="session-card answer-card' + tone + '" data-testid="session-card"><div class="answer-main">' +
+  const verdict = answerVerdictHtml(st, graded);
+  return '<div class="session-card answer-card' + tone + '" data-testid="session-card">' + verdict + '<div class="answer-main">' +
     '<div class="answer-head"><div class="fr-small">' + frHtml(e.fr) + '</div>' +
     (nuance ? '<p class="nuance-note" data-testid="answer-nuance">' + esc(nuance) + '</p>' : '') +
     '<div class="jp-big" lang="ja" data-testid="answer-jp">' + wordRubyHtml(e) + '</div>' +
+    (e.romaji ? '<div class="answer-romaji" data-testid="answer-romaji">' + esc(e.romaji) + '</div>' : '') +
+    alternativesHtml(e) +
     '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
     '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
     '<aside class="context-card" data-testid="answer-context"><div class="context-label">En contexte</div>' +
@@ -689,9 +748,10 @@ function inlinePronunciationHtml(st) {
   const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba.Whisper.hasRecording && window.Kotoba.Whisper.hasRecording()
     ? '<button class="btn ghost small" data-action="pronounce-play" data-testid="inline-pronounce-play">🎧 Ma voix</button>' : '';
   return '<div class="inline-pronunciation ' + (st.good ? 'good' : 'retry') + '" data-testid="inline-pronunciation">' +
-    '<div class="inline-pronunciation-head"><b data-testid="inline-pronunciation-score">' + Math.round(Number(st.score) || 0) + ' %</b><span>' + (st.good ? '✅ Bien prononcé' : '🔁 À retravailler') + '</span></div>' +
+    '<div class="inline-pronunciation-head"><b data-testid="inline-pronunciation-score">' + Math.round(Number(st.score) || 0) + ' %</b><span>' + (st.good ? '✅ C’est correct' : '❌ Tu t’es trompé') + '</span></div>' +
     '<div class="inline-pronunciation-lines"><span>Attendu</span><span lang="ja">' + esc(st.expected || '—') + '</span><span>Entendu</span><span lang="ja">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
     (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') +
+    (st.alternative && st.good ? '<p class="variant-note" data-testid="inline-variant">Variante acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b></p>' : '') +
     (st.tip ? '<p class="hint inline-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
     '<div class="inline-pronunciation-actions">' + replay +
     '<button class="btn ghost small" data-action="pronounce-front-start" data-testid="inline-pronounce-retry">Réessayer</button></div></div>';
@@ -826,7 +886,7 @@ function pronunciationEntry(entry, target) {
     const phrase = pronunciationPhrase(entry);
     if (phrase) {
       const R = window.Kotoba.Reading;
-      return { jp: phrase, reading: R && R.reading ? R.reading(phrase) : phrase, romaji: '' };
+      return { jp: phrase, reading: R && R.reading ? R.reading(phrase) : phrase, romaji: '', alternatives: [] };
     }
   }
   return entry;
@@ -899,14 +959,15 @@ function finishPronunciation(transcript, engine, token, preset) {
     heard: result.heard || '',
     diff: result.diff || [],
     tip: result.tip || '',
-    variant: !!result.variant
+    variant: !!result.variant,
+    alternative: !!result.alternative,
+    alternativeLabel: result.alternativeLabel || ''
   };
   session.recognition = null;
   clearPronunciationTimer();
   savePronunciationScore(entry, result, target, engine);
   if (session.mode === 'recall' && session.phase === 'front') session.phase = 'revealed';
   renderSession();
-  if (session.mode === 'recall' && session.phase === 'revealed') autoSpeakAnswer(entry);
 }
 function abortPronunciation() {
   if (session) {
@@ -1003,8 +1064,8 @@ const compare = (st.expected || st.heard) ? '<div class="pronounce-compare">' +
 '<div><span class="compare-label">Entendu</span><span lang="ja" data-testid="pronounce-heard">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
 (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') + '</div>' : '';
 interaction = '<div class="pronounce-result ' + (st.good ? 'good' : 'retry') + '" data-testid="pronounce-result">' +
-'<div class="pronounce-score">' + (st.good ? '✅' : '🔁') + '</div>' +
-'<div><strong>' + (st.good ? 'Bien prononcé !' : 'Presque !') + '</strong>' +
+'<div class="pronounce-score">' + (st.good ? '✅' : '❌') + '</div>' +
+'<div><strong>' + (st.good ? 'C’est correct' : 'Ce n’est pas correct') + '</strong>' +
 '<span>Score : <b data-testid="pronounce-score">' + st.score + ' %</b> · ' + (st.target === 'phrase' ? 'phrase' : 'mot') + '</span>' +
 '<p class="hint">Entendu : ' + esc(st.transcript || '—') + '</p></div></div>' +
 compare +
@@ -1111,7 +1172,11 @@ const finishOnce = function (list) {
   const best = window.Kotoba.Pronunciation
     ? window.Kotoba.Pronunciation.best(list, pronunciationEntry(session.current, target), { readingOf: readingOf })
     : { transcript: list[0] || '', score: 0, good: false };
-  finishPronunciation(best.transcript, 'browser', token, best);
+  try { rec.stop(); } catch (e) { /* ignore */ }
+  setTimeout(function () {
+    if (!session || session.pronunciationToken !== token) return;
+    finishPronunciation(best.transcript, 'browser', token, best);
+  }, 160);
 };
 rec.onresult = function (event) {
   if (!session || session.pronunciationToken !== token || finished) return;
@@ -1193,7 +1258,7 @@ function quizView() {
 function feedbackHtml() {
   const good = session.lastGrade === 'good';
   const wrongChoice = session.lastChoice && session.current && session.lastChoice !== session.current.id;
-  return '<div class="feedback ' + (good ? 'good' : 'again') + '" data-testid="feedback"><div class="feedback-text"><strong>' + (good ? 'Bien joué !' : 'On la reverra bientôt') + '</strong>' +
+  return '<div class="feedback ' + (good ? 'good' : 'again') + '" data-testid="feedback"><div class="feedback-text"><strong>' + (good ? '✅ Bonne réponse' : '❌ Mauvaise réponse') + '</strong>' +
     '<span>Prochaine révision : ' + S.dueLabel(session.lastDue) + ' · +' + session.lastXp + ' XP</span>' + (wrongChoice ? '<span>La bonne réponse est affichée ci-dessus.</span>' : '') + '</div>' +
     '<button class="btn ' + (good ? 'primary' : 'warn') + '" data-action="continue-session" data-testid="session-next">Continuer <kbd>Entrée</kbd></button></div>';
 }
@@ -1216,13 +1281,13 @@ function reveal() {
   }
   session.phase = 'revealed';
   renderSession();
-  autoSpeakAnswer(session.current);
 }
 function flashValidation(grade) {
   const flash = $('#validationFlash');
   if (!flash) return;
   if (ui.validationTimer) clearTimeout(ui.validationTimer);
   flash.className = 'validation-flash ' + (grade === 'good' ? 'good' : 'bad');
+  flash.textContent = grade === 'good' ? '✅ Bonne réponse' : '❌ Mauvaise réponse';
   flash.hidden = false;
   ui.validationTimer = setTimeout(function () {
     flash.hidden = true;
@@ -1248,6 +1313,7 @@ state.progress[e.id] = next;
   session.total = Math.max(session.total, session.done + session.queue.length);
   persist();
   flashValidation(g);
+  toast(g === 'good' ? '✅ Bonne réponse' : '❌ Mauvaise réponse');
   if (window.Kotoba.Motivation) {
 const goal = state.settings.goal || 50;
 if (beforeXp < goal && todayXp() >= goal) window.Kotoba.Motivation.celebrate('Objectif du jour atteint ! 🎯');
@@ -1263,7 +1329,6 @@ else if (state.stats.streak > beforeStreak && [3, 7, 14, 30, 100].indexOf(state.
   }
 session.phase = 'feedback';
   renderSession();
-  autoSpeakAnswer(e);
   updateChrome();
 }
 function choose(id) { if (session && session.phase === 'question' && session.current) { session.lastChoice = id; grade(id === session.current.id ? 'good' : 'again'); } }
@@ -1349,7 +1414,7 @@ const nuance = nuanceOf(e);
 const nuanceHtml = nuance ? '<p class="nuance-note" data-testid="detail-nuance">' + esc(nuance) + '</p>' : '';
 openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
-<div class='detail-romaji'>${esc(e.romaji)}</div><div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
+<div class='detail-romaji'>${esc(e.romaji)}</div>${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
 <div class='detail-context'><div class='context-label'>En contexte</div><p class='jp' lang='ja'>${contextHtml(e.context, e.hl)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
@@ -1406,6 +1471,7 @@ function resetAll() {
 
 /* ---------- Événements ---------- */
 function onClick(event) {
+primeSpeech();
 const nav = event.target.closest ? event.target.closest('[data-nav]') : null;
 if (nav) {
 event.preventDefault();
@@ -1515,6 +1581,7 @@ function onInput(event) {
   else if (t.getAttribute && t.getAttribute('data-setting') === 'rate') state.settings.rate = Number(t.value) || 0.9;
 }
 function onKeydown(event) {
+  primeSpeech();
   const modal = $('#modal');
   if (modal && !modal.hidden && event.key === 'Escape') { closeModal(); return; }
   if (session) {

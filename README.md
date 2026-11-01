@@ -13,7 +13,7 @@ Une carte montre d'abord le mot **français**. Tu peux le prononcer avec le micr
 1. le japonais en kanji / kana, avec le **furigana** au-dessus ;
 2. une **phrase de contexte** japonaise avec sa traduction, à droite sur grand écran et sous la carte sur mobile.
 
-Le romaji reste disponible dans la fiche du mot et dans le mode prononciation.
+Le romaji complet apparaît sous le mot, et chaque kanji porte sa lecture latine au-dessus.
 
 Tu valides ensuite avec « Je ne savais pas » ou « J'ai prononcé ». La répétition espacée décide du prochain rendez-vous.
 
@@ -30,14 +30,15 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Plus de 200 mots de départ** répartis en 20 thèmes (salutations, nourriture, maison, transports, santé, travail, météo, émotions, etc.).
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Parcours par étapes** : un mot passe de « Nouveau » à « En révision », puis à « Validé » après 10 révisions et à « Ultime » après 30. Les onglets du parcours ouvrent directement le filtre correspondant dans Mes mots, et chaque fiche montre sa barre de progression.
-- **Contexte annoté** : les kanji de la phrase de contexte portent leur furigana au-dessus ; les contextes sans kanji affichent leur lecture au-dessus des mots, sans ligne de romaji globale.
+- **Contexte annoté** : chaque kanji du mot et de la phrase de contexte porte sa lecture latine (romaji) et son furigana au-dessus ; les contextes sans kanji affichent leur lecture latine au-dessus des mots, sans ligne de romaji globale.
 - **Nuances de registre** : la carte de rappel indique seulement le registre (« Version formelle » ou « Version familière ») ; la fiche et la réponse précisent les variantes さようなら / じゃあね.
-- **Réponse lue automatiquement** : dès que la réponse s’affiche, le mot puis la phrase de contexte sont lus sans clic.
+- **Réponse lue automatiquement** : dès que la réponse s’affiche — par révélation ou par résultat micro — le mot puis la phrase de contexte sont lus sans clic. Un verdict explicite indique si c’est correct ou non.
+- **Alternatives acceptées** : pour « s’il vous plaît », お願いします et ください (kudasai) sont acceptés ; l’alternative est affichée sous le mot.
 - **Quatre modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation. Le bouton « Passer au suivant » enchaîne immédiatement la carte suivante.
 - **Micro intégré à la révision** : sur la carte française, « 🎙️ Prononcer » écoute, donne un score et révèle la fiche dans tous les cas, même si la prononciation est imparfaite. La carte s'illumine fortement en vert ou en rouge selon le résultat, le détail est centré sous la fiche et le retry reste disponible. Dans la fiche d'un mot, « Prononcer » ouvre la carte de prononciation ; le micro ne démarre qu’au clic sur le bouton d’écoute.
 - **Prononciation guidée** : carte dédiée au mot ou à la phrase entière, score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop et un conseil. En mode IA locale, réécoute ta prise à côté de la voix modèle. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
-- **Furigana partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement.
-- **Carte dans le bon ordre** : français → japonais avec furigana → contexte annoté, avec le romaji disponible dans la fiche et le mode prononciation.
+- **Furigana et romaji partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement ; la lecture latine est affichée au-dessus des kanji.
+- **Carte dans le bon ordre** : français → japonais avec lectures latines et furigana → contexte annoté, avec le romaji complet sous le mot.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
 - **Série, XP, objectif quotidien** et prévisions des sept prochains jours.
 - **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, mal prononcés, en révision, validés, ultimes, connus, importés), fiche détaillée, modification et suppression des mots importés.

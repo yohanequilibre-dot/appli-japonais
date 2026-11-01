@@ -60,7 +60,7 @@
     E("さようなら", "さようなら", "さようなら", "sayounara", "au revoir", "さようなら、また明日。", "Au revoir, à demain.", { frAliases: ["au revoir", "adieu", "bye"], romajiAliases: ["sayonara", "sa-yo-na-ra"] }),
     E("はい", "はい", "はい", "hai", "oui", "はい、そうです。", "Oui, c'est ça.", { frAliases: ["oui", "yes", "ouais"] }),
     E("いいえ", "いいえ", "いいえ", "iie", "non", "いいえ、違います。", "Non, ce n'est pas ça.", { frAliases: ["non", "no"] }),
-    E("お願いします", "お願[ねが]いします", "おねがいします", "onegai shimasu", "s'il vous plaît", "コーヒーをお願いします。", "Un café, s'il vous plaît.", { frAliases: ["s il vous plait", "sil vous plait", "svp"], romajiAliases: ["onegaishimasu", "onegai-shimasu"] }),
+    E("お願いします", "お願[ねが]いします", "おねがいします", "onegai shimasu", "s'il vous plaît", "コーヒーをお願いします。", "Un café, s'il vous plaît.", { frAliases: ["s il vous plait", "sil vous plait", "svp"], romajiAliases: ["onegaishimasu", "onegai-shimasu"], alternatives: [{ jp: "ください", reading: "ください", romaji: "kudasai" }] }),
     E("大丈夫", "大丈夫[だいじょうぶ]", "だいじょうぶ", "daijoubu", "ça va / pas de problème", "大丈夫ですか。", "Ça va ?", { frAliases: ["ca va", "pas de probleme", "pas de souci", "d accord"], romajiAliases: ["daijobu", "daijōbu"] }),
     E("はじめまして", "はじめまして", "はじめまして", "hajimemashite", "enchanté(e)", "はじめまして、田中です。", "Enchanté, je suis Tanaka.", { frAliases: ["enchante", "enchantée", "ravi de te rencontrer"], romajiAliases: ["ha-ji-me-ma-shi-te"] }),
     E("いただきます", "いただきます", "いただきます", "itadakimasu", "bon appétit", "いただきます！", "Bon appétit !", { frAliases: ["bon appetit", "bon appétit"] }),

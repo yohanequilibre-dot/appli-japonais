@@ -146,19 +146,36 @@ return 'Réécoute le modèle, puis répète lentement en articulant.';
 function compare(transcript, entry, options) {
 var opts = options || {};
 var raw = String(transcript || '').trim();
-var targets = [entry && entry.reading, entry && entry.jp].filter(Boolean).map(String);
+var targets = [];
+function addTarget(value, alternative, label) {
+var text = String(value || '').trim();
+if (!text || targets.some(function (item) { return item.value === text; })) return;
+targets.push({ value: text, alternative: !!alternative, label: String(label || text) });
+}
+addTarget(entry && entry.reading, false, entry && entry.jp);
+addTarget(entry && entry.jp, false, entry && entry.jp);
+(Array.isArray(entry && entry.alternatives) ? entry.alternatives : []).forEach(function (alt) {
+addTarget(alt && (alt.reading || alt.jp), true, alt && (alt.jp || alt.reading));
+addTarget(alt && alt.jp, true, alt && (alt.jp || alt.reading));
+});
 var heardVariants = uniqueVariants(raw, opts.readingOf);
 var expectedVariants = [];
 targets.forEach(function (target) {
-uniqueVariants(target, null).forEach(function (variant) { expectedVariants.push(variant); });
+uniqueVariants(target.value, null).forEach(function (variant) {
+variant.alternative = target.alternative;
+variant.label = target.label;
+expectedVariants.push(variant);
+});
 });
 var best = {
 score: 0,
-target: targets[0] || '',
-expectedRaw: targets[0] || '',
+target: targets[0] ? targets[0].value : '',
+expectedRaw: targets[0] ? targets[0].value : '',
 expected: '',
 heard: '',
 variant: false,
+alternative: false,
+alternativeLabel: '',
 kanaPair: false,
 diff: []
 };
@@ -178,6 +195,8 @@ expectedRaw: expectedItem.raw,
 expected: expectedItem.value,
 heard: heardItem.value,
 variant: usedVariant,
+alternative: expectedItem.alternative,
+alternativeLabel: expectedItem.label || '',
 kanaPair: preferKana,
 diff: align(expectedItem.value, heardItem.value)
 };
@@ -187,13 +206,15 @@ diff: align(expectedItem.value, heardItem.value)
 var score = Math.round(best.score * 100);
 return {
 transcript: raw,
-target: best.target || targets[0] || '',
+target: best.target || (targets[0] && targets[0].value) || '',
 expected: best.expected,
 heard: best.heard,
 score: score,
 good: score >= 75,
 close: score >= 60,
 variant: !!best.variant,
+alternative: !!best.alternative,
+alternativeLabel: best.alternativeLabel || '',
 diff: best.diff || [],
 tip: advice(best.expectedRaw || best.target || '', best.expected, best.heard, score, best.variant)
 };
