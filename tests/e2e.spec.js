@@ -189,6 +189,10 @@ await page.locator('.desktop-nav [data-nav=library]').click();
 await page.locator('.word-row').first().click();
 await expect(page.getByTestId('pronunciation-history')).toContainText('100 %');
 await expect(page.getByTestId('pronunciation-history')).toContainText('Phrase');
+await page.keyboard.press('Escape');
+await page.locator('.desktop-nav [data-nav=learn]').click();
+await expect(page.getByTestId('pronunciation-progress')).toBeVisible();
+await expect(page.getByTestId('pronunciation-average')).toContainText('100 %');
 });
 
 test('prononciation : écart syllabique et conseil', async ({ page }) => {
@@ -242,4 +246,32 @@ await page.locator('.word-row').first().click();
 await page.locator('[data-action=pronounce-one]').click();
 await page.getByTestId('pronounce-start').click();
 await expect(page.getByTestId('pronounce-status')).toContainText('rien entendu');
+});
+
+test('prononciation : réécoute de ma voix avec le moteur IA', async ({ page }) => {
+await page.goto('/#importer');
+await page.getByTestId('import-textarea').fill('hydratation | 水分 | suibun | 水を飲みます。 | Je bois de l’eau.');
+await page.getByTestId('preview-import').click();
+await page.getByTestId('do-import').click();
+await page.evaluate(() => {
+window.__pronunciationPlayed = false;
+window.Kotoba.Whisper = {
+supported: function () { return true; },
+hasRecording: function () { return true; },
+play: function () { window.__pronunciationPlayed = true; return Promise.resolve(); },
+listen: function () { return Promise.resolve('みずをのみます'); },
+stop: function () {},
+abort: function () {}
+};
+});
+await page.locator('.chip[data-filter="imported"]').click();
+await page.locator('.word-row').first().click();
+await page.locator('[data-action=pronounce-one]').click();
+await page.getByTestId('pronounce-engine-whisper').click();
+await page.getByTestId('pronounce-target-phrase').click();
+await page.getByTestId('pronounce-start').click();
+await expect(page.getByTestId('pronounce-result')).toContainText('100 %');
+await expect(page.getByTestId('pronounce-play')).toBeVisible();
+await page.getByTestId('pronounce-play').click();
+expect(await page.evaluate(() => window.__pronunciationPlayed)).toBe(true);
 });

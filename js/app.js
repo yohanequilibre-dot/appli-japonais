@@ -140,6 +140,9 @@ function loadVoices() {
 function speak(text, rate) {
   const t = String(text || '').trim();
   if (!t) return;
+  if (window.Kotoba.Whisper && window.Kotoba.Whisper.stopPlayback) {
+    try { window.Kotoba.Whisper.stopPlayback(); } catch (e) { /* ignore */ }
+  }
   if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance === 'undefined') {
     toast('La synthèse vocale n\'est pas disponible ici.');
     return;
@@ -233,6 +236,7 @@ function route() {
 function renderHome() {
   const now = Date.now();
   const c = S.counts(entries, state, now);
+  const ps = pronunciationStats();
   const xp = todayXp();
   const goal = state.settings.goal || 50;
   const pct = Math.min(100, Math.round(xp / goal * 100));
@@ -264,6 +268,7 @@ function renderHome() {
     '<div class="stat-row"><div class="stat-card"><span class="stat-num">' + c.due + '</span><span class="stat-label">À réviser</span></div>' +
       '<div class="stat-card"><span class="stat-num">' + c.known + '</span><span class="stat-label">Mots connus</span></div>' +
       '<div class="stat-card"><span class="stat-num">' + c.new + '</span><span class="stat-label">Nouveaux</span></div></div>' +
+    (ps.attempts ? pronunciationPanelHtml(ps) : '') +
     '<section class="panel"><div class="panel-head"><h2>Mes thèmes</h2><p>' + c.seen + '/' + c.total + ' mots découverts</p></div><div class="theme-grid">' + units + '</div></section>';
   if (wotd) {
     body += '<section class="panel"><div class="panel-head"><h2>Mot du jour</h2><button class="btn ghost small" data-action="speak-text" data-text="' + attr(wotd.jp) + '">🔊 Écouter</button></div>' +
@@ -501,6 +506,16 @@ list = seen.concat(fresh).slice(0, 3);
   if (root) root.hidden = false;
   nextCard();
 }
+function startPronunciationPractice() {
+  const stats = pronunciationStats();
+  const list = stats.weak.map(function (row) { return row.entry; });
+  if (!list.length) { toast('Aucun mot à retravailler pour l’instant.'); return; }
+  session = { kind: 'pronunciation', mode: 'pronounce', queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
+  document.body.style.overflow = 'hidden';
+  const root = $('#session');
+  if (root) root.hidden = false;
+  nextCard();
+}
 function startOne(id, mode) {
 const e = entries.filter(function (x) { return x.id === id; })[0];
 if (!e) return;
@@ -593,6 +608,50 @@ function recallView() {
 function pronunciations(entry) {
   const p = entry && state.progress ? state.progress[entry.id] : null;
   return p && Array.isArray(p.pronunciation) ? p.pronunciation : [];
+}
+function pronunciationStats() {
+  const rows = [];
+  entries.forEach(function (entry) {
+    const history = pronunciations(entry);
+    if (!history.length) return;
+    const recent = history.slice(-5);
+    const average = Math.round(recent.reduce(function (sum, item) {
+      return sum + Math.max(0, Math.min(100, Number(item && item.score) || 0));
+    }, 0) / recent.length);
+    const last = Math.round(Math.max(0, Math.min(100, Number(history[history.length - 1] && history[history.length - 1].score) || 0)));
+    rows.push({ entry: entry, average: average, last: last, attempts: history.length });
+  });
+  const all = [];
+  rows.forEach(function (row) {
+    pronunciations(row.entry).forEach(function (item) { all.push(item); });
+  });
+  all.sort(function (a, b) { return (Number(b && b.t) || 0) - (Number(a && a.t) || 0); });
+  const recent = all.slice(0, 40);
+  const average = recent.length ? Math.round(recent.reduce(function (sum, item) {
+    return sum + Math.max(0, Math.min(100, Number(item && item.score) || 0));
+  }, 0) / recent.length) : 0;
+  let best = 0;
+  all.forEach(function (item) {
+    best = Math.max(best, Math.min(100, Number(item && item.score) || 0));
+  });
+  const weak = rows.filter(function (row) { return row.last < 75 || row.average < 75; })
+    .sort(function (a, b) { return a.last - b.last || a.average - b.average; })
+    .slice(0, 3);
+  return { attempts: all.length, practiced: rows.length, average: average, best: Math.round(best), weak: weak };
+}
+function pronunciationPanelHtml(stats) {
+  const weak = stats.weak.map(function (row) {
+    return '<button type="button" class="pron-weak-chip" data-action="detail" data-id="' + attr(row.entry.id) + '">' +
+      '<span>' + esc(row.entry.fr) + '</span><b>' + row.last + ' %</b></button>';
+  }).join('');
+  return '<section class="panel pronunciation-panel" data-testid="pronunciation-progress">' +
+    '<div class="panel-head"><div><h2>Prononciation</h2><p>' + stats.practiced + ' mot(s) travaillé(s) · ' + stats.attempts + ' essai(s)</p></div>' +
+    (weak ? '<button class="btn ghost small" data-action="practice-pronunciation" data-testid="practice-pronunciation">Travailler</button>' : '') + '</div>' +
+    '<div class="pron-stats"><div><b data-testid="pronunciation-average">' + stats.average + ' %</b><span>moyenne récente</span></div>' +
+    '<div><b>' + stats.best + ' %</b><span>meilleur score</span></div>' +
+    '<div><b>' + stats.weak.length + '</b><span>mot(s) à retravailler</span></div></div>' +
+    (weak ? '<div class="pron-weak-list"><span class="context-label">À retravailler</span>' + weak + '</div>' : '<p class="hint">Tous tes derniers essais sont au vert. Continue à t’entraîner.</p>') +
+    '</section>';
 }
 function pronunciationPhrase(entry) {
   return String((entry && entry.context) || '').trim();
@@ -770,6 +829,11 @@ interaction = '<div class="pronounce-status error" data-testid="pronounce-status
 '<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-retry">Réessayer</button>' +
 '<button class="btn ghost" data-action="pronounce-finish" data-good="0" data-testid="pronounce-finish">Passer</button></div>';
 } else {
+const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba.Whisper.hasRecording && window.Kotoba.Whisper.hasRecording()
+? '<div class="pronounce-replay" data-testid="pronounce-replay">' +
+'<button class="btn ghost small" data-action="speak-text" data-text="' + attr(audioText) + '">🔊 Modèle</button>' +
+'<button class="btn ghost small" data-action="pronounce-play" data-testid="pronounce-play">🎧 Ma voix</button></div>'
+: '';
 const compare = (st.expected || st.heard) ? '<div class="pronounce-compare">' +
 '<div><span class="compare-label">Attendu</span><span lang="ja" data-testid="pronounce-expected">' + esc(st.expected || '—') + '</span></div>' +
 '<div><span class="compare-label">Entendu</span><span lang="ja" data-testid="pronounce-heard">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
@@ -781,6 +845,7 @@ interaction = '<div class="pronounce-result ' + (st.good ? 'good' : 'retry') + '
 '<p class="hint">Entendu : ' + esc(st.transcript || '—') + '</p></div></div>' +
 compare +
 (st.tip ? '<p class="hint pronounce-tip" data-testid="pronounce-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
+replay +
 '<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-finish" data-good="' + (st.good ? '1' : '0') + '" data-testid="pronounce-finish">' + (st.good ? 'Valider et continuer' : 'Continuer sans valider') + '</button>' +
 '<button class="btn ghost" data-action="pronounce-retry">Réessayer</button></div>';
 }
@@ -1175,6 +1240,14 @@ case 'pronounce-retry': startPronunciation(); break;
 case 'pronounce-stop': stopPronunciation(); break;
 case 'pronounce-target': setPronunciationTarget(el.getAttribute('data-target')); break;
 case 'pronounce-engine': setPronunciationEngine(el.getAttribute('data-engine')); break;
+case 'pronounce-play': {
+  try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+  if (window.Kotoba.Whisper && window.Kotoba.Whisper.play) {
+    window.Kotoba.Whisper.play().catch(function () { toast('Impossible de relire l’enregistrement.'); });
+  }
+  break;
+}
+case 'practice-pronunciation': startPronunciationPractice(); break;
 case 'pronounce-finish': grade(el.getAttribute('data-good') === '1' ? 'good' : 'again'); break;
     case 'edit-entry': openEdit(id); break;
     case 'delete-entry': deleteEntry(id); break;

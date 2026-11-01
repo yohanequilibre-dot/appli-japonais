@@ -7,6 +7,8 @@ var requestId = 0;
 var SAMPLE_RATE = 16000;
 var DEFAULT_MAX_MS = 12000;
 var DEFAULT_SILENCE_MS = 1200;
+var lastRecording = null;
+var playbackAudio = null;
 
 function supported() {
 return !!(root.navigator && root.navigator.mediaDevices && root.navigator.mediaDevices.getUserMedia &&
@@ -38,6 +40,54 @@ if (worker) {
 try { worker.terminate(); } catch (e) { /* ignore */ }
 worker = null;
 }
+}
+function stopPlayback() {
+if (!playbackAudio) return;
+try {
+playbackAudio.pause();
+playbackAudio.currentTime = 0;
+} catch (e) { /* ignore */ }
+playbackAudio = null;
+}
+function rememberRecording(blob) {
+if (!blob || !blob.size) return;
+stopPlayback();
+if (lastRecording && lastRecording.url) {
+try { root.URL.revokeObjectURL(lastRecording.url); } catch (e) { /* ignore */ }
+}
+lastRecording = { blob: blob, url: '' };
+}
+function recordingUrl() {
+if (!lastRecording || !lastRecording.blob) return '';
+if (!lastRecording.url) {
+try { lastRecording.url = root.URL.createObjectURL(lastRecording.blob); } catch (e) { return ''; }
+}
+return lastRecording.url;
+}
+function hasRecording() {
+return !!(lastRecording && lastRecording.blob);
+}
+function play() {
+return new Promise(function (resolve, reject) {
+var url = recordingUrl();
+if (!url) { reject(new Error('Aucun enregistrement disponible.')); return; }
+stopPlayback();
+var audio;
+try { audio = new root.Audio(url); } catch (e) { reject(new Error('Lecture audio indisponible.')); return; }
+playbackAudio = audio;
+audio.onended = function () { if (playbackAudio === audio) playbackAudio = null; resolve(); };
+audio.onerror = function () {
+if (playbackAudio === audio) playbackAudio = null;
+reject(new Error('Impossible de relire l’enregistrement.'));
+};
+var started = audio.play();
+if (started && started.catch) {
+started.catch(function (err) {
+if (playbackAudio === audio) playbackAudio = null;
+reject(err);
+});
+}
+});
 }
 function rejectActive(a, message) {
 if (a && !a.settled) { a.settled = true; a.reject(new Error(message)); }
@@ -264,6 +314,7 @@ if (!blob.size) {
 fail(a, 'L’enregistrement est vide. Réessaie en parlant dès le début.', false);
 return;
 }
+rememberRecording(blob);
 emit(a, 'transcribing', 'Transcription en cours…');
 prepare(blob).then(function (audio) {
 if (active !== a) return;
@@ -282,6 +333,7 @@ function stop() {
 if (active) stopCapture(active);
 }
 function abort() {
+stopPlayback();
 var a = active;
 if (!a) return;
 active = null;
@@ -376,6 +428,9 @@ root.Kotoba.Whisper = {
 supported: supported,
 listen: listen,
 stop: stop,
-abort: abort
+abort: abort,
+hasRecording: hasRecording,
+play: play,
+stopPlayback: stopPlayback
 };
 })(typeof window !== 'undefined' ? window : globalThis);

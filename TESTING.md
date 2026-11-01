@@ -57,7 +57,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
 
-10. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis choisis « La phrase » si le mot a un contexte. Lance la reconnaissance : le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai).
+10. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis choisis « La phrase » si le mot a un contexte. Lance la reconnaissance : le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
 11. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche, que l’explication de 行きます / iku est présente et que les exemples ont des furigana.
 
 ## 4. Le test exact de ta demande
@@ -106,7 +106,8 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - les réglages (objectif et thème sombre) après rechargement ;
 - l'absence de débordement horizontal sur un écran mobile de 390 px.
 - l’ouverture de l’onglet Réviser et le compteur de prononciations ;
-- la prononciation du mot et de la phrase entière, avec score, écart syllabique et historique ;
+- la prononciation du mot et de la phrase entière, avec score, écart syllabique, réécoute et historique ;
+- le panneau de progression et le lancement d’une session sur les mots à retravailler ;
 - les furigana de l’onglet Grammaire et le vocabulaire quotidien.
 
 Le test de prononciation simule la reconnaissance du navigateur pour rester rapide et déterministe. La capture micro réelle et le modèle Whisper ne sont pas lancés en CI : leur fonctionnement se vérifie une fois à la main, dans un navigateur avec micro.

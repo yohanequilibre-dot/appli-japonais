@@ -29,13 +29,13 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Plus de 200 mots de départ** répartis en 20 thèmes (salutations, nourriture, maison, transports, santé, travail, météo, émotions, etc.).
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Quatre modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation.
-- **Prononciation guidée** : carte dédiée au mot ou à la phrase entière, score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop et un conseil. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
+- **Prononciation guidée** : carte dédiée au mot ou à la phrase entière, score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop et un conseil. En mode IA locale, réécoute ta prise à côté de la voix modèle. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
 - **Furigana partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement.
 - **Carte dans le bon ordre** : français → japonais avec furigana → romaji → contexte.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
 - **Série, XP, objectif quotidien** et prévisions des sept prochains jours.
 - **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, en cours, connus, importés), fiche détaillée, modification et suppression des mots importés.
-- **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés » et cinq derniers scores de prononciation dans la fiche.
+- **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés », cinq derniers scores dans la fiche et panneau de progression avec moyenne récente, meilleur score et mots à retravailler.
 - **Onglet Grammaire** : ordre de la phrase, particules, formes ます / neutres, passé, négation, questions, compteurs et constructions quotidiennes.
 - **Import libre** : texte collé, fichier `.txt` / `.csv` / `.tsv` / `.json`, ou capture d'écran avec OCR japonais + français.
 - **Sauvegarde** : export / import JSON de toute la progression.
