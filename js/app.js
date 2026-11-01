@@ -17,7 +17,7 @@ const state = S.load();
 let entries = [];
 let view = 'learn';
 let session = null;
-const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null };
+const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null, validationTimer: 0 };
 let toastTimer = 0;
 let voices = [];
 let tessPromise = null;
@@ -60,34 +60,27 @@ if (kanaOnly && window.Kotoba.Reading && state.settings.furigana) return window.
 return rubyHtml(e && e.ruby, state.settings.furigana);
 }
 const REGISTER_NOTES = {
-  'さようなら': 'Au revoir : さようなら (sayonara), formel, ou じゃあね (jaa ne), familier.',
-  'じゃあね': 'Au revoir : じゃあね (jaa ne), familier, ou さようなら (sayonara), formel.'
+  'さようなら': 'Formel : さようなら · Familier : じゃあね.',
+  'じゃあね': 'Familier : じゃあね · Formel : さようなら.'
 };
+const REGISTER_HINTS = {
+  'さようなら': 'Version formelle',
+  'じゃあね': 'Version familière'
+};
+function jpKeyOf(entry) {
+  if (!entry) return '';
+  return window.Kotoba.Parser && window.Kotoba.Parser.stripAnnotations
+    ? window.Kotoba.Parser.stripAnnotations(entry.jp || '')
+    : String(entry.jp || '');
+}
 function nuanceOf(entry) {
   if (!entry) return '';
   if (entry.nuance) return String(entry.nuance);
-  const raw = window.Kotoba.Parser && window.Kotoba.Parser.stripAnnotations
-    ? window.Kotoba.Parser.stripAnnotations(entry.jp || '')
-    : String(entry.jp || '');
-  return REGISTER_NOTES[raw] || '';
+  return REGISTER_NOTES[jpKeyOf(entry)] || '';
 }
-function contextPronunciation(context) {
-  const text = String(context || '').trim();
-  if (!text) return '';
-  const R = window.Kotoba.Reading;
-  const Parser = window.Kotoba.Parser;
-  if (!R || !R.reading || !Parser || !Parser.kanaToRomaji) return '';
-  const kana = String(R.reading(text) || '');
-  if (!kana || /[\u3400-\u9fff]/.test(kana)) return '';
-  return Parser.kanaToRomaji(kana)
-    .replace(/konnichiha/g, 'konnichiwa')
-    .replace(/konbanha/g, 'konbanwa')
-    .replace(/、/g, ', ')
-    .replace(/。/g, '.')
-    .replace(/！/g, '!')
-    .replace(/？/g, '?')
-    .replace(/\s+/g, ' ')
-    .trim();
+function registerHintOf(entry) {
+  if (!entry) return '';
+  return REGISTER_HINTS[jpKeyOf(entry)] || '';
 }
 function contextHtml(context, hl) {
   const text = String(context || '').trim();
@@ -537,7 +530,7 @@ list = seen.concat(fresh).slice(0, 3);
 }
   if (!list.length) { toast('Rien à réviser pour l\'instant.'); return; }
   if (kind === 'due') list = list.slice(0, 30);
-  session = { kind: kind, mode: mode, queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null, autoPronounce: mode === 'pronounce' };
+  session = { kind: kind, mode: mode, queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
   document.body.style.overflow = 'hidden';
   const root = $('#session');
   if (root) root.hidden = false;
@@ -547,7 +540,7 @@ function startPronunciationPractice() {
   const stats = pronunciationStats();
   const list = stats.weak.map(function (row) { return row.entry; });
   if (!list.length) { toast('Aucun mot à retravailler pour l’instant.'); return; }
-  session = { kind: 'pronunciation', mode: 'pronounce', queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null, autoPronounce: true };
+  session = { kind: 'pronunciation', mode: 'pronounce', queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
   document.body.style.overflow = 'hidden';
   const root = $('#session');
   if (root) root.hidden = false;
@@ -558,7 +551,7 @@ const e = entries.filter(function (x) { return x.id === id; })[0];
 if (!e) return;
 closeModal();
 mode = mode || 'recall';
-session = { kind: 'single', mode: mode, queue: [e], current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: 1, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null, autoPronounce: mode === 'pronounce' };
+session = { kind: 'single', mode: mode, queue: [e], current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: 1, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
 document.body.style.overflow = 'hidden';
 const root = $('#session');
 if (root) root.hidden = false;
@@ -597,11 +590,7 @@ session.phase = session.mode === 'recall' ? 'front' : 'question';
   session.options = (session.mode === 'recall' || session.mode === 'pronounce') ? [] : buildOptions(session.current, session.mode);
   session.lastGrade = null; session.lastChoice = null;
   session.total = Math.max(session.total, session.done + session.queue.length + 1);
-  const auto = session.autoPronounce;
-  session.autoPronounce = false;
   renderSession();
-  if (auto) startPronunciation();
-  if (session.mode === 'listen') speak(session.current.jp);
 }
 function buildOptions(entry, mode) {
   const seen = new Set([entry.id]);
@@ -631,10 +620,12 @@ function renderSession() {
 }
 function answerCard(e) {
   const st = session && session.pronunciation;
-  const tone = st && st.status === 'done' ? (st.good ? ' glow-good' : ' glow-bad') : '';
+  const graded = session && session.phase === 'feedback';
+  const tone = st && st.status === 'done'
+    ? (st.good ? ' glow-good' : ' glow-bad')
+    : (graded ? (session.lastGrade === 'good' ? ' glow-good' : ' glow-bad') : '');
   const inline = session && session.mode === 'recall' ? inlinePronunciationHtml(st) : '';
   const nuance = nuanceOf(e);
-  const contextReading = contextPronunciation(e.context);
   return '<div class="session-card answer-card' + tone + '" data-testid="session-card"><div class="answer-main">' +
     '<div class="answer-head"><div class="fr-small">' + frHtml(e.fr) + '</div>' +
     (nuance ? '<p class="nuance-note" data-testid="answer-nuance">' + esc(nuance) + '</p>' : '') +
@@ -642,7 +633,6 @@ function answerCard(e) {
     '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
     '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
     '<aside class="context-card" data-testid="answer-context"><div class="context-label">En contexte</div>' +
-    (contextReading ? '<p class="context-pronunciation" data-testid="answer-context-pronunciation" lang="ja-Latn">' + esc(contextReading) + '</p>' : '') +
     '<p class="context-jp" lang="ja">' + contextHtml(e.context, e.hl) + '</p>' +
     '<p class="context-fr">' + esc(e.contextFr || '—') + '</p>' +
     (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '<p class="hint">Pas encore de phrase. Ajoute-en une depuis Mes mots.</p>') + '</aside></div>' +
@@ -667,14 +657,11 @@ function frontPronunciationHtml() {
     return '<div class="front-actions"><button class="btn primary big mic-btn" data-action="pronounce-front-start" data-testid="pronounce-front-start">🎙️ Prononcer</button>' + reveal + '</div>' +
       '<p class="hint">Le micro écoute, donne un score, puis la fiche s’affiche dans tous les cas.</p>';
   }
-  if (st.status === 'listening') {
-    return '<div class="pronounce-status listening" data-testid="pronounce-status" aria-live="polite">🎙️ J’écoute… Parle maintenant.</div>' +
-      '<p class="hint" data-testid="pronounce-interim">' + esc(st.interim || 'La transcription apparaîtra ici.') + '</p>' + reveal;
-  }
-  if (st.status === 'recording') {
-    return '<div class="pronounce-status listening" data-testid="pronounce-status" aria-live="polite">🎙️ J’écoute… Parle maintenant.</div>' +
-      pronunciationMeterHtml() + '<p class="hint">La capture s’arrête après un silence.</p>' +
-      '<div class="front-actions"><button class="btn primary" data-action="pronounce-stop" data-testid="pronounce-stop">J’ai fini</button>' + reveal + '</div>';
+  if (st.status === 'listening' || st.status === 'recording') {
+    return '<div class="pronounce-status listening" data-testid="pronounce-status" aria-live="polite"><span class="listening-dot" aria-hidden="true"></span> J’écoute… Parle maintenant.</div>' +
+      (st.status === 'recording' ? pronunciationMeterHtml() + '<p class="hint">La capture s’arrête après un silence.</p>' : '<p class="hint" data-testid="pronounce-interim">' + esc(st.interim || 'La transcription apparaîtra ici.') + '</p>') +
+      '<div class="front-actions"><button class="btn primary" data-action="pronounce-stop" data-testid="pronounce-stop">J’ai fini</button>' +
+      '<button class="btn ghost" data-action="pronounce-cancel" data-testid="pronounce-cancel">Annuler</button>' + reveal + '</div>';
   }
   if (st.status === 'loading' || st.status === 'transcribing') {
     const pct = Math.max(0, Math.min(100, Number(st.progress) || 0));
@@ -691,9 +678,9 @@ function frontPronunciationHtml() {
 function recallView() {
   const e = session.current;
   if (session.phase === 'front') {
-    const nuance = nuanceOf(e);
+    const register = registerHintOf(e);
     return '<div class="session-card front" data-testid="session-card"><p class="eyebrow">' + esc(e.theme) + '</p><h1 class="prompt-fr">' + frHtml(e.fr) + '</h1>' +
-      (nuance ? '<p class="prompt-nuance" data-testid="prompt-nuance">' + esc(nuance) + '</p>' : '') +
+      (register ? '<p class="prompt-register" data-testid="prompt-register">' + esc(register) + '</p>' : '') +
       '<p class="prompt-hint">Prononce à voix haute : le micro valide, puis la fiche s’affiche.</p>' +
       frontPronunciationHtml() + '</div>';
   }
@@ -1149,7 +1136,7 @@ function quizView() {
   if (session.phase === 'feedback') return answerCard(e) + feedbackHtml();
   const listen = session.mode === 'listen';
   return '<div class="session-card" data-testid="session-card"><p class="eyebrow">' + (listen ? 'Écoute et choisis' : 'Choisis la bonne traduction') + '</p>' +
-    (listen ? '<button class="btn primary big" data-action="speak-text" data-text="' + attr(e.jp) + '" data-testid="listen-again">🔊 Réécouter</button><p class="prompt-hint">Quel est le sens de ce mot ?</p>'
+    (listen ? '<button class="btn primary big" data-action="speak-text" data-text="' + attr(e.jp) + '" data-testid="listen-again">🔊 Réécouter</button><p class="prompt-hint">Clique sur « Réécouter », puis choisis le sens.</p>'
       : '<h1 class="prompt-fr">' + frHtml(e.fr) + '</h1><p class="prompt-hint">Quel mot japonais correspond ?</p>') +
     '<div class="options" data-testid="options">' + session.options.map(function (o, i) {
       return '<button class="option' + (listen ? ' fr' : '') + '" data-action="choose" data-id="' + attr(o.id) + '" data-testid="option-' + i + '">' +
@@ -1183,6 +1170,17 @@ function reveal() {
   session.phase = 'revealed';
   renderSession();
 }
+function flashValidation(grade) {
+  const flash = $('#validationFlash');
+  if (!flash) return;
+  if (ui.validationTimer) clearTimeout(ui.validationTimer);
+  flash.className = 'validation-flash ' + (grade === 'good' ? 'good' : 'bad');
+  flash.hidden = false;
+  ui.validationTimer = setTimeout(function () {
+    flash.hidden = true;
+    flash.className = 'validation-flash';
+  }, 700);
+}
 function grade(g) {
   if (!session || !session.current) return;
   const e = session.current, now = Date.now();
@@ -1201,6 +1199,7 @@ state.progress[e.id] = next;
   if (g === 'again') session.queue.splice(Math.min(3, session.queue.length), 0, e);
   session.total = Math.max(session.total, session.done + session.queue.length);
   persist();
+  flashValidation(g);
   if (window.Kotoba.Motivation) {
 const goal = state.settings.goal || 50;
 if (beforeXp < goal && todayXp() >= goal) window.Kotoba.Motivation.celebrate('Objectif du jour atteint ! 🎯');
@@ -1297,15 +1296,13 @@ return '<li><span class="pron-score' + (item && item.good ? ' good' : '') + '">'
 const stageHtml = '<div class="stage-progress" data-testid="stage-progress">' +
 '<div class="stage-progress-head"><span>' + esc(stage.detail) + '</span><b>' + stage.count + ' révision' + (stage.count === 1 ? '' : 's') + '</b></div>' +
 '<div class="bar"><span class="bar-fill" style="width:' + stage.pct + '%"></span></div></div>';
-const contextReading = contextPronunciation(e.context);
-const contextReadingHtml = contextReading ? '<p class="context-pronunciation" data-testid="detail-context-pronunciation" lang="ja-Latn">' + esc(contextReading) + '</p>' : '';
 const nuance = nuanceOf(e);
 const nuanceHtml = nuance ? '<p class="nuance-note" data-testid="detail-nuance">' + esc(nuance) + '</p>' : '';
 openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
 <div class='detail-romaji'>${esc(e.romaji)}</div><div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
-<div class='detail-context'><div class='context-label'>En contexte</div>${contextReadingHtml}<p class='jp' lang='ja'>${contextHtml(e.context, e.hl)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>
+<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp' lang='ja'>${contextHtml(e.context, e.hl)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
 ${stageHtml}
 ${pronunciationHistory}
@@ -1399,6 +1396,11 @@ case 'pronounce-start': startPronunciation(); break;
 case 'pronounce-retry': startPronunciation(); break;
 case 'pronounce-front-start': startPronunciation(); break;
 case 'pronounce-stop': stopPronunciation(); break;
+    case 'pronounce-cancel': {
+      abortPronunciation();
+      if (session) { session.pronunciation = null; renderSession(); }
+      break;
+    }
 case 'pronounce-target': setPronunciationTarget(el.getAttribute('data-target')); break;
 case 'pronounce-engine': setPronunciationEngine(el.getAttribute('data-engine')); break;
 case 'pronounce-play': {

@@ -48,7 +48,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 ## 3. Le parcours à vérifier en cinq minutes
 
 1. **Accueil** : la carte « Prêt à apprendre ? » et le bouton « Apprendre de nouveaux mots » s'affichent. Le compteur de cartes dues et l'objectif XP sont visibles.
-2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Tu dois voir le japonais avec furigana, puis la phrase de contexte avec sa prononciation romaji au-dessus et sa traduction. Le romaji reste disponible dans la fiche du mot.
+2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Tu dois voir le japonais avec furigana, puis la phrase de contexte avec les furigana au-dessus des kanji et sa traduction. Le romaji reste disponible dans la fiche du mot.
 3. **Validation** : clique sur « Passer au suivant ». La carte suivante arrive immédiatement, sans écran intermédiaire.
 4. **Import** : va dans « Importer », colle `bonjour | kon-ni-chi-wa`, clique sur « Analyser la liste ». L'aperçu doit montrer こんにちは, le romaji et le contexte `こんにちは、花さん！`. Clique sur « Importer 1 mot ».
 5. **Mes mots** : clique sur le filtre « Importés ». Le filtre « Mal prononcés » garde les mots dont le dernier essai micro était rouge. La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
@@ -58,7 +58,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
 
 10. **Parcours** : sur l'accueil, « Mon parcours » montre Nouveaux, En révision, Validés (10 révisions) et Ultimes (30). Clique sur une carte pour ouvrir le filtre correspondant dans Mes mots ; la fiche d'un mot affiche sa barre de progression.
-11. **Prononciation** : ouvre un mot depuis « Mes mots » et clique sur « Prononcer » : l'écoute démarre directement. Choisis « La phrase » si le mot a un contexte. Le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
+11. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis sur le bouton d’écoute du micro. Choisis « La phrase » si le mot a un contexte. Le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
 12. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche, que l’explication de 行きます / iku est présente et que les exemples ont des furigana.
 
 ## 4. Le test exact de ta demande
@@ -108,9 +108,11 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - l'absence de débordement horizontal sur un écran mobile de 390 px.
 - l’ouverture de l’onglet Réviser et le compteur de prononciations ;
 - le micro sur la carte de révision, la lueur verte/rouge et la révélation automatique de la fiche ;
-- la prononciation romaji du contexte et le lancement direct du micro depuis une fiche ;
+- les furigana du contexte au-dessus des kanji, sans ligne romaji ;
+- le démarrage du micro uniquement au clic ;
 - l'enregistrement d'un mot mal prononcé dans le filtre « Mal prononcés » ;
-- les variantes de « au revoir » dès la carte de rappel et dans la fiche ;
+- le registre seul sur la carte, puis les variantes dans la fiche ;
+- l’absence de lecture automatique après validation ;
 - le parcours par étapes et les filtres Validés / Ultimes ;
 - la prononciation du mot et de la phrase entière, avec score, écart syllabique, réécoute et historique ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;
