@@ -107,44 +107,81 @@ keys: Array.from(map.keys()).sort(function (a, b) { return b.length - a.length; 
 };
 return cache;
 }
-function rtHtml(reading) {
-var romaji = P && P.kanaToRomaji ? P.kanaToRomaji(reading) : '';
-return '<rt>' +
-(romaji ? '<span class="rt-romaji">' + esc(romaji) + '</span>' : '') +
-'<span class="rt-kana">' + esc(reading) + '</span>' +
-'</rt>';
+function isJapanese(value) {
+return /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3005]/.test(String(value || ''));
 }
-function rubyHtml(annotated) {
+function rubyChar(base, reading, override) {
+var text = String(base == null ? '' : base);
+if (!text) return '';
+var romaji = override != null ? String(override) : (P && P.kanaToRomaji ? P.kanaToRomaji(reading || text) : '');
+if (!romaji) return esc(text);
+return '<ruby>' + esc(text) + '<rt><span class="rt-romaji">' + esc(romaji) + '</span></rt></ruby>';
+}
+function romajiRubyHtml(annotated) {
 var s = String(annotated || '');
+if (!s) return '';
 var out = '';
 var last = 0;
 var re = /([^\s\[\]]+?)\[([^\]]+)\]/g;
 var m;
+function plain(value) {
+var i = 0;
+while (i < value.length) {
+var ch = value.charAt(i);
+if (!isJapanese(ch)) {
+var j = i + 1;
+while (j < value.length && !isJapanese(value.charAt(j))) j++;
+out += esc(value.slice(i, j));
+i = j;
+} else if (/[\u3040-\u30ff]/.test(ch)) {
+var j2 = i + 1;
+while (j2 < value.length && /[\u3040-\u30ff]/.test(value.charAt(j2))) j2++;
+kanaUnits(value.slice(i, j2)).forEach(function (unit) { out += rubyChar(unit, unit); });
+i = j2;
+} else {
+out += esc(ch);
+i++;
+}
+}
+}
+function annotation(base, reading) {
+var match = String(base || '').match(/^([\u3040-\u30ff]+)([\s\S]+)$/);
+if (match && /[\u3400-\u9fff]/.test(match[2]) && String(reading || '').indexOf(match[1]) !== 0) {
+plain(match[1]);
+out += rubyChar(match[2], reading);
+return;
+}
+out += rubyChar(base, reading);
+}
 while ((m = re.exec(s))) {
-out += esc(s.slice(last, m.index));
-out += '<ruby>' + esc(m[1]) + rtHtml(m[2]) + '</ruby>';
+plain(s.slice(last, m.index));
+annotation(m[1], m[2]);
 last = re.lastIndex;
 }
-out += esc(s.slice(last));
+plain(s.slice(last));
 return out;
 }
+function rubyHtml(annotated) { return romajiRubyHtml(annotated); }
 function tokenize(text) {
 var d = dictionary();
 var out = '';
 var i = 0;
-while (i < text.length) {
-var hit = '';
+var plainStart = 0;
+function hitAt(pos) {
 for (var k = 0; k < d.keys.length; k++) {
-if (text.startsWith(d.keys[k], i)) { hit = d.keys[k]; break; }
+if (text.startsWith(d.keys[k], pos)) return d.keys[k];
 }
-if (hit) {
-out += rubyHtml(d.map.get(hit));
+return '';
+}
+while (i < text.length) {
+var hit = hitAt(i);
+if (!hit) { i++; continue; }
+if (i > plainStart) out += romajiRubyHtml(text.slice(plainStart, i));
+out += romajiRubyHtml(d.map.get(hit));
 i += hit.length;
-} else {
-out += esc(text.charAt(i));
-i++;
+plainStart = i;
 }
-}
+if (plainStart < text.length) out += romajiRubyHtml(text.slice(plainStart));
 return out;
 }
 function splitTarget(text, target) {
@@ -159,14 +196,16 @@ i = idx + target.length;
 }
 return out;
 }
-function annotate(text, highlight, showFurigana) {
+function annotate(text, highlight, showFurigana, targetRuby) {
 var s = String(text || '').trim();
 if (!s) return '';
 var target = String(highlight || '').trim();
 var useFuri = showFurigana !== false;
 if (!target || s.indexOf(target) < 0) return useFuri ? tokenize(s) : esc(s);
 return splitTarget(s, target).map(function (part) {
-var inner = useFuri ? tokenize(part.text) : esc(part.text);
+var inner = !useFuri
+? esc(part.text)
+: (part.target && targetRuby ? romajiRubyHtml(targetRuby) : tokenize(part.text));
 return part.target ? '<mark>' + inner + '</mark>' : inner;
 }).join('');
 }
@@ -209,7 +248,7 @@ return units.map(function (unit, index) {
 var romaji = P ? P.kanaToRomaji(unit) : '';
 if (index === lastIndex && unit === 'は' && /wa$/.test(wordRomaji)) romaji = 'wa';
 if (index === lastIndex && unit === 'へ' && /e$/.test(wordRomaji)) romaji = 'e';
-return '<ruby>' + esc(unit) + '<rt class="rt-romaji">' + esc(romaji) + '</rt></ruby>';
+return rubyChar(unit, unit, romaji);
 }).join('');
 }
 function reading(text) {
@@ -237,6 +276,7 @@ annotate: annotate,
 reading: reading,
 kanaReading: kanaReading,
 kanaUnits: kanaUnits,
+romajiRubyHtml: romajiRubyHtml,
 dictionary: dictionary
 };
 });

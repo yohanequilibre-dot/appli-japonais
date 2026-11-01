@@ -39,35 +39,25 @@ function frHtml(fr) {
   if (m) return esc(m[1]) + '<span class="fr-note">(' + esc(m[2]) + ')</span>';
   return esc(s);
 }
+function annotatedRubyOf(e) {
+  const jp = e && e.jp ? P.stripAnnotations(e.jp) : '';
+  if (!jp) return '';
+  const ruby = String(e.ruby || '');
+  if (ruby.indexOf('[') >= 0 && P.stripAnnotations(ruby) === jp) return ruby;
+  const reading = kanaFromRuby(e.reading || e.ruby || '');
+  if (reading && reading !== jp && !P.hasKanji(reading)) {
+    const annotated = P.annotate(jp, reading);
+    if (annotated && annotated.indexOf('[') >= 0) return annotated;
+  }
+  return ruby || jp;
+}
 function rubyHtml(annotated, showFurigana) {
   const s = String(annotated || '');
   if (!showFurigana) return esc(P.stripAnnotations(s));
-  let out = '';
-  let last = 0;
-  const re = /([^\s\[\]]+?)\[([^\]]+)\]/g;
-  let m;
-  while ((m = re.exec(s))) {
-    out += esc(s.slice(last, m.index));
-    out += '<ruby>' + esc(m[1]) + rubyReadingHtml(m[2]) + '</ruby>';
-    last = re.lastIndex;
+  if (window.Kotoba.Reading && window.Kotoba.Reading.romajiRubyHtml) {
+    return window.Kotoba.Reading.romajiRubyHtml(s);
   }
-  out += esc(s.slice(last));
-  return out;
-}
-function rubyReadingHtml(reading) {
-  const romaji = P && P.kanaToRomaji ? P.kanaToRomaji(reading) : '';
-  return '<rt>' +
-    (romaji ? '<span class="rt-romaji">' + esc(romaji) + '</span>' : '') +
-    '<span class="rt-kana">' + esc(reading) + '</span></rt>';
-}
-function wholeReadingRuby(base, reading, romaji, className) {
-  const text = P.stripAnnotations(base || '');
-  const kana = P.stripAnnotations(reading || '');
-  if (!text || !kana || text === kana || !P.hasKanji(text) || P.hasKanji(kana)) return esc(text);
-  const latin = String(romaji || '').trim() || (P.kanaToRomaji ? P.kanaToRomaji(kana) : '');
-  return '<ruby' + (className ? ' class="' + className + '"' : '') + '>' + esc(text) + '<rt>' +
-    (latin ? '<span class="rt-romaji">' + esc(latin) + '</span>' : '') +
-    '<span class="rt-kana">' + esc(kana) + '</span></rt></ruby>';
+  return esc(P.stripAnnotations(s));
 }
 function kanaFromRuby(value) {
   const raw = String(value || '');
@@ -83,11 +73,11 @@ function wordRubyHtml(e) {
   const jp = e && e.jp ? P.stripAnnotations(e.jp) : '';
   if (!jp) return '';
   if (!state.settings.furigana) return esc(jp);
-  const kanaOnly = !P.hasKanji(jp);
-  if (kanaOnly && window.Kotoba.Reading) return window.Kotoba.Reading.kanaReading(e);
-  const kana = e ? kanaFromRuby(e.reading || e.ruby) : '';
-  if (kana && kana !== jp && !P.hasKanji(kana)) return wholeReadingRuby(jp, kana, e.romaji, 'word-ruby');
-  return rubyHtml(e && e.ruby, true);
+  if (!P.hasKanji(jp) && window.Kotoba.Reading && window.Kotoba.Reading.kanaReading) {
+    const kana = window.Kotoba.Reading.kanaReading(e);
+    if (kana) return kana;
+  }
+  return rubyHtml(annotatedRubyOf(e), true);
 }
 const REGISTER_NOTES = {
   'さようなら': 'Formel : さようなら · Familier : じゃあね.',
@@ -120,11 +110,13 @@ function alternativesHtml(entry) {
     const romaji = alt && alt.romaji || '';
     const usage = alt && alt.usage ? String(alt.usage) : '';
     const example = alt && alt.example ? String(alt.example) : '';
+    const exampleFr = alt && alt.exampleFr ? String(alt.exampleFr) : '';
     const exampleRomaji = alt && alt.exampleRomaji ? String(alt.exampleRomaji) : '';
     return '<div class="answer-also-item">' +
-      '<p class="answer-also-title">Aussi : <b lang="ja">' + esc(jp) + '</b>' + (romaji ? ' · ' + esc(romaji) : '') + '</p>' +
+      '<p class="answer-also-title">Autre formulation possible : <b lang="ja">' + esc(jp) + '</b>' + (romaji ? ' · ' + esc(romaji) : '') + '</p>' +
       (usage ? '<p class="answer-also-usage">' + esc(usage) + '</p>' : '') +
       (example ? '<p class="answer-also-example" lang="ja">' + esc(example) + '</p>' : '') +
+      (exampleFr ? '<p class="answer-also-example-fr">' + esc(exampleFr) + '</p>' : '') +
       (exampleRomaji ? '<p class="answer-also-example-romaji">' + esc(exampleRomaji) + '</p>' : '') +
     '</div>';
   }).join('');
@@ -147,7 +139,7 @@ function kanaContextHtml(text, highlight) {
     return chunks.map(function (chunk) {
       if (!/[\u3040-\u30ff]/.test(chunk)) return esc(chunk);
       const romaji = P.kanaToRomaji(chunk);
-      return romaji ? '<ruby>' + esc(chunk) + '<rt class="rt-romaji">' + esc(romaji) + '</rt></ruby>' : esc(chunk);
+      return romaji ? '<ruby>' + esc(chunk) + '<rt><span class="rt-romaji">' + esc(romaji) + '</span></rt></ruby>' : esc(chunk);
     }).join('');
   }
   if (!target || raw.indexOf(target) < 0) return render(raw);
@@ -157,20 +149,12 @@ function kanaContextHtml(text, highlight) {
 function contextHtml(context, hl, entry) {
   const text = String(context || '').trim();
   const target = P.stripAnnotations(String(hl || '').trim());
-  if (text && window.Kotoba.Reading) {
-    if (!P.hasKanji(text) && state.settings.furigana) return kanaContextHtml(text, target);
-    const base = entry ? jpKeyOf(entry) : '';
-    const kana = entry ? kanaFromRuby(entry.reading || entry.ruby || '') : '';
-    if (state.settings.furigana && target && target === base && kana &&
-      P.hasKanji(target) && !P.hasKanji(kana) && text.indexOf(target) >= 0) {
-      const idx = text.indexOf(target);
-      const before = window.Kotoba.Reading.annotate(text.slice(0, idx), '', true);
-      const after = window.Kotoba.Reading.annotate(text.slice(idx + target.length), '', true);
-      return before + '<mark>' + wholeReadingRuby(target, kana, entry && entry.romaji, 'context-ruby') + '</mark>' + after;
-    }
-    return window.Kotoba.Reading.annotate(text, target, state.settings.furigana);
-  }
   if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>';
+  if (window.Kotoba.Reading) {
+    const base = entry ? jpKeyOf(entry) : '';
+    const targetRuby = entry && target && target === base ? annotatedRubyOf(entry) : '';
+    return window.Kotoba.Reading.annotate(text, target, state.settings.furigana, targetRuby);
+  }
   const safe = esc(text);
   if (!target) return safe;
   const escTarget = esc(target);
@@ -204,6 +188,26 @@ function byDue(a, b) {
 }
 function entryKey(e) {
   return P.stripAnnotations(e.jp || '') + '|' + String(e.fr || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function normalizeSearch(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, ' ');
+}
+function alternativesSearchText(e) {
+  return (e && Array.isArray(e.alternatives) ? e.alternatives : []).map(function (alt) {
+    return [alt.jp, alt.reading, alt.romaji, alt.usage, alt.example, alt.exampleFr, alt.exampleRomaji].join(' ');
+  }).join(' ');
+}
+function primarySearchBlobOf(e) {
+  return normalizeSearch([e.fr, e.jp, e.ruby, e.romaji, e.nuance, alternativesSearchText(e)].join(' '));
+}
+function searchBlobOf(e) {
+  return primarySearchBlobOf(e) + ' ' + normalizeSearch([e.context, e.contextFr, e.contextNote].join(' '));
+}
+function alternativeHint(e) {
+  const alt = e && Array.isArray(e.alternatives) ? e.alternatives[0] : null;
+  if (!alt) return '';
+  const jp = alt.jp || alt.reading || '';
+  return jp ? ' · aussi ' + jp + (alt.romaji ? ' (' + alt.romaji + ')' : '') : '';
 }
 function toast(message) {
   const el = $('#toast');
@@ -480,7 +484,7 @@ function renderLibraryList() {
   const box = $('#libraryList');
   if (!box) return;
   const now = Date.now();
-  const q = ui.search.trim().toLowerCase();
+  const q = normalizeSearch(ui.search.trim());
   let list = entries.slice();
   if (ui.filter === 'imported') list = list.filter(function (e) { return e.source === 'import'; });
   else if (ui.filter === 'due') list = list.filter(function (e) { return S.isDue(state.progress[e.id], now); });
@@ -491,7 +495,10 @@ else if (ui.filter === 'reviewed') list = list.filter(function (e) { const p = s
   else if (ui.filter === 'validated') list = list.filter(function (e) { return S.reviewStage(state.progress[e.id]) === 'validated'; });
   else if (ui.filter === 'ultimate') list = list.filter(function (e) { return S.reviewStage(state.progress[e.id]) === 'ultimate'; });
   else if (ui.filter === 'known') list = list.filter(function (e) { return S.isKnown(state.progress[e.id]); });
-  if (q) list = list.filter(function (e) { return [e.fr, e.jp, e.ruby, e.romaji, e.context, e.contextFr].join(' ').toLowerCase().indexOf(q) >= 0; });
+  if (q) {
+    const primary = list.filter(function (e) { return primarySearchBlobOf(e).indexOf(q) >= 0; });
+    list = primary.length ? primary : list.filter(function (e) { return searchBlobOf(e).indexOf(q) >= 0; });
+  }
   list.sort(function (a, b) {
     const pa = state.progress[a.id], pb = state.progress[b.id];
     const da = pa && pa.last ? pa.due : Infinity, db = pb && pb.last ? pb.due : Infinity;
@@ -507,7 +514,7 @@ else if (ui.filter === 'reviewed') list = list.filter(function (e) { const p = s
     return '<div class="word-row" role="button" tabindex="0" data-action="detail" data-id="' + attr(e.id) + '">' +
       '<span><span class="word-fr">' + frHtml(e.fr) + '</span><br><span class="badge ' + badge + '" title="' + attr(S.stageDetail(p)) + '">' + esc(label) + '</span></span>' +
       '<span class="word-jp" lang="ja">' + wordRubyHtml(e) + '</span>' +
-      '<span class="word-romaji">' + esc(e.romaji) + (e.source === 'import' ? ' <span class="badge import">Importé</span>' : '') + '</span></div>';
+      '<span class="word-romaji">' + esc(e.romaji + alternativeHint(e)) + (e.source === 'import' ? ' <span class="badge import">Importé</span>' : '') + '</span></div>';
   }).join('') + '</div>';
 }
 
@@ -752,10 +759,11 @@ function answerVerdictHtml(st, graded) {
   if (st && st.status === 'done') {
     const alternative = st.good && st.alternative && st.alternativeLabel;
     const target = st.expected || 'le mot';
+    const main = session && session.current ? session.current.jp : 'le mot';
     return '<div class="answer-verdict ' + (st.good ? 'good' : 'bad') + '" data-testid="answer-verdict" role="status">' +
       '<b>' + (st.good ? '✅ C’est correct' : '❌ Ce n’est pas correct') + '</b>' +
       '<span>' + (st.good
-        ? (alternative ? 'Autre formulation acceptée : ' + esc(st.alternativeLabel) + '. La fiche explique la différence.' : 'Tu as bien prononcé « ' + esc(target) + ' ».')
+        ? (alternative ? '« ' + esc(st.alternativeLabel) + ' » est accepté. C’est une autre formulation de « ' + esc(main) + ' » : plus directe, mais polie elle aussi.' : 'Tu as bien prononcé « ' + esc(target) + ' ».')
         : 'Tu t’es trompé. On attendait « ' + esc(target) + ' »' + (st.heard ? ', tu as dit « ' + esc(st.heard) + ' »' : '') + '. Réessaie en écoutant le modèle.') + '</span></div>';
   }
   if (graded) {
@@ -766,6 +774,12 @@ function answerVerdictHtml(st, graded) {
   }
   return '';
 }
+function acceptedAlternativeHtml(e) {
+  const st = session && session.pronunciation;
+  if (!st || !st.good || !st.alternative) return '';
+  return '<div class="accepted-alternative" data-testid="accepted-alternative"><b>« ' + esc(st.alternativeLabel || st.expected || '') + ' » est accepté.</b>' +
+    '<span>C’est une autre formulation de « ' + esc(e && e.fr || 'cette demande') + ' » : plus directe et concrète, mais polie. Les deux se disent.</span></div>';
+}
 function answerCard(e) {
   const st = session && session.pronunciation;
   const graded = session && session.phase === 'feedback';
@@ -775,7 +789,7 @@ function answerCard(e) {
   const inline = session && session.mode === 'recall' ? inlinePronunciationHtml(st) : '';
   const nuance = nuanceOf(e);
   const verdict = answerVerdictHtml(st, graded);
-  return '<div class="session-card answer-card' + tone + '" data-testid="session-card">' + verdict + '<div class="answer-main">' +
+  return '<div class="session-card answer-card' + tone + '" data-testid="session-card">' + verdict + acceptedAlternativeHtml(e) + '<div class="answer-main">' +
     '<div class="answer-head"><div class="fr-small">' + frHtml(e.fr) + '</div>' +
     (nuance ? '<p class="nuance-note" data-testid="answer-nuance">' + esc(nuance) + '</p>' : '') +
     '<div class="jp-big" lang="ja" data-testid="answer-jp">' + wordRubyHtml(e) + '</div>' +
@@ -794,11 +808,16 @@ function inlinePronunciationHtml(st) {
   if (!st || st.status !== 'done') return '';
   const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba.Whisper.hasRecording && window.Kotoba.Whisper.hasRecording()
     ? '<button class="btn ghost small" data-action="pronounce-play" data-testid="inline-pronounce-play">🎧 Ma voix</button>' : '';
+  const accepted = st.good && st.alternative;
+  const main = session && session.current ? session.current.jp : '';
+  const lines = accepted
+    ? '<div class="inline-pronunciation-lines"><span>Accepté</span><span lang="ja">' + esc(st.alternativeLabel || st.expected || '—') + '</span><span>Autre formulation</span><span lang="ja">' + esc(main || '—') + '</span></div>'
+    : '<div class="inline-pronunciation-lines"><span>Attendu</span><span lang="ja">' + esc(st.expected || '—') + '</span><span>Entendu</span><span lang="ja">' + esc(st.heard || st.transcript || '—') + '</span></div>';
   return '<div class="inline-pronunciation ' + (st.good ? 'good' : 'retry') + '" data-testid="inline-pronunciation">' +
     '<div class="inline-pronunciation-head"><b data-testid="inline-pronunciation-score">' + Math.round(Number(st.score) || 0) + ' %</b><span>' + (st.good ? '✅ C’est correct' : '❌ Tu t’es trompé') + '</span></div>' +
-    '<div class="inline-pronunciation-lines"><span>Attendu</span><span lang="ja">' + esc(st.expected || '—') + '</span><span>Entendu</span><span lang="ja">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
+    lines +
     (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') +
-    (st.alternative && st.good ? '<p class="variant-note" data-testid="inline-variant">Autre formulation acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b>. La fiche ci-dessous explique la différence.</p>' : '') +
+    (accepted ? '<p class="variant-note" data-testid="inline-variant">Autre formulation acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b>. « ' + esc(main || 'La forme principale') + ' » est plus doux et général ; « ' + esc(st.alternativeLabel || st.expected || '') + ' » est plus direct. Les deux sont polies.</p>' : '') +
     (st.tip ? '<p class="hint inline-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
     '<div class="inline-pronunciation-actions">' + replay +
     '<button class="btn ghost small" data-action="pronounce-front-start" data-testid="inline-pronounce-retry">Réessayer</button></div></div>';
@@ -1108,7 +1127,7 @@ const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba
 '<button class="btn ghost small" data-action="pronounce-play" data-testid="pronounce-play">🎧 Ma voix</button></div>'
 : '';
 const compare = (st.expected || st.heard) ? '<div class="pronounce-compare">' +
-'<div><span class="compare-label">Attendu</span><span lang="ja" data-testid="pronounce-expected">' + esc(st.expected || '—') + '</span></div>' +
+'<div><span class="compare-label">' + (st.alternative ? 'Accepté' : 'Attendu') + '</span><span lang="ja" data-testid="pronounce-expected">' + esc(st.expected || '—') + '</span></div>' +
 '<div><span class="compare-label">Entendu</span><span lang="ja" data-testid="pronounce-heard">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
 (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') + '</div>' : '';
 interaction = '<div class="pronounce-result ' + (st.good ? 'good' : 'retry') + '" data-testid="pronounce-result">' +
@@ -1117,6 +1136,7 @@ interaction = '<div class="pronounce-result ' + (st.good ? 'good' : 'retry') + '
 '<span>Score : <b data-testid="pronounce-score">' + st.score + ' %</b> · ' + (st.target === 'phrase' ? 'phrase' : 'mot') + '</span>' +
 '<p class="hint">Entendu : ' + esc(st.transcript || '—') + '</p></div></div>' +
 compare +
+(st.alternative && st.good ? '<p class="variant-note" data-testid="pronounce-variant">Autre formulation acceptée. Les deux sont polies : « ' + esc(e.jp) + ' » est plus doux et général, « ' + esc(st.alternativeLabel || st.expected || '') + ' » plus direct.</p>' : '') +
 (st.tip ? '<p class="hint pronounce-tip" data-testid="pronounce-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
 replay +
 '<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-finish" data-good="' + (st.good ? '1' : '0') + '" data-testid="pronounce-finish">' + (st.good ? 'Valider et continuer' : 'Continuer sans valider') + '</button>' +

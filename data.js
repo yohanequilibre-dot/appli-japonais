@@ -11,7 +11,7 @@ window.UNITS_DATA = [
     ["すみません","","sumimasen","excusez-moi / pardon","すみません、駅はどこですか。","Excusez-moi, où est la gare ?"],
     ["はい","","hai","oui","はい、そうです。","Oui, c'est ça."],
     ["いいえ","","iie","non","いいえ、違います。","Non, ce n'est pas ça."],
-    ["お願いします","お願[ねが]いします","onegai shimasu","s'il vous plaît","コーヒーをお願いします。","Un café, s'il vous plaît.","",[{"jp":"ください","reading":"ください","romaji":"kudasai","usage":"Plus directe, mais polie. Très courante pour commander ou demander un objet.","example":"コーヒーをください。","exampleRomaji":"Kōhī o kudasai."}],{"nuance":"Formule polie pour demander quelque chose. « ください » est plus direct.","contextNote":"Au café, « コーヒーをお願いします » est la formule polie. « コーヒーをください » est plus directe, mais reste polie : les deux se disent."}],
+    ["お願いします","お願[ねが]いします","onegai shimasu","s'il vous plaît","コーヒーをお願いします。","Un café, s'il vous plaît.","",[{"jp":"ください","reading":"ください","romaji":"kudasai","usage":"Plus directe et concrète, mais polie elle aussi. Elle suit un nom (+ を) ou une forme en て. Les deux se disent.","example":"コーヒーをください。","exampleFr":"Un café, s'il vous plaît.","exampleRomaji":"Kōhī o kudasai."}],{"nuance":"« お願いします » est plus douce et générale. « ください » est plus directe et concrète : ce n’est pas une question de force, et les deux sont polies.","contextNote":"Au café, les deux se disent : « コーヒーをお願いします » est plus douce, « コーヒーをください » plus directe. « ください » n’est pas une erreur."}],
     ["大丈夫","大丈夫[だいじょうぶ]","daijōbu","ça va / pas de problème","大丈夫ですか。","Ça va ?"]
   ]},
   { id:"presentation", name:"Se présenter", emoji:"🙋", words:[

@@ -543,12 +543,16 @@ kbd {
 .answer-also-title { color: var(--blue-dark); }
 .answer-also .answer-also-usage { margin-top: 3px; color: var(--muted); font-weight: 600; }
 .answer-also .answer-also-example { margin-top: 4px; font-family: var(--jp); font-size: 1.05em; }
+.answer-also .answer-also-example-fr { margin-top: 1px; color: var(--text); font-size: .9em; }
 .answer-also .answer-also-example-romaji { margin-top: 1px; color: var(--muted); font-size: .9em; }
 .answer-verdict { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 16px; padding: 11px 15px; border-radius: 14px; border: 1px solid var(--line); }
 .answer-verdict.good { background: var(--green-soft); border-color: var(--green); }
 .answer-verdict.bad { background: var(--red-soft); border-color: var(--red); }
 .answer-verdict b { font-size: .98rem; }
 .answer-verdict span { color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.accepted-alternative { display: flex; flex-direction: column; gap: 2px; margin: 0 0 14px; padding: 10px 13px; border: 1px solid var(--green); border-radius: 12px; background: var(--green-soft); font-size: .84rem; line-height: 1.45; }
+.accepted-alternative b { color: var(--green-dark); }
+.accepted-alternative span { color: var(--muted); }
 .audio-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .context-card {
   background: var(--bg);
@@ -704,10 +708,7 @@ ruby { ruby-position: over; }
 ruby rt { font-family: var(--jp); font-size: .42em; font-weight: 600; color: var(--muted); }
 .jp-big ruby rt { font-size: .3em; }
 .rt-romaji { display: inline; font-family: var(--sans, system-ui, sans-serif); font-size: 1.12em; font-weight: 800; line-height: 1.05; letter-spacing: .01em; color: var(--blue-dark); }
-.rt-kana { display: inline; font-size: .82em; line-height: 1.05; color: var(--muted); }
-.rt-kana::before { content: "·"; margin: 0 .3em; opacity: .55; }
 .context-jp .rt-romaji { color: var(--blue-dark); }
-.context-jp .rt-kana { color: var(--blue); opacity: .9; }
 mark { background: #ffe58a; color: inherit; border-radius: 4px; padding: 0 2px; }
 [data-theme="dark"] mark { background: #7a5d00; }
 .noscript { max-width: 640px; margin: 40px auto; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; text-align: center; }

@@ -4,6 +4,7 @@ const assert = require("assert");
 const Lex = require("../js/lexicon.js");
 const Store = require("../js/srs.js");
 const Parser = require("../js/parser.js");
+const Reading = require("../js/reading.js");
 const Pron = require("../js/pronunciation.js");
 
 let failed = 0;
@@ -29,6 +30,19 @@ test("le lexique accepte les romaji détachés", function () {
   assert.equal(Lex.lookup({ romaji: "kon-ni-chi-wa" }).jp, "こんにちは");
   assert.equal(Lex.lookup({ romaji: "o-ha-yo-u" }).jp, "おはよう");
   assert.equal(Lex.lookup({ romaji: "arigatou" }).jp, "ありがとう");
+});
+
+test("lecture latine : une unité au-dessus de chaque caractère", function () {
+  const html = Reading.romajiRubyHtml("お願[ねが]いします");
+  const rt = Array.from(html.matchAll(/<rt><span class="rt-romaji">([^<]+)<\/span><\/rt>/g)).map(function (m) { return m[1]; });
+  assert.deepEqual(rt, ["o", "nega", "i", "shi", "ma", "su"]);
+  assert.equal(html.indexOf("rt-kana"), -1);
+});
+
+test("lecture latine : les groupes de kanji restent lisibles", function () {
+  const html = Reading.romajiRubyHtml("日本[にほん]語[ご]");
+  const rt = Array.from(html.matchAll(/<rt><span class="rt-romaji">([^<]+)<\/span><\/rt>/g)).map(function (m) { return m[1]; });
+  assert.deepEqual(rt, ["nihon", "go"]);
 });
 
 test("import « bonjour | kon-ni-chi-wa »", function () {
