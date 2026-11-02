@@ -984,6 +984,10 @@ renderSession(); return;
   session.current = session.queue.shift();
   session.autoSpokenFor = null;
   session.pronunciation = null;
+  if (session.pronunciationAutoPhrase) {
+    session.pronunciationTarget = 'word';
+    session.pronunciationAutoPhrase = false;
+  }
   if (!session.pronunciationTarget) session.pronunciationTarget = state.settings.pronunciationTarget === 'phrase' ? 'phrase' : 'word';
   if (!session.pronunciationEngine) {
     const browserOk = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -1331,6 +1335,7 @@ function setPronunciationTarget(target) {
   if (!session) return;
   abortPronunciation();
   session.pronunciationTarget = target === 'phrase' ? 'phrase' : 'word';
+  session.pronunciationAutoPhrase = false;
   session.pronunciation = null;
   state.settings.pronunciationTarget = session.pronunciationTarget;
   persist();
@@ -1345,6 +1350,16 @@ function setPronunciationEngine(engine) {
   persist();
   renderSession();
 }
+function continueToPronunciationPhrase() {
+  if (!session || !session.current) return;
+  if (!pronunciationPhrase(session.current)) return;
+  if (!session.pronunciation || !session.pronunciation.good || session.pronunciation.target !== 'word') return;
+  abortPronunciation();
+  session.pronunciationTarget = 'phrase';
+  session.pronunciationAutoPhrase = true;
+  session.pronunciation = null;
+  renderSession();
+}
 function pronounceView() {
 const e = session.current;
 if (session.phase === 'feedback') return answerCard(e) + feedbackHtml();
@@ -1354,6 +1369,11 @@ const engine = session.pronunciationEngine === 'whisper' ? 'whisper' : 'browser'
 const browserOk = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 const whisperOk = !!(window.Kotoba.Whisper && window.Kotoba.Whisper.supported());
 const st = session.pronunciation;
+const stepHint = session.mode === 'pronounce' && phrase && !st && (target === 'word' || (target === 'phrase' && session.pronunciationAutoPhrase))
+? '<p class="hint pronounce-step-hint" data-testid="pronounce-step-hint">' + (target === 'phrase'
+? 'Étape 2 sur 2 · Le mot est validé : prononce maintenant toute la phrase.'
+: 'Étape 1 sur 2 · Valide le mot, puis prononce la phrase complète.') + '</p>'
+: '';
 const targets = '<div class="pronounce-targets" role="group" aria-label="À prononcer">' +
 '<button type="button" class="pronounce-target' + (target === 'word' ? ' active' : '') + '" data-action="pronounce-target" data-target="word" data-testid="pronounce-target-word">Le mot</button>' +
 '<button type="button" class="pronounce-target' + (target === 'phrase' ? ' active' : '') + '" data-action="pronounce-target" data-target="phrase" data-testid="pronounce-target-phrase"' + (phrase ? '' : ' disabled title="Ce mot n’a pas encore de phrase de contexte"') + '>La phrase</button></div>';
@@ -1401,6 +1421,11 @@ const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba
 ? '<div class="pronounce-replay" data-testid="pronounce-replay">' +
 '<button class="btn ghost small" data-action="pronounce-play" data-testid="pronounce-play">🎧 Ma voix</button></div>'
 : '';
+const toPhrase = st.good && st.target === 'word' && !!phrase;
+const finishAction = toPhrase ? 'pronounce-sentence' : 'pronounce-finish';
+const finishTestId = toPhrase ? 'pronounce-sentence' : 'pronounce-finish';
+const finishLabel = toPhrase ? 'Valider le mot et prononcer la phrase' : (st.good ? 'Valider et continuer' : 'Continuer sans valider');
+const finishGood = toPhrase || st.good ? '1' : '0';
 const compare = (st.expected || st.heard) ? '<div class="pronounce-compare">' +
 '<div><span class="compare-label">' + (st.alternative ? 'Accepté' : 'Attendu') + '</span><span lang="ja" data-testid="pronounce-expected">' + esc(st.expected || '—') + '</span></div>' +
 '<div><span class="compare-label">Entendu</span><span lang="ja" data-testid="pronounce-heard">' + esc(st.heard || st.transcript || '—') + '</span></div>' +
@@ -1414,11 +1439,11 @@ compare +
 (st.alternative && st.good ? '<p class="variant-note" data-testid="pronounce-variant">Autre formulation acceptée. Les deux sont polies : « ' + esc(e.jp) + ' » est plus doux et général, « ' + esc(st.alternativeLabel || st.expected || '') + ' » plus direct.</p>' : '') +
 (st.tip ? '<p class="hint pronounce-tip" data-testid="pronounce-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
 replay +
-'<div class="pronounce-actions"><button class="btn primary" data-action="pronounce-finish" data-good="' + (st.good ? '1' : '0') + '" data-testid="pronounce-finish">' + (st.good ? 'Valider et continuer' : 'Continuer sans valider') + '</button>' +
+'<div class="pronounce-actions"><button class="btn primary" data-action="' + finishAction + '" data-good="' + finishGood + '" data-testid="' + finishTestId + '">' + finishLabel + '</button>' +
 '<button class="btn ghost" data-action="pronounce-retry">Réessayer</button></div>';
 }
-return '<div class="session-card pronounce-card" data-testid="pronounce-card"><p class="eyebrow">Prononciation · ' + (engine === 'whisper' ? 'IA locale' : 'navigateur') + '</p>' +
-'<h1 class="prompt-fr">' + frHtml(e.fr) + '</h1>' + targets + engines + shown +
+return '<div class="session-card pronounce-card" data-testid="pronounce-card"><p class="eyebrow">Prononciation · ' + (target === 'phrase' ? 'phrase complète' : 'le mot') + ' · ' + (engine === 'whisper' ? 'IA locale' : 'navigateur') + '</p>' +
+'<h1 class="prompt-fr">' + frHtml(e.fr) + '</h1>' + targets + stepHint + engines + shown +
 '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(audioText) + '">🔊 Écouter</button>' +
 '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(audioText) + '" data-slow="1">🐢 Lent</button></div>' + interaction + '</div>';
 }
@@ -1863,6 +1888,7 @@ case 'pronounce-stop': stopPronunciation(); break;
       break;
     }
 case 'pronounce-target': setPronunciationTarget(el.getAttribute('data-target')); break;
+case 'pronounce-sentence': continueToPronunciationPhrase(); break;
 case 'pronounce-engine': setPronunciationEngine(el.getAttribute('data-engine')); break;
 case 'pronounce-play': {
   try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }

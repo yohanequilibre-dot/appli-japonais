@@ -58,7 +58,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
 
 10. **Parcours** : sur l'accueil, « Mon parcours » montre Nouveaux, En révision, Validés (10 révisions) et Ultimes (30). Clique sur une carte pour ouvrir le filtre correspondant dans Mes mots ; la fiche d'un mot affiche sa barre de progression.
-11. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis sur le bouton d’écoute du micro. Choisis « La phrase » si le mot a un contexte. Le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
+11. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis sur le bouton d’écoute du micro. Commence par le mot : une fois le score validé, le bouton « Valider le mot et prononcer la phrase » ouvre l’étape 2 avec la phrase complète. Tu peux aussi choisir « La phrase » directement. Le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
 12. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche, que l’explication de 行きます / iku est présente et que les exemples ont des furigana.
 13. **Pack de 1 000 mots et escalade** : l’accueil doit afficher « 1 000 courants + 60 escalade ». Ouvre « Escalade · matériel », puis un mot comme ロープ : sa fiche affiche le mot, sa lecture, son romaji et une phrase de contexte. Vérifie que « Mot à mot » découpe ロープ / を / しっかり / 結びます avec leurs traductions.
 
@@ -117,7 +117,7 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - le registre seul sur la carte, puis les variantes dans la fiche ;
 - le verdict explicite correct / incorrect et l’alternative `ください` acceptée pour « s’il vous plaît » ;
 - le parcours par étapes et les filtres Validés / Ultimes ;
-- la prononciation du mot et de la phrase entière, avec score, écart syllabique, réécoute et historique ;
+- la prononciation du mot puis de la phrase entière, avec score, écart syllabique, réécoute et historique ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;
 - les furigana de l’onglet Grammaire et le vocabulaire quotidien ;
 - les 1 000 mots courants, les 60 mots d’escalade et la décomposition mot à mot ;
