@@ -133,12 +133,51 @@ j--;
 }
 return ops.reverse();
 }
-function advice(rawTarget, expected, heard, score, variant) {
+function plainKana(value) {
+return toHiragana(String(value || ''))
+.replace(/[ \t\n\r　、。！？!?.,・「」『』（）()［］\[\]…‥〜~—–-]/g, '')
+.replace(/を/g, 'お');
+}
+function occurrences(value, needle) {
+var count = 0;
+var text = String(value || '');
+var at = 0;
+while ((at = text.indexOf(needle, at)) >= 0) { count++; at += needle.length; }
+return count;
+}
+function longVowelCues(value) {
+var text = plainKana(value);
+var count = occurrences(text, 'ー');
+['おう', 'えい', 'おお'].forEach(function (pattern) {
+count += occurrences(text, pattern);
+});
+return count;
+}
+function rhythmReport(expectedRaw, heardRaw) {
+var expected = plainKana(expectedRaw);
+var heard = plainKana(heardRaw);
+var expectedPhonetic = basePhonetic(expectedRaw);
+var heardPhonetic = basePhonetic(heardRaw);
+var expectedSokuon = occurrences(expected, 'っ');
+var heardSokuon = occurrences(heard, 'っ');
+var expectedLong = longVowelCues(expected);
+var heardLong = longVowelCues(heard);
+return {
+expectedSokuon: expectedSokuon,
+heardSokuon: heardSokuon,
+missingSokuon: expectedSokuon > heardSokuon,
+expectedLongVowels: expectedLong,
+heardLongVowels: heardLong,
+missingLongVowel: expectedLong > heardLong && heardPhonetic.length < expectedPhonetic.length
+};
+}
+function advice(rawTarget, expected, heard, score, variant, rhythm) {
 if (!heard) return 'Aucun son reconnu. Rapproche-toi du micro et réessaie.';
 if (variant) return 'Les particules は, を et へ se prononcent wa, o et e : vérifie qu’elles sont bien détachées.';
 if (score >= 95) return 'Très proche du modèle. Continue au même rythme.';
+if (rhythm && rhythm.missingSokuon) return 'Marque la petite pause du っ avant la consonne suivante : elle change le rythme du mot.';
+if (rhythm && rhythm.missingLongVowel) return 'Tiens la voyelle longue : elle dure environ deux temps, comme dans コーヒー.';
 if (String(rawTarget || '').indexOf('ー') >= 0 && score < 100) return 'Tiens la voyelle longue : le ー allonge la syllabe précédente.';
-if (String(rawTarget || '').indexOf('っ') >= 0 && heard.indexOf('っ') < 0) return 'Marque la petite pause du っ avant la consonne suivante.';
 if (String(rawTarget || '').indexOf('ん') >= 0 && heard.indexOf('ん') < 0) return 'Le ん doit s’entendre, même s’il est court.';
 if (score >= 75) return 'Bien, quelques sons à préciser. Réécoute le modèle puis répète.';
 return 'Réécoute le modèle, puis répète lentement en articulant.';
@@ -203,7 +242,11 @@ diff: align(expectedItem.value, heardItem.value)
 }
 });
 });
+var rhythm = rhythmReport(best.target || '', raw);
 var score = Math.round(best.score * 100);
+if (rhythm.missingSokuon) score -= 10;
+if (rhythm.missingLongVowel) score -= 8;
+score = Math.max(0, Math.min(100, score));
 return {
 transcript: raw,
 target: best.target || (targets[0] && targets[0].value) || '',
@@ -212,11 +255,12 @@ heard: best.heard,
 score: score,
 good: score >= 75,
 close: score >= 60,
+rhythm: rhythm,
 variant: !!best.variant,
 alternative: !!best.alternative,
 alternativeLabel: best.alternativeLabel || '',
 diff: best.diff || [],
-tip: advice(best.expectedRaw || best.target || '', best.expected, best.heard, score, best.variant)
+tip: advice(best.expectedRaw || best.target || '', best.expected, best.heard, score, best.variant, rhythm)
 };
 }
 function best(transcripts, entry, options) {
@@ -236,6 +280,7 @@ best: best,
 supported: supported,
 phonetic: basePhonetic,
 similarity: similarity,
-align: align
+align: align,
+rhythm: rhythmReport
 };
 });

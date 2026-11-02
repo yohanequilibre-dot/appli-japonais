@@ -6,6 +6,7 @@ const Store = require("../js/srs.js");
 const Parser = require("../js/parser.js");
 const Reading = require("../js/reading.js");
 const Pron = require("../js/pronunciation.js");
+const Phrase = require("../js/phrase.js");
 
 let failed = 0;
 function test(name, fn) {
@@ -360,3 +361,57 @@ if (failed) {
   process.exit(1);
 }
 console.log("\nTous les tests unitaires passent.");
+
+
+test("atelier de phrases : texte à trous en kana ou romaji", function () {
+  const entry = { id: "water", jp: "水", reading: "みず", romaji: "mizu", hl: "水", context: "水を一杯ください。", contextFr: "Un verre d’eau, s’il vous plaît." };
+  const ex = Phrase.build(entry, "cloze");
+  assert.ok(ex);
+  assert.equal(ex.target, "水");
+  assert.equal(ex.expected, "みず");
+  assert.equal(Phrase.checkCloze(ex, "みず").good, true);
+  assert.equal(Phrase.checkCloze(ex, "mizu").good, true);
+  assert.equal(Phrase.checkCloze(ex, "みずを").good, false);
+});
+
+test("atelier de phrases : remise en ordre", function () {
+  const entry = { id: "un", jp: "うん", reading: "うん", hl: "うん", context: "「美味しい？」「うん、美味しいよ」", contextFr: "..." };
+  const ex = Phrase.build(entry, "order");
+  assert.ok(ex);
+  assert.ok(ex.tokens.length >= 3);
+  assert.equal(Phrase.checkOrder(ex, ex.expectedIds).good, true);
+  assert.equal(Phrase.checkOrder(ex, ex.expectedIds.slice().reverse()).good, false);
+});
+
+test("atelier de phrases : sans contexte, aucun exercice", function () {
+  assert.equal(Phrase.build({ jp: "水", fr: "eau" }, "cloze"), null);
+});
+
+test("prononciation : le petit っ est contrôlé", function () {
+  const result = Pron.compare("がこう", { jp: "学校", reading: "がっこう" });
+  assert.equal(result.rhythm.missingSokuon, true);
+  assert.equal(result.rhythm.missingLongVowel, false);
+  assert.equal(result.good, false);
+});
+
+test("prononciation : une voyelle longue transcrite en kana reste acceptée", function () {
+  const result = Pron.compare("こおひい", { jp: "コーヒー", reading: "コーヒー" });
+  assert.equal(result.rhythm.missingLongVowel, false);
+  assert.equal(result.score, 100);
+});
+
+test("sauvegarde locale : un point de restauration est conservé", function () {
+  const data = new Map();
+  global.localStorage = {
+    getItem: function (key) { return data.has(key) ? data.get(key) : null; },
+    setItem: function (key, value) { data.set(key, String(value)); },
+    removeItem: function (key) { data.delete(key); }
+  };
+  const state = Store.defaultState();
+  state.progress.water = Store.freshProgress(0);
+  Store.save(state);
+  const backup = Store.latestBackup();
+  assert.ok(backup);
+  assert.ok(backup.progress.water);
+  delete global.localStorage;
+});

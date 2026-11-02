@@ -1042,6 +1042,42 @@ will-change: transform, opacity;
 .pronounce-replay { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 8px auto; }
 @media (max-width: 560px) { .pronunciation-panel .pron-stats { grid-template-columns: 1fr; } }
 
+/* ---------- Session du jour et atelier de phrases ---------- */
+.today-panel .panel-head { align-items: flex-start; }
+.today-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.today-steps span { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: .74rem; font-weight: 800; }
+.today-steps span:not(:last-child)::after { content: ' →'; color: var(--green); }
+.phrase-mode-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.phrase-card { max-width: 760px; margin: 0 auto; }
+.phrase-title { margin: 4px 0 14px; font-size: clamp(1.4rem, 4vw, 2rem); }
+.phrase-prompt { margin: 10px 0 12px; font-family: var(--jp); font-size: clamp(1.6rem, 5.2vw, 2.7rem); line-height: 2.25; overflow-wrap: anywhere; }
+.phrase-blank { display: inline-block; min-width: 4.5em; margin: 0 .1em; border-bottom: 3px solid var(--green); color: var(--muted); text-align: center; }
+.phrase-translation { margin: 0 0 14px; color: var(--muted); font-size: .88rem; line-height: 1.45; }
+.phrase-instruction { margin: 0 0 10px; color: var(--muted); font-size: .9rem; }
+.phrase-form { display: grid; gap: 8px; max-width: 560px; margin: 12px 0; }
+.phrase-form label { font-size: .72rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.phrase-input-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.phrase-input-row input { flex: 1 1 190px; min-width: 0; border: 2px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text); padding: 11px 13px; font: inherit; font-size: 1.08rem; }
+.phrase-input-row input:focus { outline: none; border-color: var(--green); }
+.phrase-selected { display: flex; flex-wrap: wrap; gap: 6px; min-height: 46px; padding: 8px; margin: 12px 0 8px; border: 2px dashed var(--line); border-radius: 14px; background: var(--surface-2); }
+.phrase-placeholder { align-self: center; color: var(--muted); font-size: .8rem; padding: 4px 6px; }
+.phrase-bank { display: flex; flex-wrap: wrap; gap: 7px; }
+.phrase-token { border: 2px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--text); padding: 8px 11px; font-family: var(--jp); font-size: 1rem; line-height: 1.45; cursor: pointer; }
+.phrase-token:hover, .phrase-token:focus-visible { border-color: var(--green); outline: none; }
+.phrase-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.phrase-result-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 11px 14px; border-radius: 14px; margin-bottom: 14px; }
+.phrase-result-head.good { background: var(--green-soft); border: 1px solid var(--green); }
+.phrase-result-head.retry { background: var(--red-soft); border: 1px solid var(--red); }
+.phrase-result-head span { color: var(--muted); font-size: .8rem; }
+.phrase-feedback { border-top: 1px solid var(--line); padding-top: 12px; }
+.phrase-full { margin: 5px 0 8px; font-family: var(--jp); font-size: clamp(1.35rem, 4.5vw, 2.1rem); line-height: 2.1; overflow-wrap: anywhere; }
+.phrase-target { margin: 8px 0; color: var(--muted); font-size: .82rem; }
+.rhythm-chips { display: flex; flex-wrap: wrap; gap: 5px; max-width: 470px; margin: 4px auto 10px; justify-content: center; }
+.rhythm-chip { border-radius: 999px; padding: 4px 9px; font-size: .7rem; font-weight: 800; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); }
+.rhythm-chip.bad { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+.rhythm-chip.good { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); }
+@media (max-width: 560px) { .today-panel .panel-head { flex-direction: column; } .today-panel .panel-head .btn, .phrase-panel .panel-head .btn { width: 100%; } }
+
 /* ---------- Traduction mot à mot ---------- */
 .sentence-tooltip-translation { display: block; }
 .tip-gloss { margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,.2); }

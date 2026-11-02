@@ -3,13 +3,14 @@
 (function () {
 'use strict';
 
-if (!window.Kotoba || !window.Kotoba.Parser || !window.Kotoba.Store) {
+if (!window.Kotoba || !window.Kotoba.Parser || !window.Kotoba.Store || !window.Kotoba.Phrase) {
   document.body.innerHTML = '<p style="padding:2rem;font-family:system-ui">Kotoba n\'a pas pu charger ses modules. Recharge la page.</p>';
   return;
 }
 
 const P = window.Kotoba.Parser;
 const S = window.Kotoba.Store;
+const PH = window.Kotoba.Phrase;
 const $ = function (sel, root) { return (root || document).querySelector(sel); };
 const $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
@@ -657,6 +658,30 @@ function route() {
 }
 
 /* ---------- Accueil ---------- */
+function dailyPlanPanelHtml() {
+  const c = S.counts(entries, state, Date.now());
+  const parts = [];
+  if (c.due) parts.push(Math.min(8, c.due) + ' révision' + (Math.min(8, c.due) === 1 ? '' : 's'));
+  if (c.new) parts.push(Math.min(3, c.new) + ' nouveau' + (Math.min(3, c.new) === 1 ? '' : 'x') + ' mot' + (Math.min(3, c.new) === 1 ? '' : 's'));
+  parts.push('2 phrases');
+  parts.push('1 prononciation');
+  return '<section class="panel today-panel" data-testid="today-panel">' +
+    '<div class="panel-head"><div><p class="eyebrow">Parcours guidé</p><h2>Ta session du jour</h2>' +
+    '<p>Un seul parcours : révisions, phrases et prononciation. ' + esc(parts.join(' · ')) + '.</p></div>' +
+    '<button class="btn primary" data-action="start-today" data-testid="start-today">Commencer</button></div>' +
+    '<div class="today-steps"><span>Mots</span><span>Phrases</span><span>Prononciation</span><span>Bilan</span></div></section>';
+}
+function phrasePanelHtml() {
+  if (!entries.some(function (entry) { return !!(entry && entry.context); })) return '';
+  return '<section class="panel phrase-panel" data-testid="phrase-panel">' +
+    '<div class="panel-head"><div><p class="eyebrow">Atelier de phrases</p><h2>Construis des phrases entières</h2>' +
+    '<p>À partir de tes contextes : complète, remets dans l’ordre ou écoute puis reconstruis.</p></div>' +
+    '<button class="btn primary" data-action="start-phrase" data-type="mixed" data-testid="start-phrase">Atelier complet</button></div>' +
+    '<div class="phrase-mode-row">' +
+    '<button class="mode-btn" data-action="start-phrase" data-type="cloze" data-testid="start-phrase-cloze">Texte à trous</button>' +
+    '<button class="mode-btn" data-action="start-phrase" data-type="order" data-testid="start-phrase-order">Remettre en ordre</button>' +
+    '<button class="mode-btn" data-action="start-phrase" data-type="dictation" data-testid="start-phrase-dictation">Dictée</button></div></section>';
+}
 function renderHome() {
   const now = Date.now();
   const c = S.counts(entries, state, now);
@@ -695,6 +720,8 @@ function renderHome() {
       '<div class="stat-card"><span class="stat-num">' + c.known + '</span><span class="stat-label">Mots connus</span></div>' +
       '<div class="stat-card"><span class="stat-num">' + c.new + '</span><span class="stat-label">Nouveaux</span></div></div>' +
     journeyPanelHtml(stages) +
+    dailyPlanPanelHtml() +
+    phrasePanelHtml() +
     (ps.attempts ? pronunciationPanelHtml(ps) : '') +
     '<section class="panel"><div class="panel-head"><h2>Mes thèmes</h2><p>' + c.seen + '/' + c.total + ' mots découverts · 1 000 courants + 60 escalade</p></div><div class="theme-grid">' + units + '</div></section>';
   if (wotd) {
@@ -726,6 +753,7 @@ $('#view-review').innerHTML = `
 <div><p class='eyebrow'>Ta session</p><h2>${c.due ? 'On révise un peu ?' : (c.new ? 'Prêt à découvrir ?' : 'Tout est à jour.')}</h2><p class='lead'>${primaryHint}</p></div>
 <div class='review-hero-actions'><button class='btn primary big' data-action='start' data-kind='${primaryKind}' data-mode='recall' data-testid='review-start-main'${disabled ? ' disabled' : ''}>${primaryLabel}</button></div>
 </div>
+${dailyPlanPanelHtml()}
 <div class='panel'><div class='panel-head'><div><h2>Réviser</h2><p>${c.due ? plural(c.due, 'carte t’attend', 'cartes t’attendent') : 'Rien n’est dû pour le moment.'}</p></div></div>
 <div class='review-grid'>
 <div class='review-card' role='button' tabindex='0' data-action='start' data-kind='due' data-mode='recall' data-testid='review-card-due'>
@@ -737,6 +765,7 @@ $('#view-review').innerHTML = `
 <button class='review-card' data-action='start' data-kind='all' data-mode='recall'${c.seen ? '' : ' disabled'}><span class='review-num'>${c.seen}</span><strong>Tout revoir</strong><span class='hint'>Tous les mots déjà rencontrés.</span></button>
 <button class='review-card' data-action='start' data-kind='new' data-mode='recall' data-testid='review-start-new'${c.new ? '' : ' disabled'}><span class='review-num'>${c.new}</span><strong>Nouveaux mots</strong><span class='hint'>Découvre jusqu’à dix nouveaux mots.</span></button>
 </div></div>
+${phrasePanelHtml()}
 <section class='panel'><div class='panel-head'><h2>Prévisions</h2><p>Les 7 prochains jours</p></div><div class='forecast'>${bars}</div></section>`;
 }
 
@@ -915,6 +944,87 @@ function handleImage(file) {
 }
 
 /* ---------- Session ---------- */
+function wordTask(entry, mode, target) {
+  return { entry: entry, mode: mode || 'recall', target: target || '' };
+}
+function makePhraseTask(entry, preferred) {
+  if (!entry || !PH) return null;
+  const exercise = PH.bestType(entry, preferred);
+  return exercise ? { entry: entry, mode: 'phrase', exercise: exercise } : null;
+}
+function addPhraseTask(tasks, pool, preferred, used) {
+  for (let i = 0; i < pool.length; i++) {
+    const entry = pool[i];
+    if (used[entry.id]) continue;
+    const task = makePhraseTask(entry, preferred);
+    if (!task) continue;
+    tasks.push(task);
+    used[entry.id] = true;
+    return true;
+  }
+  return false;
+}
+function openSession(kind, tasks) {
+  if (!tasks || !tasks.length) { toast('Aucun exercice disponible pour l\'instant.'); return; }
+  session = {
+    kind: kind, tasks: tasks.slice(), current: null, mode: 'recall', task: null, exercise: null,
+    phase: 'front', done: 0, correct: 0, xp: 0, total: tasks.length, options: [],
+    lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null,
+    phraseSelection: [], phraseResult: null
+  };
+  document.body.style.overflow = 'hidden';
+  const root = $('#session');
+  if (root) root.hidden = false;
+  nextCard();
+}
+function startPhraseSession(type) {
+  const pool = shuffle(entries.filter(function (e) { return !!(e && e.context); }));
+  const wanted = type && type !== 'mixed' ? type : '';
+  const tasks = [];
+  for (let i = 0; i < pool.length && tasks.length < 6; i++) {
+    const preferred = wanted || PH.TYPES[tasks.length % PH.TYPES.length];
+    const task = makePhraseTask(pool[i], preferred);
+    if (task) tasks.push(task);
+  }
+  if (!tasks.length) { toast('Aucune phrase de contexte disponible.'); return; }
+  openSession('phrases', tasks);
+}
+function startDailyPlan() {
+  const now = Date.now();
+  const tasks = [];
+  const used = {};
+  const due = S.dueEntries(entries, state, now).slice(0, 8);
+  due.forEach(function (entry) {
+    tasks.push(wordTask(entry, 'recall', 'word'));
+    used[entry.id] = true;
+  });
+  const fresh = entries.filter(function (e) { return S.isNew(state.progress[e.id]); }).slice(0, 3);
+  fresh.forEach(function (entry) {
+    if (used[entry.id]) return;
+    tasks.push(wordTask(entry, 'recall', 'word'));
+    used[entry.id] = true;
+  });
+  if (!tasks.length) {
+    shuffle(entries.filter(function (e) { const p = state.progress[e.id]; return p && p.last; })).slice(0, 5).forEach(function (entry) {
+      tasks.push(wordTask(entry, 'recall', 'word'));
+      used[entry.id] = true;
+    });
+  }
+  const phrasePool = shuffle(entries.filter(function (e) { return !!(e && e.context); }));
+  addPhraseTask(tasks, phrasePool, 'cloze', used);
+  addPhraseTask(tasks, phrasePool, 'order', used);
+  const weak = pronunciationStats().weak.map(function (row) {
+    return row.entry;
+  }).filter(function (entry) { return entry && !used[entry.id]; });
+  const pronunciationEntry = weak[0] || shuffle(entries.filter(function (entry) {
+    return entry && entry.context && !used[entry.id];
+  }))[0] || entries.filter(function (entry) { return !used[entry.id]; })[0];
+  if (pronunciationEntry) {
+    tasks.push({ entry: pronunciationEntry, mode: 'pronounce', target: pronunciationEntry.context ? 'phrase' : 'word' });
+  }
+  if (!tasks.length) { toast('Aucune carte pour la session du jour.'); return; }
+  openSession('today', tasks);
+}
 function startSession(kind, mode, unitId) {
   mode = mode || 'recall';
   if (!entries.length) { toast('Aucun mot à afficher.'); return; }
@@ -934,32 +1044,20 @@ list = seen.concat(fresh).slice(0, 3);
 }
   if (!list.length) { toast('Rien à réviser pour l\'instant.'); return; }
   if (kind === 'due') list = list.slice(0, 30);
-  session = { kind: kind, mode: mode, queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
-  document.body.style.overflow = 'hidden';
-  const root = $('#session');
-  if (root) root.hidden = false;
-  nextCard();
+  openSession(kind, list.map(function (entry) { return wordTask(entry, mode); }));
 }
 function startPronunciationPractice() {
   const stats = pronunciationStats();
   const list = stats.weak.map(function (row) { return row.entry; });
   if (!list.length) { toast('Aucun mot à retravailler pour l’instant.'); return; }
-  session = { kind: 'pronunciation', mode: 'pronounce', queue: list.slice(), current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: list.length, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
-  document.body.style.overflow = 'hidden';
-  const root = $('#session');
-  if (root) root.hidden = false;
-  nextCard();
+  openSession('pronunciation', list.map(function (entry) { return wordTask(entry, 'pronounce'); }));
 }
 function startOne(id, mode) {
 const e = entries.filter(function (x) { return x.id === id; })[0];
 if (!e) return;
 closeModal();
 mode = mode || 'recall';
-session = { kind: 'single', mode: mode, queue: [e], current: null, phase: 'front', done: 0, correct: 0, xp: 0, total: 1, options: [], lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null };
-document.body.style.overflow = 'hidden';
-const root = $('#session');
-if (root) root.hidden = false;
-nextCard();
+openSession('single', [wordTask(e, mode)]);
 }
 function claimDaily() {
 const day = S.todayKey();
@@ -976,19 +1074,36 @@ if (window.Kotoba.Motivation) window.Kotoba.Motivation.celebrate(message); else 
 }
 function nextCard() {
   if (!session) return;
-  if (!session.queue.length) {
+  if (!session.tasks.length) {
 session.current = null; session.phase = 'summary';
 if (session.kind === 'daily') claimDaily();
 renderSession(); return;
 }
-  session.current = session.queue.shift();
+  const task = session.tasks.shift();
+  session.task = task;
+  session.current = task.entry;
+  session.mode = task.mode || 'recall';
+  session.exercise = task.exercise || null;
   session.autoSpokenFor = null;
   session.pronunciation = null;
+  session.phraseSelection = [];
+  session.phraseResult = null;
   if (session.pronunciationAutoPhrase) {
     session.pronunciationTarget = 'word';
     session.pronunciationAutoPhrase = false;
   }
-  if (!session.pronunciationTarget) session.pronunciationTarget = state.settings.pronunciationTarget === 'phrase' ? 'phrase' : 'word';
+  if (session.mode === 'phrase') {
+    if (!session.exercise) { nextCard(); return; }
+    session.phase = 'question';
+    session.options = [];
+    session.lastGrade = null;
+    session.lastChoice = null;
+    session.total = Math.max(session.total, session.done + session.tasks.length + 1);
+    renderSession();
+    return;
+  }
+  if (task.target) session.pronunciationTarget = task.target;
+  else if (!session.pronunciationTarget) session.pronunciationTarget = state.settings.pronunciationTarget === 'phrase' ? 'phrase' : 'word';
   if (!session.pronunciationEngine) {
     const browserOk = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     const whisperOk = !!(window.Kotoba.Whisper && window.Kotoba.Whisper.supported());
@@ -998,7 +1113,7 @@ renderSession(); return;
 session.phase = session.mode === 'recall' ? 'front' : 'question';
   session.options = (session.mode === 'recall' || session.mode === 'pronounce') ? [] : buildOptions(session.current, session.mode);
   session.lastGrade = null; session.lastChoice = null;
-  session.total = Math.max(session.total, session.done + session.queue.length + 1);
+  session.total = Math.max(session.total, session.done + session.tasks.length + 1);
   renderSession();
 }
 function buildOptions(entry, mode) {
@@ -1020,16 +1135,19 @@ function renderSession() {
   if (!session) { root.hidden = true; return; }
   root.hidden = false;
   const pct = Math.min(100, Math.round(session.done / Math.max(1, session.total) * 100));
-  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : quizView()));
+  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'phrase' ? phraseView() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : quizView())));
   root.innerHTML = '<div class="session-shell"><div class="session-top"><button class="icon-btn" data-action="quit-session" aria-label="Quitter la session">✕</button>' +
     '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><div class="progress-fill" style="width:' + pct + '%" data-testid="progress"></div></div>' +
     '<span class="session-count">' + session.done + '/' + Math.max(session.done, session.total) + '</span></div><div class="session-body">' + body + '</div></div>';
   root.tabIndex = -1;
   root.style.outline = 'none';
   try { root.focus({ preventScroll: true }); } catch (e) { root.focus(); }
-  if (session.current && (session.phase === 'revealed' || session.phase === 'feedback' ||
+  if (session.current && session.mode !== 'phrase' && (session.phase === 'revealed' || session.phase === 'feedback' ||
     (session.mode === 'pronounce' && session.pronunciation && session.pronunciation.status === 'done'))) {
     autoSpeakAnswer(session.current);
+  }
+  if (session.mode === 'phrase' && session.phase === 'question' && session.exercise && session.exercise.type === 'cloze') {
+    setTimeout(function () { const input = $('#phraseAnswer'); if (input) input.focus(); }, 30);
   }
 }
 function answerVerdictHtml(st, graded) {
@@ -1082,6 +1200,17 @@ function answerCard(e) {
     (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '<p class="hint">Pas encore de phrase. Ajoute-en une depuis Mes mots.</p>') + '</aside></div>' +
     inline + '</div>';
 }
+function pronunciationRhythmHtml(st) {
+  if (!st || !st.rhythm) return '';
+  const chips = [];
+  if (st.rhythm.expectedSokuon) {
+    chips.push('<span class="rhythm-chip ' + (st.rhythm.missingSokuon ? 'bad' : 'good') + '">' + (st.rhythm.missingSokuon ? 'Petit っ manquant' : 'Petit っ ✓') + '</span>');
+  }
+  if (st.rhythm.expectedLongVowels) {
+    chips.push('<span class="rhythm-chip ' + (st.rhythm.missingLongVowel ? 'bad' : 'good') + '">' + (st.rhythm.missingLongVowel ? 'Voyelle longue manquante' : 'Voyelle longue ✓') + '</span>');
+  }
+  return chips.length ? '<div class="rhythm-chips" data-testid="pronounce-rhythm">' + chips.join('') + '</div>' : '';
+}
 function inlinePronunciationHtml(st) {
   if (!st || st.status !== 'done') return '';
   const replay = st.engine === 'whisper' && window.Kotoba.Whisper && window.Kotoba.Whisper.hasRecording && window.Kotoba.Whisper.hasRecording()
@@ -1097,6 +1226,7 @@ function inlinePronunciationHtml(st) {
     (st.score < 100 ? pronunciationDiffHtml(st.diff) : '') +
     (accepted ? '<p class="variant-note" data-testid="inline-variant">Autre formulation acceptée : <b lang="ja">' + esc(st.alternativeLabel || st.expected || '') + '</b>. « ' + esc(main || 'La forme principale') + ' » est plus doux et général ; « ' + esc(st.alternativeLabel || st.expected || '') + ' » est plus direct et peut sembler plus fort, mais il reste poli.</p>' : '') +
     (st.tip ? '<p class="hint inline-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
+    pronunciationRhythmHtml(st) +
     '<div class="inline-pronunciation-actions">' + replay +
     '<button class="btn ghost small" data-action="pronounce-front-start" data-testid="inline-pronounce-retry">Réessayer</button></div></div>';
 }
@@ -1437,7 +1567,8 @@ interaction = '<div class="pronounce-result ' + (st.good ? 'good' : 'retry') + '
 '<p class="hint">Entendu : ' + esc(st.transcript || '—') + '</p></div></div>' +
 compare +
 (st.alternative && st.good ? '<p class="variant-note" data-testid="pronounce-variant">Autre formulation acceptée. Les deux sont polies : « ' + esc(e.jp) + ' » est plus doux et général, « ' + esc(st.alternativeLabel || st.expected || '') + ' » plus direct.</p>' : '') +
-(st.tip ? '<p class="hint pronounce-tip" data-testid="pronounce-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
+    (st.tip ? '<p class="hint pronounce-tip" data-testid="pronounce-tip"><b>Conseil :</b> ' + esc(st.tip) + '</p>' : '') +
+    pronunciationRhythmHtml(st) +
 replay +
 '<div class="pronounce-actions"><button class="btn primary" data-action="' + finishAction + '" data-good="' + finishGood + '" data-testid="' + finishTestId + '">' + finishLabel + '</button>' +
 '<button class="btn ghost" data-action="pronounce-retry">Réessayer</button></div>';
@@ -1446,6 +1577,103 @@ return '<div class="session-card pronounce-card" data-testid="pronounce-card"><p
 '<h1 class="prompt-fr">' + frHtml(e.fr) + '</h1>' + targets + stepHint + engines + shown +
 '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(audioText) + '">🔊 Écouter</button>' +
 '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(audioText) + '" data-slow="1">🐢 Lent</button></div>' + interaction + '</div>';
+}
+function phraseTypeLabel(type) {
+  if (type === 'cloze') return 'Texte à trous';
+  if (type === 'dictation') return 'Dictée';
+  return 'Remise en ordre';
+}
+function phrasePromptHtml(exercise) {
+  return '<p class="phrase-prompt" lang="ja" data-testid="phrase-prompt">' +
+    (exercise.before ? contextHtml(exercise.before, '', null) : '') +
+    '<span class="phrase-blank" aria-label="mot manquant">…</span>' +
+    (exercise.after ? contextHtml(exercise.after, '', null) : '') + '</p>';
+}
+function phraseTokenButtons(exercise, ids) {
+  return ids.map(function (id) {
+    const token = exercise.tokens.filter(function (item) { return item.id === id; })[0];
+    if (!token) return '';
+    return '<button type="button" class="phrase-token" data-action="phrase-token" data-token="' + token.id + '" data-testid="phrase-token-' + token.id + '">' + esc(token.text) + '</button>';
+  }).join('');
+}
+function phraseView() {
+  const ex = session.exercise;
+  if (!ex) return '<div class="session-card phrase-card" data-testid="phrase-card"><p>Exercice indisponible.</p></div>';
+  if (session.phase === 'feedback') return phraseFeedbackHtml(ex);
+  const intro = ex.type === 'cloze' ? 'Complète la phrase' : (ex.type === 'dictation' ? 'Écoute et reconstruis' : 'Remets la phrase dans l’ordre');
+  const translation = ex.contextFr ? '<p class="phrase-translation">' + esc(ex.contextFr) + '</p>' : '';
+  let body = '';
+  if (ex.type === 'cloze') {
+    body = phrasePromptHtml(ex) + translation +
+      '<form class="phrase-form" data-form="phrase-cloze" data-testid="phrase-cloze">' +
+      '<label for="phraseAnswer">Le mot manquant</label>' +
+      '<div class="phrase-input-row"><input id="phraseAnswer" name="answer" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="kana ou romaji" data-testid="phrase-input">' +
+      '<button class="btn primary" type="submit" data-testid="phrase-submit">Vérifier</button></div>' +
+      '<p class="hint">Écris le mot en kana ou en romaji. Les deux sont acceptés.</p></form>' +
+      '<button class="btn ghost small" type="button" data-action="phrase-reveal" data-testid="phrase-reveal">Voir la réponse</button>';
+  } else {
+    const selected = session.phraseSelection || [];
+    const available = ex.shuffled.map(function (token) { return token.id; }).filter(function (id) { return selected.indexOf(id) < 0; });
+    body = '<p class="phrase-instruction">' + (ex.type === 'dictation' ? 'Écoute la phrase, puis touche les mots dans le bon ordre.' : 'Touche les mots dans le bon ordre.') + '</p>' +
+      (ex.type === 'dictation' ? '<button class="btn primary" data-action="speak-text" data-text="' + attr(ex.audioText) + '" data-testid="phrase-listen">🔊 Écouter</button>' : '') +
+      translation +
+      '<div class="phrase-selected" data-testid="phrase-selected">' + (selected.length ? phraseTokenButtons(ex, selected) : '<span class="phrase-placeholder">Les mots choisis apparaîtront ici.</span>') + '</div>' +
+      '<div class="phrase-bank" data-testid="phrase-bank">' + phraseTokenButtons(ex, available) + '</div>' +
+      '<div class="phrase-actions"><button class="btn primary" data-action="phrase-check" data-testid="phrase-check"' + (selected.length === ex.expectedIds.length ? '' : ' disabled') + '>Vérifier</button>' +
+      '<button class="btn ghost" data-action="phrase-reset" data-testid="phrase-reset">Effacer</button>' +
+      '<button class="btn ghost small" data-action="phrase-reveal" data-testid="phrase-reveal">Voir la réponse</button></div>';
+  }
+  return '<div class="session-card phrase-card" data-testid="phrase-card"><p class="eyebrow">Atelier de phrases · ' + esc(phraseTypeLabel(ex.type)) + '</p>' +
+    '<h1 class="phrase-title">' + esc(intro) + '</h1>' + body + '</div>';
+}
+function phraseFeedbackHtml(ex) {
+  const result = session.phraseResult || { good: false };
+  const verdict = result.good ? '✅ Bien joué' : (result.revealed ? '👀 Réponse affichée' : '❌ À retravailler');
+  return '<div class="session-card phrase-card" data-testid="phrase-card"><div class="phrase-result-head ' + (result.good ? 'good' : 'retry') + '" data-testid="phrase-result"><b>' + verdict + '</b>' +
+    '<span>La phrase est maintenant complète.</span></div>' +
+    '<div class="phrase-feedback"><div class="context-label">La phrase</div><p class="phrase-full" lang="ja" data-testid="phrase-full">' + contextHtml(ex.context, ex.target, session.current) + '</p>' +
+    (ex.contextFr ? '<p class="phrase-translation">' + esc(ex.contextFr) + '</p>' : '') +
+    '<p class="phrase-target">Mot travaillé : <b lang="ja">' + esc(ex.target) + '</b>' + (ex.reading && ex.reading !== ex.target ? ' · ' + esc(ex.reading) : '') + '</p>' +
+    wordByWordDetails(ex.context, 'phrase-word-by-word') +
+    '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(ex.audioText) + '">🔊 Écouter</button>' +
+    '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(ex.audioText) + '" data-slow="1">🐢 Lent</button></div></div>' +
+    '<div class="phrase-actions"><button class="btn primary" data-action="phrase-next" data-testid="phrase-next">Continuer</button></div></div>';
+}
+function finishPhrase(good, answer, revealed) {
+  if (!session || session.mode !== 'phrase' || session.phase !== 'question') return;
+  const now = Date.now();
+  const xp = S.bumpStats(state, good ? 'good' : 'again', now);
+  state.stats.phraseAttempts = (Number(state.stats.phraseAttempts) || 0) + 1;
+  if (good) state.stats.phraseCorrect = (Number(state.stats.phraseCorrect) || 0) + 1;
+  session.xp += xp;
+  session.done++;
+  if (good) session.correct++;
+  session.lastGrade = good ? 'good' : 'again';
+  session.lastXp = xp;
+  session.lastDue = 0;
+  session.phraseResult = { good: !!good, answer: String(answer || ''), revealed: !!revealed };
+  session.phase = 'feedback';
+  persist();
+  flashValidation(good ? 'good' : 'again');
+  toast(good ? '✅ Phrase correcte' : (revealed ? 'Réponse affichée' : '❌ Phrase à retravailler'));
+  renderSession();
+  updateChrome();
+}
+function choosePhraseToken(id) {
+  if (!session || session.mode !== 'phrase' || session.phase !== 'question' || !session.exercise) return;
+  const tokenId = Number(id);
+  if (!Number.isFinite(tokenId)) return;
+  const selected = session.phraseSelection || [];
+  const at = selected.indexOf(tokenId);
+  if (at >= 0) selected.splice(at, 1);
+  else if (selected.length < session.exercise.expectedIds.length) selected.push(tokenId);
+  session.phraseSelection = selected;
+  renderSession();
+}
+function checkPhraseOrder() {
+  if (!session || session.mode !== 'phrase' || !session.exercise) return;
+  const result = PH.checkOrder(session.exercise, session.phraseSelection || []);
+  finishPhrase(result.good, (session.phraseSelection || []).join(','), false);
 }
 function startWhisper(token) {
   const s = session;
@@ -1677,8 +1905,8 @@ state.progress[e.id] = next;
   session.xp += xp; session.done++;
   if (g === 'good') session.correct++;
   session.lastGrade = g; session.lastXp = xp; session.lastDue = state.progress[e.id].due;
-  if (g === 'again') session.queue.splice(Math.min(3, session.queue.length), 0, e);
-  session.total = Math.max(session.total, session.done + session.queue.length);
+  if (g === 'again') session.tasks.splice(Math.min(3, session.tasks.length), 0, wordTask(e, session.mode, session.task && session.task.target));
+  session.total = Math.max(session.total, session.done + session.tasks.length);
   persist();
   flashValidation(g);
   toast(g === 'good' ? '✅ Bonne réponse' : '❌ Mauvaise réponse');
@@ -1744,13 +1972,16 @@ function closeModal() {
 function openSettings() {
   const s = state.settings;
   const goals = [20, 30, 50, 100];
+  const backups = S.backupInfo();
+  const lastBackup = backups.length ? new Date(backups[backups.length - 1].t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
   openModal('Réglages', '<div class="setting-row"><div><strong>Objectif quotidien</strong><small>XP à gagner chaque jour</small></div><div class="seg">' +
     goals.map(function (g) { return '<button class="' + (s.goal === g ? 'active' : '') + '" data-action="set-goal" data-goal="' + g + '">' + g + '</button>'; }).join('') + '</div></div>' +
     '<div class="setting-row"><div><strong>Furigana</strong><small>Lecture au-dessus des kanji</small></div><label class="switch"><input type="checkbox" data-setting="furigana"' + (s.furigana ? ' checked' : '') + '> Afficher</label></div>' +
     '<div class="setting-row"><div><strong>Romaji</strong><small>Prononciation en lettres latines</small></div><label class="switch"><input type="checkbox" data-setting="romaji"' + (s.romaji ? ' checked' : '') + '> Afficher</label></div>' +
     '<div class="setting-row"><div><strong>Thème</strong><small>Clair, sombre ou système</small></div><select data-setting="theme"><option value="system"' + (s.theme === 'system' ? ' selected' : '') + '>Système</option><option value="light"' + (s.theme === 'light' ? ' selected' : '') + '>Clair</option><option value="dark"' + (s.theme === 'dark' ? ' selected' : '') + '>Sombre</option></select></div>' +
     '<div class="setting-row"><div><strong>Vitesse audio</strong><small>Voix japonaise du navigateur</small></div><div style="display:flex;align-items:center;gap:8px"><input type="range" min="0.5" max="1.3" step="0.05" value="' + s.rate + '" data-setting="rate" style="width:110px"><button class="btn ghost small" data-action="test-voice">Tester</button></div></div>' +
-    '<div class="setting-row"><div><strong>Sauvegarde</strong><small>Exporte ou restaure ta progression</small></div><div class="modal-actions" style="margin:0"><button class="btn ghost small" data-action="export-data">Exporter</button><button class="btn ghost small" data-action="import-data">Importer</button></div></div>' +
+    '<div class="setting-row"><div><strong>Sauvegarde</strong><small>Exporte ou transfère ta progression sur un autre appareil</small></div><div class="modal-actions" style="margin:0"><button class="btn ghost small" data-action="export-data">Exporter</button><button class="btn ghost small" data-action="import-data">Importer</button></div></div>' +
+    '<div class="setting-row"><div><strong>Sauvegarde locale automatique</strong><small>' + (lastBackup ? 'Dernier point : ' + esc(lastBackup) : 'Aucun point local pour l’instant') + '</small></div><button class="btn ghost small" data-action="restore-backup" data-testid="restore-backup"' + (lastBackup ? '' : ' disabled') + '>Restaurer</button></div>' +
     '<input type="file" id="dataFile" accept=".json,application/json" hidden><div class="modal-actions"><button class="btn danger-text" data-action="reset-data">Tout effacer</button></div>' +
     '<p class="hint">Kotoba stocke tout dans ce navigateur. Utilise l\'export pour passer d\'un appareil à l\'autre.</p>' +
     '<p class="hint data-credit">Sources : <a href="https://kanjikana.com/en/words/core-1000" target="_blank" rel="noopener">Kanjikana Core 1000</a> (CC BY 4.0) · <a href="https://tatoeba.org" target="_blank" rel="noopener">Tatoeba</a> (CC BY 2.0 FR).</p>');
@@ -1830,6 +2061,20 @@ function importData(file) {
   reader.onerror = function () { toast('Impossible de lire le fichier.'); };
   reader.readAsText(file, 'utf-8');
 }
+function restoreBackup() {
+  const backup = S.latestBackup();
+  if (!backup) { toast('Aucune sauvegarde locale disponible.'); return; }
+  if (!window.confirm('Restaurer le dernier point de sauvegarde local ? La progression actuelle sera remplacée.')) return;
+  Object.keys(state).forEach(function (k) { delete state[k]; });
+  Object.keys(backup).forEach(function (k) { state[k] = backup[k]; });
+  entries = buildEntries();
+  persist();
+  applyTheme();
+  closeModal();
+  render();
+  updateChrome();
+  toast('Dernier point local restauré.');
+}
 function resetAll() {
   if (!window.confirm('Effacer toute la progression et les mots importés ?')) return;
   if (!window.confirm('Cette action est définitive. Confirmer ?')) return;
@@ -1860,6 +2105,14 @@ return;
   const id = el.getAttribute('data-id');
   switch (action) {
     case 'start': startSession(el.getAttribute('data-kind'), el.getAttribute('data-mode') || 'recall', el.getAttribute('data-unit')); break;
+    case 'start-today': startDailyPlan(); break;
+    case 'start-phrase': startPhraseSession(el.getAttribute('data-type')); break;
+    case 'phrase-token': choosePhraseToken(el.getAttribute('data-token')); break;
+    case 'phrase-check': checkPhraseOrder(); break;
+    case 'phrase-reset': if (session) { session.phraseSelection = []; renderSession(); } break;
+    case 'phrase-reveal': finishPhrase(false, '', true); break;
+    case 'phrase-next': nextCard(); break;
+    case 'restore-backup': restoreBackup(); break;
     case 'reveal': reveal(); break;
     case 'grade': grade(el.getAttribute('data-grade')); break;
     case 'choose': choose(id); break;
@@ -1913,6 +2166,16 @@ case 'pronounce-finish': grade(el.getAttribute('data-good') === '1' ? 'good' : '
   }
 }
 function onSubmit(event) {
+  const phraseForm = event.target.closest ? event.target.closest('[data-form="phrase-cloze"]') : null;
+  if (phraseForm) {
+    event.preventDefault();
+    if (!session || !session.exercise) return;
+    const answer = String(new FormData(phraseForm).get('answer') || '').trim();
+    if (!answer) { toast('Écris le mot manquant.'); return; }
+    const result = PH.checkCloze(session.exercise, answer);
+    finishPhrase(result.good, answer, false);
+    return;
+  }
   const form = event.target.closest ? event.target.closest('[data-form="edit"]') : null;
   if (!form) return;
   event.preventDefault();
@@ -1962,6 +2225,10 @@ function onKeydown(event) {
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     const onButton = event.target && event.target.closest && event.target.closest('button');
     if (onButton && (event.key === 'Enter' || event.key === ' ')) return;
+    if (session.mode === 'phrase') {
+      if (session.phase === 'feedback' && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); nextCard(); }
+      return;
+    }
     if (session.phase === 'front' && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); reveal(); return; }
     if (session.phase === 'revealed') {
       if (event.key === '1') { event.preventDefault(); grade('again'); return; }

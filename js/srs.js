@@ -4,6 +4,9 @@
   "use strict";
 
   const KEY = "kotoba.v3";
+  const BACKUP_KEY = "kotoba.v3.backups";
+  const BACKUP_MAX = 3;
+  const BACKUP_GAP = 6 * 60 * 60 * 1000;
   const VERSION = 3;
   const DAY = 86400000;
   // Niveau 0 = 10 minutes, puis 1, 2, 4, 8, 16, 32, 64, 128, 256 jours.
@@ -33,7 +36,7 @@
       entries: {},
       progress: {},
       stats: {
-        xp: 0, reviews: 0, correct: 0, streak: 0, bestStreak: 0,
+        xp: 0, reviews: 0, correct: 0, phraseAttempts: 0, phraseCorrect: 0, streak: 0, bestStreak: 0,
         lastDay: null, daily: {}, history: {}
       },
       settings: { goal: 50, romaji: true, furigana: true, theme: "system", rate: 0.9 },
@@ -60,7 +63,7 @@
       s.stats.daily = (obj.stats.daily && typeof obj.stats.daily === "object") ? obj.stats.daily : {};
       s.stats.history = (obj.stats.history && typeof obj.stats.history === "object") ? obj.stats.history : {};
     }
-    ["xp", "reviews", "correct", "streak", "bestStreak"].forEach(function (k) {
+    ["xp", "reviews", "correct", "phraseAttempts", "phraseCorrect", "streak", "bestStreak"].forEach(function (k) {
       s.stats[k] = Number(s.stats[k]) || 0;
     });
     if (!s.stats.lastDay) s.stats.lastDay = null;
@@ -93,9 +96,55 @@
     if (!ls) return false;
     try {
       ls.setItem(KEY, JSON.stringify(state));
+      snapshot(state);
       return true;
     } catch (e) {
       return false;
+    }
+  }
+
+  function snapshot(state, now) {
+    const ls = storage();
+    if (!ls || !state) return false;
+    now = now == null ? Date.now() : now;
+    try {
+      let list = [];
+      try { list = JSON.parse(ls.getItem(BACKUP_KEY) || "[]") || []; } catch (e) { list = []; }
+      if (!Array.isArray(list)) list = [];
+      const last = list[list.length - 1];
+      if (last && now - Number(last.t || 0) < BACKUP_GAP) return false;
+      list.push({ t: now, state: JSON.parse(JSON.stringify(state)) });
+      while (list.length > BACKUP_MAX) list.shift();
+      ls.setItem(BACKUP_KEY, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function backupInfo() {
+    const ls = storage();
+    if (!ls) return [];
+    try {
+      const list = JSON.parse(ls.getItem(BACKUP_KEY) || "[]");
+      if (!Array.isArray(list)) return [];
+      return list.map(function (item) {
+        return { t: Number(item && item.t) || 0, bytes: JSON.stringify(item && item.state || {}).length };
+      });
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function latestBackup() {
+    const ls = storage();
+    if (!ls) return null;
+    try {
+      const list = JSON.parse(ls.getItem(BACKUP_KEY) || "[]");
+      const last = Array.isArray(list) ? list[list.length - 1] : null;
+      return last && last.state ? normalizeState(last.state) : null;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -103,6 +152,7 @@
     const ls = storage();
     if (!ls) return;
     try { ls.removeItem(KEY); } catch (e) { /* ignore */ }
+    try { ls.removeItem(BACKUP_KEY); } catch (e) { /* ignore */ }
   }
 
   function freshProgress(now) {
@@ -311,6 +361,7 @@ function counts(entries, state, now) {
 
   const api = {
     KEY: KEY,
+    BACKUP_KEY: BACKUP_KEY,
     VERSION: VERSION,
     LEVELS: LEVELS,
     todayKey: todayKey,
@@ -318,6 +369,9 @@ function counts(entries, state, now) {
     normalizeState: normalizeState,
     load: load,
     save: save,
+    snapshot: snapshot,
+    backupInfo: backupInfo,
+    latestBackup: latestBackup,
     reset: reset,
     freshProgress: freshProgress,
     isNew: isNew,

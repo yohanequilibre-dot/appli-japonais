@@ -539,3 +539,23 @@ test('« s’il vous plaît » accepte ください et affiche les lectures lati
   await expect(page.getByTestId('accepted-alternative')).toContainText('ください');
   await expect(page.getByTestId('accepted-alternative')).toContainText('plus directe');
 });
+
+
+test('atelier de phrases : exercice, révélation et enchaînement', async ({ page }) => {
+  await expect(page.getByTestId('phrase-panel')).toBeVisible();
+  await page.getByTestId('start-phrase').click();
+  await expect(page.getByTestId('phrase-card')).toBeVisible();
+  await expect(page.getByTestId('phrase-reveal')).toBeVisible();
+  await page.getByTestId('phrase-reveal').click();
+  await expect(page.getByTestId('phrase-result')).toBeVisible();
+  await expect(page.getByTestId('phrase-full')).toBeVisible();
+  await page.getByTestId('phrase-next').click();
+  await expect(page.getByTestId('phrase-card')).toBeVisible();
+});
+
+test('session du jour : lance un parcours guidé', async ({ page }) => {
+  await expect(page.getByTestId('today-panel')).toBeVisible();
+  await page.getByTestId('start-today').click();
+  await expect(page.locator('#session')).toBeVisible();
+  await expect(page.getByTestId('progress')).toBeVisible();
+});

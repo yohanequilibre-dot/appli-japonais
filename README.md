@@ -38,7 +38,9 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Alternatives acceptées** : pour « s’il vous plaît », お願いします et ください (kudasai) sont acceptés. La fiche explique la nuance : お願いします est plus doux et général ; ください est plus direct et concret, mais les deux restent polis.
 - **Quatre modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation. Le bouton « Passer au suivant » enchaîne immédiatement la carte suivante.
 - **Micro intégré à la révision** : sur la carte française, « 🎙️ Prononcer » écoute, donne un score et révèle la fiche dans tous les cas, même si la prononciation est imparfaite. La carte s'illumine fortement en vert ou en rouge selon le résultat, le détail est centré sous la fiche et le retry reste disponible. Dans la fiche d'un mot, « Prononcer » ouvre la carte de prononciation ; le micro ne démarre qu’au clic sur le bouton d’écoute.
-- **Prononciation guidée** : le mot d’abord, puis la phrase complète dès qu’il est validé (si le mot a un contexte) ; score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop et un conseil. En mode IA locale, réécoute ta prise à côté de la voix modèle. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
+- **Prononciation guidée** : le mot d’abord, puis la phrase complète dès qu’il est validé (si le mot a un contexte) ; score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop, le petit っ et les voyelles longues, puis un conseil. En mode IA locale, réécoute ta prise à côté de la voix modèle. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
+- **Atelier de phrases** : à partir des phrases de contexte déjà présentes, complète un mot en kana ou romaji, remets une phrase dans l’ordre ou écoute-la puis reconstruis-la avec des tuiles. Chaque réponse est corrigée et expliquée avec le mot à mot.
+- **Session du jour** : un parcours guidé qui mélange les cartes dues, quelques nouveaux mots, deux phrases et une prononciation ciblée.
 - **Furigana et romaji partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement ; la lecture latine est affichée au-dessus des kanji.
 - **Carte dans le bon ordre** : français → japonais avec lectures latines et furigana → contexte annoté, avec le romaji complet sous le mot.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
@@ -99,7 +101,8 @@ js/srs.js              état local, paliers SRS, étapes de parcours, statistiqu
 js/parser.js           analyse des imports et annotations furigana
 js/reading.js          lectures kana et furigana automatiques
 js/grammar-reading.js  furigana des exemples de grammaire
-js/pronunciation.js    comparaison et score de prononciation
+js/pronunciation.js    comparaison, score et contrôle du rythme
+js/phrase.js           exercices de phrases : trou, ordre et dictée
 js/whisper.js          micro et transcription Whisper locale
 js/whisper-worker.js   worker du modèle Whisper (Transformers.js)
 js/app.js              interface, sessions, import, réglages
@@ -112,7 +115,7 @@ tests/                 tests unitaires, E2E et serveur de test
 
 ## Limites assumées
 
-- La progression est stockée dans le navigateur (`localStorage`), pas sur un compte : elle ne se synchronise pas toute seule entre deux appareils. Utilise l'export / import JSON dans les réglages.
+- La progression est stockée dans le navigateur (`localStorage`) avec des points de restauration locaux automatiques. Elle ne se synchronise pas toute seule entre deux appareils : utilise l'export / import JSON dans les réglages. La synchronisation cloud n'est pas incluse et nécessiterait un compte et un backend.
 - La voix japonaise dépend des voix installées sur l'ordinateur ou le téléphone. L'application reste utilisable sans audio.
 - L'OCR télécharge Tesseract.js et les modèles japonais / français au premier usage : une connexion est nécessaire la première fois. Une image nette et contrastée améliore beaucoup le résultat.
 - Les lectures et les phrases de contexte sont un point de départ : l'import permet d'ajouter ton propre vocabulaire, avec tes propres phrases.
