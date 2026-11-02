@@ -95,6 +95,16 @@ npm test
 
 Attendu : la liste des tests avec `✓`, puis `Tous les tests unitaires passent.`
 
+### Vérification manuelle du compte et de la synchronisation
+
+1. Dans l'en-tête, clique sur 👤 puis sur « Créer un compte ». Utilise un e-mail de test et un mot de passe de 8 caractères minimum.
+2. Vérifie que le panneau d'accueil affiche l'e-mail, le statut « Compte connecté » et une date de synchronisation.
+3. Ouvre une fenêtre de navigation privée (ou un autre navigateur) sur `http://localhost:8080`, clique sur 👤 et connecte-toi avec le même compte. La progression doit être récupérée.
+4. Ajoute une révision sur un appareil, termine la session ou clique sur « Synchroniser », puis recharge l'autre appareil : la progression doit être fusionnée.
+5. Teste « Se déconnecter » puis « Supprimer mon compte ». La progression locale doit rester disponible après la déconnexion.
+
+L'API est déployée séparément sur Freebuff Sites ; `sync/deploy.json` ne fait pas partie du déploiement GitHub Pages. Les appels serveur doivent accepter `https://yohanequilibre-dot.github.io` et les origines locales autorisées, et refuser une origine étrangère.
+
 ### Tests de bout en bout (vrai navigateur)
 
 ```bash
@@ -135,7 +145,7 @@ Pour voir les tests dans une interface : `npx playwright test --ui`.
 - **Page blanche** : ouvre la console (F12). Vérifie que tu es bien à la racine du projet et que `js/app.js` répond en 200. Ne lance pas le serveur depuis un sous-dossier.
 - **Pas de son** : la synthèse vocale dépend des voix japonaises installées. Essaie Chrome ou Edge, vérifie le volume, puis teste le bouton « Tester » dans les réglages. L'application ne bloque pas si l'audio est absent.
 - **OCR qui échoue** : vérifie la connexion Internet (Tesseract est chargé depuis un CDN au premier usage), utilise une image nette, et vérifie le texte avant d'importer.
-- **Progression perdue** : elle est propre au navigateur et au profil. Une fenêtre privée ou un nettoyage des données du site l'efface. Exporte avant de changer d'appareil.
+- **Progression perdue** : elle est propre au navigateur et au profil. Une fenêtre privée ou un nettoyage des données du site l'efface. Crée un compte pour la retrouver sur un autre appareil, ou exporte-la avant de changer d'appareil.
 - **Port 8080 déjà utilisé** : utilise `python3 -m http.server 8081`, puis http://localhost:8081.
 - **Playwright ne trouve pas Chromium** : relance `npx playwright install chromium`. Sur Linux, `npx playwright install --with-deps chromium` installe aussi les bibliothèques système.
 

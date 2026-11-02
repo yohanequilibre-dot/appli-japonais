@@ -41,6 +41,7 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Prononciation guidée** : le mot d’abord, puis la phrase complète dès qu’il est validé (si le mot a un contexte) ; score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop, le petit っ et les voyelles longues, puis un conseil. En mode IA locale, réécoute ta prise à côté de la voix modèle. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
 - **Atelier de phrases** : à partir des phrases de contexte déjà présentes, complète un mot en kana ou romaji, remets une phrase dans l’ordre ou écoute-la puis reconstruis-la avec des tuiles. Chaque réponse est corrigée et expliquée avec le mot à mot.
 - **Session du jour** : un parcours guidé qui mélange les cartes dues, quelques nouveaux mots, deux phrases et une prononciation ciblée.
+- **Compte et synchronisation** : crée un compte e-mail / mot de passe et retrouve tes révisions, tes mots importés et tes statistiques sur ton téléphone comme sur ton PC. La progression reste locale hors ligne et les états sont fusionnés avant chaque envoi.
 - **Furigana et romaji partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement ; la lecture latine est affichée au-dessus des kanji.
 - **Carte dans le bon ordre** : français → japonais avec lectures latines et furigana → contexte annoté, avec le romaji complet sous le mot.
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
@@ -79,11 +80,17 @@ Puis ouvrir http://localhost:8080. Sur Windows : `py -m http.server 8080`.
 
 Ne pas ouvrir `index.html` par double-clic : le service worker, l'OCR et certains comportements du navigateur ont besoin d'un vrai serveur HTTP. Le détail est dans [TESTING.md](TESTING.md).
 
+## Compte et synchronisation
+
+Le bouton 👤 dans l'en-tête (et le panneau « Téléphone + ordinateur » sur l'accueil) ouvre la connexion. Crée un compte sur un appareil, puis connecte-toi avec le même e-mail et le même mot de passe sur l'autre : la progression est fusionnée automatiquement. Une synchronisation est aussi tentée après une session, à la fermeture de l'onglet et via le bouton « Synchroniser ».
+
+Le service est un petit Worker Cloudflare avec une base D1 (`sync/worker.js` et `sync/deploy.json`). Les mots de passe sont hachés avec PBKDF2-SHA-256 (100 000 itérations, la limite de WebCrypto sur Workers) et les sessions utilisent des jetons dont seul le hash est stocké. CORS n'accepte que GitHub Pages et les adresses de développement local. La progression en ligne est stockée en JSON sur ce service ; elle n'est pas chiffrée de bout en bout. Le mode local reste disponible si l'API est hors ligne.
+
 ## Tests
 
 ```bash
 npm install
-npm test                 # parseur, SRS et lexique (Node)
+npm test                 # parseur, SRS, lexique et fusion de synchronisation (Node)
 npx playwright install chromium
 npm run test:e2e         # parcours réel dans Chromium
 ```
@@ -105,7 +112,10 @@ js/pronunciation.js    comparaison, score et contrôle du rythme
 js/phrase.js           exercices de phrases : trou, ordre et dictée
 js/whisper.js          micro et transcription Whisper locale
 js/whisper-worker.js   worker du modèle Whisper (Transformers.js)
+js/sync.js             client de compte et fusion des progressions
 js/app.js              interface, sessions, import, réglages
+sync/worker.js         API comptes, sessions et sauvegarde (Cloudflare Worker / D1)
+sync/deploy.json       manifeste de déploiement de l'API
 manifest.webmanifest   installation PWA
 sw.js                  cache hors ligne
 icon.svg               icône
@@ -115,7 +125,8 @@ tests/                 tests unitaires, E2E et serveur de test
 
 ## Limites assumées
 
-- La progression est stockée dans le navigateur (`localStorage`) avec des points de restauration locaux automatiques. Elle ne se synchronise pas toute seule entre deux appareils : utilise l'export / import JSON dans les réglages. La synchronisation cloud n'est pas incluse et nécessiterait un compte et un backend.
+- La progression est d'abord stockée dans le navigateur (`localStorage`) avec des points de restauration locaux automatiques. Le compte permet de la synchroniser entre appareils ; sans connexion, l'application continue de fonctionner localement et la synchronisation reprend plus tard. Les réglages d'affichage restent propres à chaque appareil.
+- La synchronisation n'inclut pas encore la vérification d'e-mail, la réinitialisation du mot de passe ni le chiffrement de bout en bout de la progression. Utilise un mot de passe unique pour ce compte.
 - La voix japonaise dépend des voix installées sur l'ordinateur ou le téléphone. L'application reste utilisable sans audio.
 - L'OCR télécharge Tesseract.js et les modèles japonais / français au premier usage : une connexion est nécessaire la première fois. Une image nette et contrastée améliore beaucoup le résultat.
 - Les lectures et les phrases de contexte sont un point de départ : l'import permet d'ajouter ton propre vocabulaire, avec tes propres phrases.

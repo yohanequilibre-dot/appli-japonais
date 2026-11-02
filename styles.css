@@ -163,6 +163,9 @@ img, svg { max-width: 100%; }
 }
 .nav-badge[data-zero="1"] { display: none; }
 .header-stats { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+.account-btn { position: relative; }
+.account-btn::after { content: ''; position: absolute; right: 6px; bottom: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 2px var(--surface); }
+.account-btn.is-on::after { background: var(--green); }
 .stat-pill {
   display: inline-flex;
   align-items: center;
@@ -641,6 +644,41 @@ input[type="range"] { accent-color: var(--green); }
 .edit-form input, .edit-form textarea { width: 100%; border: 2px solid var(--line); background: var(--bg); border-radius: 10px; padding: 9px 11px; }
 .edit-form input:focus, .edit-form textarea:focus { outline: none; border-color: var(--green); }
 
+/* ---------- Compte et synchronisation ---------- */
+.account-panel { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: linear-gradient(135deg, var(--surface) 0%, var(--green-soft) 100%); }
+.account-panel-icon { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 15px; background: var(--surface); border: 1px solid var(--line); font-size: 1.5rem; }
+.account-panel-copy { flex: 1 1 260px; }
+.account-panel-copy h2 { margin: 0 0 4px; font-size: 1.12rem; }
+.account-panel-copy p { margin: 0; color: var(--muted); font-size: .84rem; }
+.account-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.account-panel .eyebrow { margin-bottom: 3px; }
+.account-email { color: var(--text); font-weight: 800; overflow-wrap: anywhere; }
+.account-state { display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; font-size: .74rem; font-weight: 800; color: var(--green-dark); }
+.account-state::before { content: '●'; font-size: .6rem; }
+.sync-tabs { display: flex; gap: 6px; margin-bottom: 14px; padding: 3px; background: var(--surface-2); border-radius: 12px; }
+.sync-tabs button { flex: 1; border: 0; background: transparent; padding: 9px; border-radius: 9px; font-size: .84rem; font-weight: 800; color: var(--muted); }
+.sync-tabs button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.sync-form { display: grid; gap: 12px; }
+.sync-form label { display: grid; gap: 5px; font-size: .8rem; font-weight: 800; }
+.sync-form input { width: 100%; border: 2px solid var(--line); background: var(--bg); border-radius: 11px; padding: 11px 12px; font: inherit; font-size: 16px; }
+.sync-form input:focus { outline: none; border-color: var(--green); }
+.sync-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.sync-hint { margin: 12px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.55; }
+.sync-account-card { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line); background: var(--bg); border-radius: 13px; }
+.sync-account-card strong { overflow-wrap: anywhere; }
+.sync-account-card small { color: var(--muted); font-size: .78rem; }
+.sync-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.sync-danger { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.sync-danger .btn { font-size: .78rem; }
+@media (max-width: 560px) {
+  .account-panel { align-items: flex-start; }
+  .account-panel-actions { width: 100%; }
+  .account-panel-actions .btn { flex: 1; }
+  .header-stats .stat-pill.xp { display: none; }
+  .header-stats { gap: 5px; }
+  .sync-form-actions .btn { flex: 1; }
+}
+
 /* ---------- Validation et toast ---------- */
 .validation-flash { position: fixed; inset: 0; z-index: 150; pointer-events: none; opacity: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 10vh; text-align: center; font-size: clamp(1.2rem, 4vw, 2rem); font-weight: 900; line-height: 1.2; }
 .validation-flash.good { color: var(--green-dark); }
@@ -776,7 +814,7 @@ mark { background: #ffe58a; color: inherit; border-radius: 4px; padding: 0 2px; 
   .brand-text { font-size: 16px; }
   .brand-mark { width: 36px; height: 36px; font-size: 19px; border-radius: 12px; }
   .stat-pill { padding: 5px 8px; font-size: .78rem; }
-  .icon-btn { width: 36px; height: 36px; border-radius: 10px; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 11px; }
   main { padding: 14px 12px 92px; }
   .hero { padding: 20px; border-radius: 20px; }
   .stat-row { grid-template-columns: 1fr; }

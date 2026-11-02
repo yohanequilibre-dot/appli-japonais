@@ -7,6 +7,7 @@ const Parser = require("../js/parser.js");
 const Reading = require("../js/reading.js");
 const Pron = require("../js/pronunciation.js");
 const Phrase = require("../js/phrase.js");
+const Sync = require("../js/sync.js");
 
 let failed = 0;
 function test(name, fn) {
@@ -415,3 +416,62 @@ test("sauvegarde locale : un point de restauration est conservé", function () {
   assert.ok(backup.progress.water);
   delete global.localStorage;
 });
+
+test("synchronisation : fusionne les progrès récents sans écraser les autres", function () {
+  const local = {
+    createdAt: 10,
+    entries: { a: { id: "a" } },
+    progress: {
+      water: {
+        last: 100, reps: 2, lapses: 0, level: 4, due: 500,
+        pronunciation: [{ t: 1, target: "word", score: 70, heard: "mizu" }]
+      }
+    },
+    stats: { xp: 10, reviews: 5, daily: { "2026-11-01": 20 }, history: {}, lastDay: "2026-11-01" },
+    settings: { theme: "dark", rate: 0.8 },
+    flags: { daily: "2026-11-01" }
+  };
+  const remote = {
+    createdAt: 5,
+    entries: { b: { id: "b" } },
+    progress: {
+      water: {
+        last: 200, reps: 1, lapses: 1, level: 3, due: 900,
+        pronunciation: [{ t: 2, target: "phrase", score: 85, heard: "mizu o" }]
+      },
+      fire: { last: 50, reps: 1 }
+    },
+    stats: { xp: 20, reviews: 3, daily: { "2026-11-02": 30 }, history: {}, lastDay: "2026-11-02" },
+    settings: { theme: "light", rate: 1 },
+    flags: { daily: "2026-11-02" }
+  };
+  const before = JSON.stringify(local);
+  const merged = Sync.mergeStates(local, remote);
+  assert.equal(JSON.stringify(local), before, "la fusion ne doit pas modifier l'état local");
+  assert.ok(merged.entries.a && merged.entries.b, "les mots importés des deux appareils sont réunis");
+  assert.equal(merged.progress.water.last, 200, "la révision la plus récente gagne");
+  assert.equal(merged.progress.water.due, 900);
+  assert.equal(merged.progress.water.reps, 2, "le nombre de réussites le plus élevé est conservé");
+  assert.equal(merged.progress.water.lapses, 1);
+  assert.equal(merged.progress.water.level, 4);
+  assert.equal(merged.progress.water.pronunciation.length, 2, "les historiques de prononciation sont réunis");
+  assert.ok(merged.progress.fire);
+  assert.equal(merged.stats.xp, 20);
+  assert.equal(merged.stats.daily["2026-11-01"], 20);
+  assert.equal(merged.stats.daily["2026-11-02"], 30);
+  assert.equal(merged.stats.lastDay, "2026-11-02");
+  assert.equal(merged.settings.theme, "dark", "les réglages locaux restent prioritaires");
+  assert.equal(merged.flags.daily, "2026-11-02");
+});
+
+test("synchronisation : sans état distant, l'état local est conservé", function () {
+  const local = { entries: { a: { id: "a" } }, progress: { water: { reps: 3 } }, stats: { xp: 4 } };
+  const merged = Sync.mergeStates(local, null);
+  assert.deepEqual(merged, local);
+  assert.notEqual(merged, local, "la copie évite de partager les objets");
+});
+
+if (failed) {
+  console.error("\n" + failed + " test(s) en échec.");
+  process.exit(1);
+}

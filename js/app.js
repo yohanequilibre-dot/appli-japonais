@@ -11,6 +11,7 @@ if (!window.Kotoba || !window.Kotoba.Parser || !window.Kotoba.Store || !window.K
 const P = window.Kotoba.Parser;
 const S = window.Kotoba.Store;
 const PH = window.Kotoba.Phrase;
+const SY = window.Kotoba.Sync || null;
 const $ = function (sel, root) { return (root || document).querySelector(sel); };
 const $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
@@ -20,6 +21,8 @@ let view = 'learn';
 let session = null;
 const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null, validationTimer: 0 };
 let toastTimer = 0;
+let syncBusy = false;
+let syncTimer = 0;
 let voices = [];
 let tessPromise = null;
 let speechPrimed = false;
@@ -474,6 +477,7 @@ function toast(message) {
 }
 function persist() {
   if (!S.save(state)) toast('Impossible d\'enregistrer (stockage du navigateur plein ?).');
+  queueSync();
 }
 function applyTheme() {
   const pref = state.settings.theme || 'system';
@@ -498,6 +502,13 @@ streakPill.title = streakValue ? 'Série de ' + streakValue + ' jour(s)' : 'Lanc
 }
   const xp = $('#xpVal');
   if (xp) xp.textContent = String(todayXp());
+  const accountBtn = $('#accountBtn');
+  if (accountBtn && SY) {
+    const account = SY.session();
+    accountBtn.classList.toggle('is-on', account.loggedIn);
+    accountBtn.title = account.loggedIn ? 'Compte · ' + account.email : 'Compte et synchronisation';
+    accountBtn.setAttribute('aria-label', account.loggedIn ? 'Compte de ' + account.email : 'Compte et synchronisation');
+  }
 }
 function loadVoices() {
   if (!('speechSynthesis' in window)) return;
@@ -721,6 +732,7 @@ function renderHome() {
       '<div class="stat-card"><span class="stat-num">' + c.new + '</span><span class="stat-label">Nouveaux</span></div></div>' +
     journeyPanelHtml(stages) +
     dailyPlanPanelHtml() +
+    accountPanelHtml() +
     phrasePanelHtml() +
     (ps.attempts ? pronunciationPanelHtml(ps) : '') +
     '<section class="panel"><div class="panel-head"><h2>Mes thèmes</h2><p>' + c.seen + '/' + c.total + ' mots découverts · 1 000 courants + 60 escalade</p></div><div class="theme-grid">' + units + '</div></section>';
@@ -1941,6 +1953,57 @@ abortPronunciation();
   document.body.style.overflow = '';
   render();
   window.scrollTo(0, 0);
+  if (SY && SY.session().loggedIn) syncCloud(false);
+}
+function syncCloud(manual) {
+  if (!SY) {
+    if (manual) toast('La synchronisation n’est pas disponible.');
+    return Promise.resolve(false);
+  }
+  if (!SY.session().loggedIn) {
+    if (manual) { openAccount(); toast('Connecte-toi pour synchroniser.'); }
+    return Promise.resolve(false);
+  }
+  if (session) {
+    if (manual) toast('Termine ou quitte la session pour synchroniser.');
+    return Promise.resolve(false);
+  }
+  if (syncBusy) {
+    if (manual) toast('Synchronisation déjà en cours…');
+    return Promise.resolve(false);
+  }
+  syncBusy = true;
+  return SY.sync(state).then(function (result) {
+    if (result && result.state) applySyncedState(result.state);
+    if (manual) toast('Progression synchronisée.');
+    return true;
+  }).catch(function (error) {
+    if (manual) toast(error && error.message ? error.message : 'Synchronisation impossible. Réessaie plus tard.');
+    return false;
+  }).then(function (ok) {
+    syncBusy = false;
+    updateChrome();
+    return ok;
+  });
+}
+function queueSync() {
+  if (!SY || session || !SY.session().loggedIn) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(function () { syncCloud(false); }, 5000);
+}
+function applySyncedState(next) {
+  if (!next || typeof next !== 'object') return;
+  if (next.entries && typeof next.entries === 'object') state.entries = next.entries;
+  if (next.progress && typeof next.progress === 'object') state.progress = next.progress;
+  state.stats = Object.assign({}, state.stats, next.stats || {});
+  state.settings = Object.assign({}, state.settings, next.settings || {});
+  state.flags = Object.assign({}, state.flags, next.flags || {});
+  if (next.createdAt) state.createdAt = Math.min(state.createdAt || next.createdAt, next.createdAt);
+  if (next.version) state.version = next.version;
+  entries = buildEntries();
+  S.save(state);
+  applyTheme();
+  render();
 }
 function finishSession() {
   closeSession();
@@ -1969,12 +2032,111 @@ function closeModal() {
   if (ui.lastFocus && ui.lastFocus.focus) { try { ui.lastFocus.focus(); } catch (e) { /* ignore */ } }
   ui.lastFocus = null;
 }
+function formatSyncDate(ts) {
+  if (!ts) return 'Pas encore synchronisé';
+  try { return new Date(ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return 'Récemment'; }
+}
+function accountPanelHtml() {
+  if (!SY) return '';
+  const account = SY.session();
+  if (account.loggedIn) {
+    return '<section class="panel account-panel" data-testid="account-panel">' +
+      '<div class="account-panel-icon" aria-hidden="true">👤</div>' +
+      '<div class="account-panel-copy"><p class="eyebrow">Compte</p><h2>Ta progression suit tes appareils</h2>' +
+      '<p><span class="account-email">' + esc(account.email) + '</span> · ' + (account.lastSync ? 'dernière synchro ' + esc(formatSyncDate(account.lastSync)) : 'prête pour la première synchro') + '</p>' +
+      '<span class="account-state">Compte connecté</span></div>' +
+      '<div class="account-panel-actions"><button class="btn primary small" data-action="sync-now">Synchroniser</button><button class="btn ghost small" data-action="open-account">Gérer</button></div></section>';
+  }
+  return '<section class="panel account-panel" data-testid="account-panel">' +
+    '<div class="account-panel-icon" aria-hidden="true">📱</div>' +
+    '<div class="account-panel-copy"><p class="eyebrow">Téléphone + ordinateur</p><h2>Retrouve ton japonais partout</h2>' +
+    '<p>Crée un compte gratuit pour synchroniser tes révisions, tes mots importés et tes statistiques entre ton téléphone et ton PC.</p></div>' +
+    '<div class="account-panel-actions"><button class="btn primary small" data-action="open-account">Se connecter</button></div></section>';
+}
+function setSyncMode(mode) {
+  const form = $('[data-form="sync-auth"]');
+  if (!form) return;
+  const nextMode = mode === 'register' ? 'register' : 'login';
+  form.querySelector('[name="mode"]').value = nextMode;
+  $$('[data-action="sync-mode"]').forEach(function (button) {
+    button.classList.toggle('active', button.getAttribute('data-mode') === nextMode);
+  });
+  const password = form.querySelector('[name="password"]');
+  if (password) password.setAttribute('autocomplete', nextMode === 'register' ? 'new-password' : 'current-password');
+  const hint = form.querySelector('[data-sync-hint]');
+  if (hint) hint.textContent = nextMode === 'register' ? 'Choisis un mot de passe de 8 caractères minimum. Il protège ton compte et ta progression.' : 'Entre l’e-mail et le mot de passe utilisés sur ton autre appareil.';
+  const submit = form.querySelector('[data-sync-submit]');
+  if (submit) submit.textContent = nextMode === 'register' ? 'Créer mon compte' : 'Se connecter';
+}
+function openAccount() {
+  if (!SY) { toast('La synchronisation n’est pas disponible.'); return; }
+  const account = SY.session();
+  if (account.loggedIn) {
+    openModal('Compte', '<div class="sync-account-card"><span class="account-state">Compte connecté</span><strong>' + esc(account.email) + '</strong><small>' + (account.lastSync ? 'Dernière synchronisation : ' + esc(formatSyncDate(account.lastSync)) : 'Aucune synchronisation effectuée pour le moment.') + '</small></div>' +
+      '<p class="sync-hint">La fusion garde le plus récent de chaque mot et réunit les mots importés. Tes réglages d’appareil restent prioritaires.</p>' +
+      '<div class="sync-actions"><button class="btn primary" data-action="sync-now">Synchroniser maintenant</button><button class="btn ghost" data-action="sync-logout">Se déconnecter</button></div>' +
+      '<div class="sync-danger"><button class="btn danger-text" data-action="sync-delete-account">Supprimer mon compte</button><p class="sync-hint">Le compte et la sauvegarde en ligne seront supprimés. La progression de cet appareil restera locale.</p></div>');
+    return;
+  }
+  openModal('Compte et synchronisation', '<div class="sync-tabs" role="tablist" aria-label="Connexion ou création de compte">' +
+    '<button type="button" class="active" data-action="sync-mode" data-mode="login">Se connecter</button>' +
+    '<button type="button" data-action="sync-mode" data-mode="register">Créer un compte</button></div>' +
+    '<form class="sync-form" data-form="sync-auth"><input type="hidden" name="mode" value="login">' +
+    '<label>E-mail<input name="email" type="email" inputmode="email" autocomplete="email" placeholder="toi@exemple.fr" maxlength="254" required></label>' +
+    '<label>Mot de passe<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label>' +
+    '<p class="sync-hint" data-sync-hint>Entre l’e-mail et le mot de passe utilisés sur ton autre appareil.</p>' +
+    '<div class="sync-form-actions"><button class="btn primary" type="submit" data-sync-submit>Se connecter</button><button class="btn ghost" type="button" data-action="close-modal">Plus tard</button></div></form>' +
+    '<p class="sync-hint">Sans compte, tout continue de fonctionner hors ligne. Avec un compte, chaque session terminée est synchronisée automatiquement.</p>');
+}
+function handleSyncAuth(form) {
+  if (!SY) return;
+  const fd = new FormData(form);
+  const mode = String(fd.get('mode') || 'login');
+  const email = String(fd.get('email') || '').trim();
+  const password = String(fd.get('password') || '');
+  if (!email || !password) { toast('Renseigne ton e-mail et ton mot de passe.'); return; }
+  const button = form.querySelector('[data-sync-submit]');
+  const oldLabel = button ? button.textContent : '';
+  if (button) { button.disabled = true; button.textContent = mode === 'register' ? 'Création…' : 'Connexion…'; }
+  const action = mode === 'register' ? SY.register(email, password) : SY.login(email, password);
+  action.then(function () {
+    return syncCloud(false);
+  }).then(function (ok) {
+    closeModal();
+    render();
+    toast(ok ? (mode === 'register' ? 'Compte créé. Ta progression est synchronisée.' : 'Compte connecté. Ta progression est synchronisée.') : 'Compte connecté. La synchronisation réessaiera plus tard.');
+  }).catch(function (error) {
+    if (button) { button.disabled = false; button.textContent = oldLabel; }
+    toast(error && error.message ? error.message : 'Connexion impossible.');
+  });
+}
+function syncLogout() {
+  if (!SY) return;
+  SY.logout().then(function () {
+    closeModal();
+    render();
+    toast('Déconnecté sur cet appareil. Ta progression reste accessible.');
+  });
+}
+function syncDeleteAccount() {
+  if (!SY) return;
+  if (!window.confirm('Supprimer définitivement ton compte et sa sauvegarde en ligne ? La progression locale restera sur cet appareil.')) return;
+  SY.deleteAccount().then(function () {
+    closeModal();
+    render();
+    toast('Compte supprimé. Ta progression locale est conservée.');
+  }).catch(function (error) {
+    toast(error && error.message ? error.message : 'Suppression impossible.');
+  });
+}
 function openSettings() {
   const s = state.settings;
+  const account = SY ? SY.session() : null;
   const goals = [20, 30, 50, 100];
   const backups = S.backupInfo();
   const lastBackup = backups.length ? new Date(backups[backups.length - 1].t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
-  openModal('Réglages', '<div class="setting-row"><div><strong>Objectif quotidien</strong><small>XP à gagner chaque jour</small></div><div class="seg">' +
+  openModal('Réglages', '<div class="setting-row"><div><strong>Compte et synchronisation</strong><small>' + (account && account.loggedIn ? esc(account.email) + ' · téléphone et PC' : 'Retrouve ta progression sur ton téléphone et ton PC') + '</small></div><button class="btn ghost small" data-action="open-account">' + (account && account.loggedIn ? 'Gérer' : 'Se connecter') + '</button></div>' +
+    '<div class="setting-row"><div><strong>Objectif quotidien</strong><small>XP à gagner chaque jour</small></div><div class="seg">' +
     goals.map(function (g) { return '<button class="' + (s.goal === g ? 'active' : '') + '" data-action="set-goal" data-goal="' + g + '">' + g + '</button>'; }).join('') + '</div></div>' +
     '<div class="setting-row"><div><strong>Furigana</strong><small>Lecture au-dessus des kanji</small></div><label class="switch"><input type="checkbox" data-setting="furigana"' + (s.furigana ? ' checked' : '') + '> Afficher</label></div>' +
     '<div class="setting-row"><div><strong>Romaji</strong><small>Prononciation en lettres latines</small></div><label class="switch"><input type="checkbox" data-setting="romaji"' + (s.romaji ? ' checked' : '') + '> Afficher</label></div>' +
@@ -1983,7 +2145,7 @@ function openSettings() {
     '<div class="setting-row"><div><strong>Sauvegarde</strong><small>Exporte ou transfère ta progression sur un autre appareil</small></div><div class="modal-actions" style="margin:0"><button class="btn ghost small" data-action="export-data">Exporter</button><button class="btn ghost small" data-action="import-data">Importer</button></div></div>' +
     '<div class="setting-row"><div><strong>Sauvegarde locale automatique</strong><small>' + (lastBackup ? 'Dernier point : ' + esc(lastBackup) : 'Aucun point local pour l’instant') + '</small></div><button class="btn ghost small" data-action="restore-backup" data-testid="restore-backup"' + (lastBackup ? '' : ' disabled') + '>Restaurer</button></div>' +
     '<input type="file" id="dataFile" accept=".json,application/json" hidden><div class="modal-actions"><button class="btn danger-text" data-action="reset-data">Tout effacer</button></div>' +
-    '<p class="hint">Kotoba stocke tout dans ce navigateur. Utilise l\'export pour passer d\'un appareil à l\'autre.</p>' +
+    '<p class="hint">' + (account && account.loggedIn ? 'Compte connecté : ta progression est synchronisée après chaque session.' : 'Kotoba stocke tout dans ce navigateur. Utilise l\'export ou un compte pour passer d\'un appareil à l\'autre.') + '</p>' +
     '<p class="hint data-credit">Sources : <a href="https://kanjikana.com/en/words/core-1000" target="_blank" rel="noopener">Kanjikana Core 1000</a> (CC BY 4.0) · <a href="https://tatoeba.org" target="_blank" rel="noopener">Tatoeba</a> (CC BY 2.0 FR).</p>');
 }
 function openDetail(id) {
@@ -2121,6 +2283,11 @@ return;
     case 'finish-session': finishSession(); break;
     case 'start-again': startAgain(); break;
     case 'open-settings': openSettings(); break;
+    case 'open-account': openAccount(); break;
+    case 'sync-mode': setSyncMode(el.getAttribute('data-mode')); break;
+    case 'sync-now': syncCloud(true); break;
+    case 'sync-logout': syncLogout(); break;
+    case 'sync-delete-account': syncDeleteAccount(); break;
     case 'close-modal': closeModal(); break;
     case 'set-goal': state.settings.goal = Number(el.getAttribute('data-goal')) || 50; persist(); render(); openSettings(); break;
     case 'test-voice': speak('こんにちは、花さん！'); break;
@@ -2166,6 +2333,12 @@ case 'pronounce-finish': grade(el.getAttribute('data-good') === '1' ? 'good' : '
   }
 }
 function onSubmit(event) {
+  const syncForm = event.target.closest ? event.target.closest('[data-form="sync-auth"]') : null;
+  if (syncForm) {
+    event.preventDefault();
+    handleSyncAuth(syncForm);
+    return;
+  }
   const phraseForm = event.target.closest ? event.target.closest('[data-form="phrase-cloze"]') : null;
   if (phraseForm) {
     event.preventDefault();
@@ -2314,6 +2487,15 @@ function init() {
   });
   registerSW();
   route();
+  if (SY) {
+    SY.init().then(function (account) {
+      if (account) syncCloud(false);
+    }).catch(function () { /* le mode local reste disponible */ });
+  }
+  window.addEventListener('online', function () { if (SY) syncCloud(false); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && !session && SY && SY.session().loggedIn) syncCloud(false);
+  });
 }
 
 init();
