@@ -104,9 +104,22 @@ return;
 }
 el.innerHTML = annotate(text, show);
 }
+function applyTooltips() {
+  Array.prototype.slice.call(document.querySelectorAll('.grammar-example')).forEach(function (example) {
+    var jp = example.querySelector('.grammar-jp');
+    var fr = example.querySelector('.grammar-fr');
+    if (!jp || !fr) return;
+    var text = String(fr.textContent || '').trim();
+    if (!text) return;
+    jp.classList.add('sentence-tip');
+    jp.setAttribute('data-tooltip', text);
+    jp.setAttribute('tabindex', '0');
+  });
+}
 function apply() {
 mergeDictionary();
 Array.prototype.slice.call(document.querySelectorAll('.grammar-jp, .grammar-table td')).forEach(renderText);
+applyTooltips();
 }
 function schedule() { setTimeout(apply, 0); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);

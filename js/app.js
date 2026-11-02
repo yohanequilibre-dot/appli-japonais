@@ -22,6 +22,7 @@ let toastTimer = 0;
 let voices = [];
 let tessPromise = null;
 let speechPrimed = false;
+let tooltipTarget = null;
 
 const VIEWS = { learn: '#view-learn', review: '#view-review', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
 const FROM_HASH = { apprendre: 'learn', reviser: 'review', mots: 'library', importer: 'import', grammaire: 'grammar' };
@@ -115,12 +116,16 @@ function alternativesHtml(entry) {
     return '<div class="answer-also-item">' +
       '<p class="answer-also-title">Autre formulation possible : <b lang="ja">' + esc(jp) + '</b>' + (romaji ? ' · ' + esc(romaji) : '') + '</p>' +
       (usage ? '<p class="answer-also-usage">' + esc(usage) + '</p>' : '') +
-      (example ? '<p class="answer-also-example" lang="ja">' + esc(example) + '</p>' : '') +
+      (example ? '<p class="answer-also-example sentence-tip" lang="ja"' + translationTipAttrs(exampleFr) + '>' + esc(example) + '</p>' : '') +
       (exampleFr ? '<p class="answer-also-example-fr">' + esc(exampleFr) + '</p>' : '') +
       (exampleRomaji ? '<p class="answer-also-example-romaji">' + esc(exampleRomaji) + '</p>' : '') +
     '</div>';
   }).join('');
   return '<div class="answer-also" data-testid="answer-also">' + items + '</div>';
+}
+function translationTipAttrs(translation) {
+  const text = String(translation || '').trim();
+  return text ? ' data-tooltip="' + attr(text) + '" tabindex="0"' : '';
 }
 function contextNoteHtml(entry) {
   const note = entry && entry.contextNote ? String(entry.contextNote) : '';
@@ -208,6 +213,73 @@ function alternativeHint(e) {
   if (!alt) return '';
   const jp = alt.jp || alt.reading || '';
   return jp ? ' · aussi ' + jp + (alt.romaji ? ' (' + alt.romaji + ')' : '') : '';
+}
+function hideSentenceTooltip() {
+  const tip = $('#sentenceTooltip');
+  const target = tooltipTarget;
+  tooltipTarget = null;
+  if (target && target.getAttribute && target.getAttribute('aria-describedby') === 'sentenceTooltip') target.removeAttribute('aria-describedby');
+  if (tip) { tip.hidden = true; tip.classList.remove('show'); }
+}
+function showSentenceTooltip(target) {
+  const text = target && target.getAttribute ? target.getAttribute('data-tooltip') : '';
+  const tip = $('#sentenceTooltip');
+  if (!text || !tip) return;
+  if (tooltipTarget !== target && tooltipTarget && tooltipTarget.getAttribute && tooltipTarget.getAttribute('aria-describedby') === 'sentenceTooltip') tooltipTarget.removeAttribute('aria-describedby');
+  tooltipTarget = target;
+  target.setAttribute('aria-describedby', 'sentenceTooltip');
+  tip.textContent = text;
+  tip.hidden = false;
+  tip.classList.remove('show');
+  tip.style.left = '0px';
+  tip.style.top = '0px';
+  positionSentenceTooltip(target, tip);
+  void tip.offsetWidth;
+  if (tooltipTarget === target) tip.classList.add('show');
+}
+function positionSentenceTooltip(target, tip) {
+  const pad = 12;
+  const gap = 10;
+  const rect = target.getBoundingClientRect();
+  const maxWidth = Math.max(180, Math.min(360, window.innerWidth - pad * 2));
+  tip.style.maxWidth = maxWidth + 'px';
+  const box = tip.getBoundingClientRect();
+  let top = rect.top - box.height - gap;
+  let below = false;
+  if (top < pad) {
+    top = rect.bottom + gap;
+    below = true;
+  }
+  if (top + box.height > window.innerHeight - pad) top = Math.max(pad, window.innerHeight - box.height - pad);
+  let left = rect.left + (rect.width - box.width) / 2;
+  left = Math.max(pad, Math.min(left, window.innerWidth - box.width - pad));
+  tip.style.left = Math.round(left) + 'px';
+  tip.style.top = Math.round(top) + 'px';
+  tip.classList.toggle('below', below);
+}
+function initSentenceTooltip() {
+  const tip = $('#sentenceTooltip');
+  if (!tip) return;
+  document.addEventListener('mouseover', function (event) {
+    const target = event.target && event.target.closest ? event.target.closest('[data-tooltip]') : null;
+    if (target) showSentenceTooltip(target);
+  });
+  document.addEventListener('mouseout', function (event) {
+    const target = event.target && event.target.closest ? event.target.closest('[data-tooltip]') : null;
+    if (!target) return;
+    if (event.relatedTarget && target.contains(event.relatedTarget)) return;
+    hideSentenceTooltip();
+  });
+  document.addEventListener('focusin', function (event) {
+    const target = event.target && event.target.closest ? event.target.closest('[data-tooltip]') : null;
+    if (target) showSentenceTooltip(target);
+  });
+  document.addEventListener('focusout', function (event) {
+    const target = event.target && event.target.closest ? event.target.closest('[data-tooltip]') : null;
+    if (target && target === tooltipTarget) hideSentenceTooltip();
+  });
+  window.addEventListener('scroll', hideSentenceTooltip, true);
+  window.addEventListener('resize', hideSentenceTooltip);
 }
 function toast(message) {
   const el = $('#toast');
@@ -362,6 +434,7 @@ function unitStats(unitId, now) {
   return { total: list.length, seen: seen, known: known, due: due, new: fresh };
 }
 function showView(name, opts) {
+  hideSentenceTooltip();
   if (!VIEWS[name]) name = 'learn';
   view = name;
   Object.keys(VIEWS).forEach(function (key) {
@@ -428,7 +501,7 @@ function renderHome() {
   if (wotd) {
     body += '<section class="panel"><div class="panel-head"><h2>Mot du jour</h2><button class="btn ghost small" data-action="speak-text" data-text="' + attr(wotd.jp) + '">🔊 Écouter</button></div>' +
       '<div class="wotd"><div><div class="wotd-fr">' + frHtml(wotd.fr) + '</div><div class="wotd-jp" lang="ja">' + wordRubyHtml(wotd) + '</div>' +
-      '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context" lang="ja">' + contextHtml(wotd.context, wotd.hl, wotd) + '</p>' +
+      '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context sentence-tip" lang="ja"' + translationTipAttrs(wotd.contextFr) + '>' + contextHtml(wotd.context, wotd.hl, wotd) + '</p>' +
       '<p class="muted small">' + esc(wotd.contextFr) + '</p><button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
   }
   if (window.Kotoba.Motivation) body += window.Kotoba.Motivation.streakPanel(state, now);
@@ -738,6 +811,7 @@ function buildOptions(entry, mode) {
   return shuffle([entry].concat(pool));
 }
 function renderSession() {
+  hideSentenceTooltip();
   const root = $('#session');
   if (!root) return;
   if (!session) { root.hidden = true; return; }
@@ -798,7 +872,7 @@ function answerCard(e) {
     '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
     '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
     '<aside class="context-card" data-testid="answer-context"><div class="context-label">En contexte</div>' +
-    '<p class="context-jp" lang="ja">' + contextHtml(e.context, e.hl, e) + '</p>' +
+    '<p class="context-jp sentence-tip" lang="ja"' + translationTipAttrs(e.contextFr) + '>' + contextHtml(e.context, e.hl, e) + '</p>' +
     '<p class="context-fr">' + esc(e.contextFr || '—') + '</p>' +
     contextNoteHtml(e) +
     (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '<p class="hint">Pas encore de phrase. Ajoute-en une depuis Mes mots.</p>') + '</aside></div>' +
@@ -1089,7 +1163,7 @@ const engines = '<div class="pronounce-engine" role="group" aria-label="Moteur d
 '<button type="button" class="' + (engine === 'whisper' ? 'active' : '') + '" data-action="pronounce-engine" data-engine="whisper" data-testid="pronounce-engine-whisper"' + (whisperOk ? '' : ' disabled title="Indisponible dans ce navigateur"') + '>IA locale</button></div>';
 let shown = '';
 if (target === 'phrase' && phrase) {
-shown = '<div class="jp-big pronounce-phrase" lang="ja" data-testid="pronounce-phrase">' + contextHtml(phrase, '', e) + '</div>' +
+shown = '<div class="jp-big pronounce-phrase sentence-tip" lang="ja" data-testid="pronounce-phrase"' + translationTipAttrs(e.contextFr) + '>' + contextHtml(phrase, '', e) + '</div>' +
 '<p class="hint pronounce-target-hint">' + esc(e.contextFr || 'Toute la phrase, sans t’arrêter.') + '</p>' +
 contextNoteHtml(e);
 } else {
@@ -1423,6 +1497,7 @@ function startAgain() { closeSession(); if (S.counts(entries, state, Date.now())
 
 /* ---------- Modales ---------- */
 function openModal(title, body) {
+  hideSentenceTooltip();
   const modal = $('#modal');
   if (!modal) return;
   ui.lastFocus = document.activeElement;
@@ -1433,6 +1508,7 @@ function openModal(title, body) {
   if (panel) { const focusable = panel.querySelector('button, input, select, textarea, [tabindex]'); if (focusable) setTimeout(function () { focusable.focus(); }, 30); }
 }
 function closeModal() {
+  hideSentenceTooltip();
   const modal = $('#modal');
   if (!modal) return;
   modal.hidden = true; modal.innerHTML = '';
@@ -1484,7 +1560,7 @@ openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
 <div class='detail-romaji'>${esc(e.romaji)}</div>${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
-<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp' lang='ja'>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${contextNoteHtml(e)}
+<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp sentence-tip' lang='ja'${translationTipAttrs(e.contextFr)}>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${contextNoteHtml(e)}
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
 ${stageHtml}
 ${pronunciationHistory}
@@ -1712,6 +1788,7 @@ function init() {
   document.addEventListener('change', onChange);
   document.addEventListener('input', onInput);
   document.addEventListener('keydown', onKeydown);
+  initSentenceTooltip();
   window.addEventListener('hashchange', function () { if (session) closeSession(); route(); });
   document.addEventListener('dragover', function (e) {
     const z = e.target.closest && e.target.closest('#dropZone');

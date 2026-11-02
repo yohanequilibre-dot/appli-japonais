@@ -31,6 +31,7 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Parcours par étapes** : un mot passe de « Nouveau » à « En révision », puis à « Validé » après 10 révisions et à « Ultime » après 30. Les onglets du parcours ouvrent directement le filtre correspondant dans Mes mots, et chaque fiche montre sa barre de progression.
 - **Contexte annoté** : chaque unité du mot et de la phrase de contexte porte sa lecture latine (romaji) au-dessus ; les groupes de kanji gardent leur lecture de groupe, et les kana sont lus séparément. Aucune ligne de kana dupliquée.
+- **Traduction au survol** : survole une phrase de contexte (ou place le focus dessus au clavier) pour afficher sa traduction dans une infobulle, sans quitter la carte.
 - **Nuances de registre** : la carte de rappel indique seulement le registre (« Version formelle » ou « Version familière ») ; la fiche et la réponse précisent les variantes さようなら / じゃあね.
 - **Réponse lue automatiquement** : dès que la réponse s’affiche — par révélation ou par résultat micro — le mot puis la phrase de contexte sont lus sans clic. Un verdict explicite indique si c’est correct ou non.
 - **Alternatives acceptées** : pour « s’il vous plaît », お願いします et ください (kudasai) sont acceptés. La fiche explique la nuance : お願いします est plus doux et général ; ください est plus direct et concret, mais les deux restent polis.

@@ -709,6 +709,49 @@ ruby rt { font-family: var(--jp); font-size: .42em; font-weight: 600; color: var
 .jp-big ruby rt { font-size: .3em; }
 .rt-romaji { display: inline; font-family: var(--sans, system-ui, sans-serif); font-size: 1.12em; font-weight: 800; line-height: 1.05; letter-spacing: .01em; color: var(--blue-dark); }
 .context-jp .rt-romaji { color: var(--blue-dark); }
+/* ---------- Phrases japonaises : respiration et traduction ---------- */
+.context-jp,
+.detail-context .jp,
+.wotd-context,
+.pronounce-phrase,
+.answer-also-example,
+.grammar-jp { letter-spacing: .085em; }
+.sentence-tip[data-tooltip] { cursor: help; }
+.sentence-tip:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: 4px; }
+.sentence-tooltip {
+  position: fixed;
+  z-index: 1200;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 12px;
+  background: #16231c;
+  color: #f7fff9;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .28);
+  font-family: var(--font);
+  font-size: .8rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+}
+.sentence-tooltip[hidden] { display: none; }
+.sentence-tooltip.show { opacity: 1; }
+.sentence-tooltip::before {
+  content: 'Traduction';
+  display: block;
+  margin-bottom: 3px;
+  color: #b7e98d;
+  font-size: .58rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
 mark { background: #ffe58a; color: inherit; border-radius: 4px; padding: 0 2px; }
 [data-theme="dark"] mark { background: #7a5d00; }
 .noscript { max-width: 640px; margin: 40px auto; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; text-align: center; }
