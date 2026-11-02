@@ -306,6 +306,43 @@ test("parcours : comptage par étape", function () {
   assert.equal(c.ultimate, 1);
 });
 
+test("le pack contient 1000 mots courants et 60 mots d'escalade", function () {
+  const previous = global.window;
+  global.window = {};
+  try {
+    ["../data.js", "../js/vocab-extra.js", "../js/vocab-1000.js"].forEach(function (p) {
+      const resolved = require.resolve(p);
+      delete require.cache[resolved];
+      require(p);
+    });
+    const units = global.window.UNITS_DATA || [];
+    const climbingUnits = units.filter(function (u) { return /^escalade-/.test(u.id); });
+    const essentialUnits = units.filter(function (u) { return /^essentiels-/.test(u.id); });
+    const words = units.reduce(function (n, u) { return n + ((u.words && u.words.length) || 0); }, 0);
+    const climbing = climbingUnits.reduce(function (n, u) { return n + u.words.length; }, 0);
+    const essentials = essentialUnits.reduce(function (n, u) { return n + u.words.length; }, 0);
+    assert.equal(climbing, 60);
+    assert.equal(essentials, 799);
+    assert.equal(words - climbing, 1000);
+    const seen = new Set();
+    units.forEach(function (u) {
+      u.words.forEach(function (w) {
+        const jp = Array.isArray(w) ? w[0] : w.jp;
+        const fr = Array.isArray(w) ? w[3] : w.fr;
+        const context = Array.isArray(w) ? w[4] : w.context;
+        const contextFr = Array.isArray(w) ? w[5] : w.contextFr;
+        assert.ok(jp && fr, "mot incomplet dans " + u.id);
+        assert.ok(context && contextFr, "contexte manquant pour " + jp);
+        if (!Array.isArray(w)) assert.ok(w.reading, "lecture manquante pour " + jp);
+        assert.equal(seen.has(jp), false, "doublon : " + jp);
+        seen.add(jp);
+      });
+    });
+  } finally {
+    global.window = previous;
+  }
+});
+
 test("prononciation : ください est accepté pour s'il vous plaît", function () {
   const entry = Lex.lookup({ jp: "お願いします" });
   const result = Pron.compare("ください", entry);

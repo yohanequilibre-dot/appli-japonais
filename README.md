@@ -27,11 +27,12 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 ## Fonctionnalités
 
 - **aller** : la carte de base utilise 行きます (ikimasu, forme polie). La forme neutre 行く (iku) est aussi disponible, et la différence est expliquée dans l’onglet Grammaire.
-- **Plus de 200 mots de départ** répartis en 20 thèmes (salutations, nourriture, maison, transports, santé, travail, météo, émotions, etc.).
+- **1 000 mots courants + 60 mots d’escalade** : les bases quotidiennes, les mots les plus fréquents et un pack dédié à la grimpe, chacun avec une phrase de contexte et sa traduction. 32 thèmes au total.
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Parcours par étapes** : un mot passe de « Nouveau » à « En révision », puis à « Validé » après 10 révisions et à « Ultime » après 30. Les onglets du parcours ouvrent directement le filtre correspondant dans Mes mots, et chaque fiche montre sa barre de progression.
 - **Contexte annoté** : chaque unité du mot et de la phrase de contexte porte sa lecture latine (romaji) au-dessus ; les groupes de kanji gardent leur lecture de groupe, et les kana sont lus séparément. Aucune ligne de kana dupliquée.
 - **Traduction au survol** : survole une phrase de contexte (ou place le focus dessus au clavier) pour afficher sa traduction dans une infobulle, sans quitter la carte.
+- **Traduction mot à mot** : ouvre « Mot à mot » sous une phrase, ou survole-la, pour voir chaque mot ou particule avec sa traduction. Les particules indiquent leur rôle ; les mots hors lexique sont signalés.
 - **Nuances de registre** : la carte de rappel indique seulement le registre (« Version formelle » ou « Version familière ») ; la fiche et la réponse précisent les variantes さようなら / じゃあね.
 - **Réponse lue automatiquement** : dès que la réponse s’affiche — par révélation ou par résultat micro — le mot puis la phrase de contexte sont lus sans clic. Un verdict explicite indique si c’est correct ou non.
 - **Alternatives acceptées** : pour « s’il vous plaît », お願いします et ください (kudasai) sont acceptés. La fiche explique la nuance : お願いします est plus doux et général ; ください est plus direct et concret, mais les deux restent polis.
@@ -92,7 +93,7 @@ La CI GitHub Actions vérifie la syntaxe, le manifeste, les tests unitaires et l
 ```text
 index.html             coquille de l'application
 styles.css             design responsive clair / sombre
-data.js + js/vocab-extra.js plus de 200 mots de départ, 20 thèmes
+data.js + js/vocab-extra.js + js/vocab-1000.js 1 000 mots courants + 60 mots d’escalade, 32 thèmes
 js/lexicon.js          lexique de secours français / romaji → japonais
 js/srs.js              état local, paliers SRS, étapes de parcours, statistiques
 js/parser.js           analyse des imports et annotations furigana
@@ -117,6 +118,11 @@ tests/                 tests unitaires, E2E et serveur de test
 - Les lectures et les phrases de contexte sont un point de départ : l'import permet d'ajouter ton propre vocabulaire, avec tes propres phrases.
 - La reconnaissance du navigateur peut envoyer l'audio au service du navigateur. Le moteur « IA locale » Whisper reste dans le navigateur, mais télécharge le modèle (plusieurs dizaines de Mo) au premier usage, puis le garde en cache.
 - Le score de prononciation est indicatif : il compare la transcription à la lecture attendue, en convertissant les kanji en kana et en tolérant les particules は / を / へ, mais ce n'est pas un jugement humain.
+
+## Sources et licences
+
+- **Kanjikana Core 1000** : les 1 000 mots courants viennent de la liste [Kanjikana Core 1000](https://kanjikana.com/en/words/core-1000), par Kanjikana, sous licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- **Tatoeba** : les exemples japonais-français sont issus de [Tatoeba](https://tatoeba.org), sous licence [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/).
 
 ## Inspiration
 

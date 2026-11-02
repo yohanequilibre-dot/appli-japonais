@@ -96,7 +96,10 @@ if (Lex && Lex.entries) {
 Lex.entries.forEach(function (e) { add(map, e.jp, e.ruby, e.reading); });
 }
 (root.UNITS_DATA || []).forEach(function (unit) {
-(unit.words || []).forEach(function (word) { add(map, word[0], word[1], word[1]); });
+(unit.words || []).forEach(function (word) {
+if (Array.isArray(word)) add(map, word[0], word[1], word[1]);
+else if (word && word.jp) add(map, word.jp, word.ruby, word.reading);
+});
 });
 EXTRA.forEach(function (pair) {
 if (!map.has(pair[0])) map.set(pair[0], pair[1]);

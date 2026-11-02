@@ -23,6 +23,9 @@ let voices = [];
 let tessPromise = null;
 let speechPrimed = false;
 let tooltipTarget = null;
+let glossIndex = null;
+let glossKeys = null;
+let glossRoles = null;
 
 const VIEWS = { learn: '#view-learn', review: '#view-review', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
 const FROM_HASH = { apprendre: 'learn', reviser: 'review', mots: 'library', importer: 'import', grammaire: 'grammar' };
@@ -116,16 +119,194 @@ function alternativesHtml(entry) {
     return '<div class="answer-also-item">' +
       '<p class="answer-also-title">Autre formulation possible : <b lang="ja">' + esc(jp) + '</b>' + (romaji ? ' · ' + esc(romaji) : '') + '</p>' +
       (usage ? '<p class="answer-also-usage">' + esc(usage) + '</p>' : '') +
-      (example ? '<p class="answer-also-example sentence-tip" lang="ja"' + translationTipAttrs(exampleFr) + '>' + esc(example) + '</p>' : '') +
+      (example ? '<p class="answer-also-example sentence-tip" lang="ja"' + translationTipAttrs(exampleFr, example) + '>' + esc(example) + '</p>' : '') +
       (exampleFr ? '<p class="answer-also-example-fr">' + esc(exampleFr) + '</p>' : '') +
       (exampleRomaji ? '<p class="answer-also-example-romaji">' + esc(exampleRomaji) + '</p>' : '') +
     '</div>';
   }).join('');
   return '<div class="answer-also" data-testid="answer-also">' + items + '</div>';
 }
-function translationTipAttrs(translation) {
+function translationTipAttrs(translation, japanese) {
   const text = String(translation || '').trim();
-  return text ? ' data-tooltip="' + attr(text) + '" tabindex="0"' : '';
+  if (!text) return '';
+  const jp = String(japanese || '').trim();
+  return ' data-tooltip="' + attr(text) + '" tabindex="0"' +
+    (jp ? ' data-tooltip-jp="' + attr(P.stripAnnotations(jp)) + '"' : '');
+}
+
+const GLOSS_EXTRA = {
+  'は': 'thème', 'が': 'sujet', 'を': 'objet', 'に': 'direction / lieu / heure',
+  'で': 'lieu / moyen', 'へ': 'vers', 'と': 'et / avec', 'も': 'aussi',
+  'の': 'de / lien', 'か': 'question', 'ね': 'n’est-ce pas ?', 'よ': 'insistance',
+  'から': 'depuis / parce que', 'まで': 'jusqu’à', 'より': 'que', 'や': 'et (liste)',
+  'など': 'etc.', 'だけ': 'seulement', 'でも': 'même / mais', 'そして': 'et puis',
+  'それから': 'ensuite', 'しかし': 'mais', 'だから': 'donc',
+  'です': 'être (poli)', 'でした': 'être (passé poli)', 'ます': 'marqueur poli',
+  'ました': 'passé poli', 'ません': 'négation polie', 'ましょう': 'proposons',
+  'たい': 'vouloir', 'て': 'forme en -te', 'た': 'passé', 'だ': 'être (familier)',
+  'ない': 'négation', 'ん': 'explication', 'ある': 'il y a', 'いる': 'être / il y a',
+  'これ': 'ceci', 'それ': 'cela', 'あれ': 'cela (là-bas)', 'この': 'ce / cette',
+  'その': 'ce / cette', 'あの': 'ce / cette (là-bas)', 'ここ': 'ici', 'そこ': 'là',
+  'あそこ': 'là-bas', 'どこ': 'où', 'いつ': 'quand', 'だれ': 'qui', 'なに': 'quoi',
+  'なん': 'quoi', 'どう': 'comment', 'なぜ': 'pourquoi', 'いくら': 'combien',
+  'いくつ': 'combien'
+};
+
+const GLOSS_CONTENT = {
+  'しっかり': 'fermement',
+  '結ぶ': 'nouer'
+};
+
+function normalizeGlossKey(value) {
+  return P.stripAnnotations(String(value || ''))
+    .replace(/[\s　]/g, '')
+    .replace(/[。、！？!?.,・…「」『』（）()\[\]{}～〜]/g, '');
+}
+
+function addGloss(index, key, fr, role) {
+  const k = normalizeGlossKey(key);
+  if (!k || !fr) return;
+  if (role) {
+    if (!(k in index)) { index[k] = fr; glossRoles[k] = true; }
+    return;
+  }
+  if (!(k in index)) index[k] = fr;
+}
+
+function addVerbGlosses(add, base, fr) {
+  const b = normalizeGlossKey(base);
+  if (!b) return;
+  if (b === 'する') {
+    ['し', 'します', 'した', 'して', 'しましょう', 'したい', 'しない'].forEach(function (x) { add(x, fr); });
+    return;
+  }
+  if (b === '来る') {
+    ['来', '来ます', '来た', '来て', '来ましょう', '来たい', '来ない'].forEach(function (x) { add(x, fr); });
+    return;
+  }
+  if (b.slice(-2) === 'する') {
+    const prefix = b.slice(0, -2);
+    ['し', 'します', 'した', 'して', 'しましょう', 'したい', 'しない'].forEach(function (x) { add(prefix + x, fr); });
+    return;
+  }
+  const last = b.slice(-1);
+  if (last === 'る') {
+    const stem = b.slice(0, -1);
+    [stem + 'ます', stem + 'ました', stem + 'ません', stem + 'ましょう', stem + 'たい'].forEach(function (x) { add(x, fr); });
+    [stem + 'ります', stem + 'りました', stem + 'りません', stem + 'りましょう', stem + 'りたい'].forEach(function (x) { add(x, fr); });
+    [stem + 'て', stem + 'た', stem + 'って', stem + 'った'].forEach(function (x) { add(x, fr); });
+    return;
+  }
+  if (b === '行く') {
+    ['行きます', '行きました', '行きません', '行きましょう', '行きたい', '行って', '行った'].forEach(function (x) { add(x, fr); });
+    return;
+  }
+  const row = { 'う': 'い', 'く': 'き', 'ぐ': 'ぎ', 'す': 'し', 'つ': 'ち', 'ぬ': 'に', 'ぶ': 'び', 'む': 'み' }[last];
+  if (!row) return;
+  const stem = b.slice(0, -1) + row;
+  ['ます', 'ました', 'ません', 'ましょう', 'たい'].forEach(function (end) { add(stem + end, fr); });
+  const teEnd = { 'う': 'って', 'つ': 'って', 'る': 'って', 'む': 'んで', 'ぶ': 'んで', 'ぬ': 'んで', 'く': 'いて', 'ぐ': 'いで', 'す': 'して' }[last];
+  if (teEnd) {
+    const te = b.slice(0, -1) + teEnd;
+    add(te, fr);
+    add(te.slice(0, -1) + (te.slice(-1) === 'て' ? 'た' : 'だ'), fr);
+  }
+}
+
+function addAdjectiveGlosses(add, base, fr) {
+  const b = normalizeGlossKey(base);
+  if (!b || b.slice(-1) !== 'い') return;
+  if (b === 'いい') {
+    ['よく', 'よかった', 'よくない', 'よくなかった'].forEach(function (x) { add(x, fr); });
+    return;
+  }
+  const stem = b.slice(0, -1);
+  ['く', 'かった', 'くない', 'くなかった'].forEach(function (end) { add(stem + end, fr); });
+}
+
+function buildGlossIndex() {
+  if (glossIndex) return;
+  const index = Object.create(null);
+  glossRoles = Object.create(null);
+  function add(key, fr, role) { addGloss(index, key, fr, role); }
+  entries.forEach(function (e) {
+    if (!e || !e.jp || !e.fr) return;
+    add(e.jp, e.fr);
+    addVerbGlosses(add, e.jp, e.fr);
+    addAdjectiveGlosses(add, e.jp, e.fr);
+  });
+  Object.keys(GLOSS_EXTRA).forEach(function (key) { add(key, GLOSS_EXTRA[key], true); });
+  Object.keys(GLOSS_CONTENT).forEach(function (key) {
+    add(key, GLOSS_CONTENT[key]);
+    addVerbGlosses(add, key, GLOSS_CONTENT[key]);
+    addAdjectiveGlosses(add, key, GLOSS_CONTENT[key]);
+  });
+  glossIndex = index;
+  glossKeys = Object.keys(index)
+    .filter(function (key) { return /[\u3040-\u30ff\u3400-\u9fff]/.test(key); })
+    .sort(function (a, b) { return b.length - a.length; });
+}
+
+function isGlossBreak(ch) {
+  return !ch || /[\s　。、！？!?.,・…「」『』（）()\[\]{}～〜]/.test(ch);
+}
+
+function tokenizeJapaneseGloss(text) {
+  buildGlossIndex();
+  const raw = P.stripAnnotations(String(text || ''));
+  const out = [];
+  let i = 0;
+  while (i < raw.length) {
+    if (isGlossBreak(raw[i])) { i++; continue; }
+    let hit = '';
+    for (let k = 0; k < glossKeys.length; k++) {
+      if (raw.startsWith(glossKeys[k], i)) { hit = glossKeys[k]; break; }
+    }
+    if (!hit) {
+      let j = i + 1;
+      while (j < raw.length && !isGlossBreak(raw[j])) {
+        let next = false;
+        for (let k = 0; k < glossKeys.length; k++) {
+          if (raw.startsWith(glossKeys[k], j)) { next = true; break; }
+        }
+        if (next) break;
+        j++;
+      }
+      out.push({ jp: raw.slice(i, j), fr: '', unknown: true, role: false });
+      i = j;
+    } else {
+      out.push({ jp: hit, fr: glossIndex[hit], unknown: false, role: !!glossRoles[hit] });
+      i += hit.length;
+    }
+  }
+  return out;
+}
+
+function glossItemHtml(token, className) {
+  const cls = (className || 'gloss-item') + (token.role ? ' role' : '') + (token.unknown ? ' unknown' : '');
+  return '<li class="' + cls + '"><b lang="ja">' + esc(token.jp) + '</b><span>' + esc(token.fr || '—') + '</span></li>';
+}
+
+function wordByWordDetails(context, extraClass) {
+  const tokens = tokenizeJapaneseGloss(context);
+  if (!tokens.length) return '';
+  return '<details class="word-by-word ' + (extraClass || '') + '" data-testid="word-by-word">' +
+    '<summary>Mot à mot</summary><ul class="gloss-list">' +
+    tokens.map(function (token) { return glossItemHtml(token); }).join('') +
+    '</ul></details>';
+}
+
+function tooltipGlossHtml(context) {
+  const tokens = tokenizeJapaneseGloss(context);
+  if (!tokens.length) return '';
+  const shown = tokens.slice(0, 12);
+  return '<div class="tip-gloss"><span class="tip-gloss-title">Mot à mot</span><div class="tip-gloss-list">' +
+    shown.map(function (token) {
+      return '<span class="tip-gloss-item' + (token.role ? ' role' : '') + (token.unknown ? ' unknown' : '') + '">' +
+        '<b lang="ja">' + esc(token.jp) + '</b><span>' + esc(token.fr || '—') + '</span></span>';
+    }).join('') +
+    (tokens.length > shown.length ? '<span class="tip-gloss-more">+ ' + (tokens.length - shown.length) + '</span>' : '') +
+    '</div></div>';
 }
 function contextNoteHtml(entry) {
   const note = entry && entry.contextNote ? String(entry.contextNote) : '';
@@ -223,12 +404,13 @@ function hideSentenceTooltip() {
 }
 function showSentenceTooltip(target) {
   const text = target && target.getAttribute ? target.getAttribute('data-tooltip') : '';
+  const jp = target && target.getAttribute ? target.getAttribute('data-tooltip-jp') : '';
   const tip = $('#sentenceTooltip');
   if (!text || !tip) return;
   if (tooltipTarget !== target && tooltipTarget && tooltipTarget.getAttribute && tooltipTarget.getAttribute('aria-describedby') === 'sentenceTooltip') tooltipTarget.removeAttribute('aria-describedby');
   tooltipTarget = target;
   target.setAttribute('aria-describedby', 'sentenceTooltip');
-  tip.textContent = text;
+  tip.innerHTML = '<span class="sentence-tooltip-translation">' + esc(text) + '</span>' + tooltipGlossHtml(jp);
   tip.hidden = false;
   tip.classList.remove('show');
   tip.style.left = '0px';
@@ -393,32 +575,49 @@ function buildEntries() {
   const list = [];
   (window.UNITS_DATA || []).forEach(function (unit) {
     (unit.words || []).forEach(function (w, i) {
-      const jp = w[0] || '';
-      const fr = w[3] || '';
-      if (!jp || !fr) return;
-      const ruby = w[1] || jp;
+      const isArray = Array.isArray(w);
+      const rawJp = isArray ? w[0] : (w && w.jp);
+      const fr = isArray ? w[3] : (w && w.fr);
+      if (!rawJp || !fr) return;
+      let jp, ruby, reading, romaji, context, contextFr, hl, alternatives, nuance, contextNote;
+      if (isArray) {
+        jp = rawJp || '';
+        ruby = w[1] || jp;
+        reading = kanaFromRuby(ruby);
+        romaji = w[2] || '';
+        context = w[4] || '';
+        contextFr = w[5] || '';
+        hl = w[6] || P.stripAnnotations(jp);
+        alternatives = Array.isArray(w[7]) ? w[7] : [];
+        nuance = w[8] && w[8].nuance ? String(w[8].nuance) : '';
+        contextNote = w[8] && w[8].contextNote ? String(w[8].contextNote) : '';
+      } else {
+        jp = P.stripAnnotations(rawJp);
+        reading = String(w.reading || '');
+        ruby = String(w.ruby || '');
+        if (!ruby) ruby = reading && P.hasKanji(jp) ? P.annotate(jp, reading) : jp;
+        if (!reading) reading = kanaFromRuby(ruby);
+        romaji = String(w.romaji || '') || (reading ? P.kanaToRomaji(reading) : '');
+        context = String(w.context || '');
+        contextFr = String(w.contextFr || '');
+        hl = String(w.hl || jp);
+        alternatives = Array.isArray(w.alternatives) ? w.alternatives : [];
+        nuance = w.nuance ? String(w.nuance) : '';
+        contextNote = w.contextNote ? String(w.contextNote) : '';
+      }
       list.push({
         id: 'u:' + unit.id + ':' + i,
         unitId: unit.id, theme: unit.name, emoji: unit.emoji || '📘',
         jp: P.stripAnnotations(jp), ruby: ruby,
-        reading: kanaFromRuby(ruby), romaji: w[2] || '', fr: fr,
-        context: w[4] || '', contextFr: w[5] || '',
-        hl: w[6] || P.stripAnnotations(jp), alternatives: Array.isArray(w[7]) ? w[7] : [],
-        nuance: w[8] && w[8].nuance ? String(w[8].nuance) : '',
-        contextNote: w[8] && w[8].contextNote ? String(w[8].contextNote) : '', source: 'base'
+        reading: reading, romaji: romaji, fr: String(fr),
+        context: context, contextFr: contextFr, hl: hl,
+        alternatives: alternatives, nuance: nuance, contextNote: contextNote, source: 'base'
       });
     });
   });
-  Object.keys(state.entries || {}).forEach(function (key) {
-    const e = state.entries[key];
-    if (!e || !e.jp) return;
-    list.push(Object.assign({ theme: 'Mes mots importés', emoji: '📥', source: 'import' }, e, {
-      id: e.id || key,
-      ruby: e.ruby || e.jp,
-      reading: e.reading && !P.hasKanji(e.reading) ? P.stripAnnotations(e.reading) : kanaFromRuby(e.ruby || e.jp),
-      hl: e.hl || e.jp
-    }));
-  });
+  glossIndex = null;
+  glossKeys = null;
+  glossRoles = null;
   return list;
 }
 function unitStats(unitId, now) {
@@ -497,12 +696,12 @@ function renderHome() {
       '<div class="stat-card"><span class="stat-num">' + c.new + '</span><span class="stat-label">Nouveaux</span></div></div>' +
     journeyPanelHtml(stages) +
     (ps.attempts ? pronunciationPanelHtml(ps) : '') +
-    '<section class="panel"><div class="panel-head"><h2>Mes thèmes</h2><p>' + c.seen + '/' + c.total + ' mots découverts</p></div><div class="theme-grid">' + units + '</div></section>';
+    '<section class="panel"><div class="panel-head"><h2>Mes thèmes</h2><p>' + c.seen + '/' + c.total + ' mots découverts · 1 000 courants + 60 escalade</p></div><div class="theme-grid">' + units + '</div></section>';
   if (wotd) {
     body += '<section class="panel"><div class="panel-head"><h2>Mot du jour</h2><button class="btn ghost small" data-action="speak-text" data-text="' + attr(wotd.jp) + '">🔊 Écouter</button></div>' +
       '<div class="wotd"><div><div class="wotd-fr">' + frHtml(wotd.fr) + '</div><div class="wotd-jp" lang="ja">' + wordRubyHtml(wotd) + '</div>' +
-      '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context sentence-tip" lang="ja"' + translationTipAttrs(wotd.contextFr) + '>' + contextHtml(wotd.context, wotd.hl, wotd) + '</p>' +
-      '<p class="muted small">' + esc(wotd.contextFr) + '</p><button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
+      '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context sentence-tip" lang="ja"' + translationTipAttrs(wotd.contextFr, wotd.context) + '>' + contextHtml(wotd.context, wotd.hl, wotd) + '</p>' +
+      '<p class="muted small">' + esc(wotd.contextFr) + '</p>' + wordByWordDetails(wotd.context, 'wotd-word-by-word') + '<button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
   }
   if (window.Kotoba.Motivation) body += window.Kotoba.Motivation.streakPanel(state, now);
 $('#view-learn').innerHTML = body;
@@ -616,7 +815,7 @@ function renderPreview() {
     return '<div class="preview-row"><span>' + esc(e.fr) + (dup ? '<br><span class="badge new">déjà présent</span>' : '') + '</span>' +
       '<span class="preview-jp" lang="ja">' + rubyHtml(e.ruby, state.settings.furigana) + '</span>' +
       '<span class="muted">' + esc(e.romaji) + '</span>' +
-      '<span><span class="sentence-tip" lang="ja"' + translationTipAttrs(e.contextFr) + '>' + esc(e.context || '—') + '</span>' + (e.contextFr ? '<br><span class="muted">' + esc(e.contextFr) + '</span>' : '') + '</span></div>';
+      '<span><span class="sentence-tip" lang="ja"' + translationTipAttrs(e.contextFr, e.context) + '>' + esc(e.context || '—') + '</span>' + (e.contextFr ? '<br><span class="muted">' + esc(e.contextFr) + '</span>' : '') + '</span></div>';
   }).join('');
   const errors = p.errors.length ? '<div class="errors"><b>' + p.errors.length + ' ligne(s) ignorée(s)</b>' + p.errors.slice(0, 5).map(function (x) {
     return '<div class="error-item">Ligne ' + x.line + ' : ' + esc(x.reason) + ' — <i>' + esc(x.text) + '</i></div>';
@@ -872,8 +1071,9 @@ function answerCard(e) {
     '<div class="audio-row"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '">🔊 Écouter</button>' +
     '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.jp) + '" data-slow="1">🐢 Lent</button></div></div>' +
     '<aside class="context-card" data-testid="answer-context"><div class="context-label">En contexte</div>' +
-    '<p class="context-jp sentence-tip" lang="ja"' + translationTipAttrs(e.contextFr) + '>' + contextHtml(e.context, e.hl, e) + '</p>' +
+    '<p class="context-jp sentence-tip" lang="ja"' + translationTipAttrs(e.contextFr, e.context) + '>' + contextHtml(e.context, e.hl, e) + '</p>' +
     '<p class="context-fr">' + esc(e.contextFr || '—') + '</p>' +
+    wordByWordDetails(e.context, 'answer-word-by-word') +
     contextNoteHtml(e) +
     (e.context ? '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(e.context) + '">🔊 La phrase</button>' : '<p class="hint">Pas encore de phrase. Ajoute-en une depuis Mes mots.</p>') + '</aside></div>' +
     inline + '</div>';
@@ -1163,8 +1363,9 @@ const engines = '<div class="pronounce-engine" role="group" aria-label="Moteur d
 '<button type="button" class="' + (engine === 'whisper' ? 'active' : '') + '" data-action="pronounce-engine" data-engine="whisper" data-testid="pronounce-engine-whisper"' + (whisperOk ? '' : ' disabled title="Indisponible dans ce navigateur"') + '>IA locale</button></div>';
 let shown = '';
 if (target === 'phrase' && phrase) {
-shown = '<div class="jp-big pronounce-phrase sentence-tip" lang="ja" data-testid="pronounce-phrase"' + translationTipAttrs(e.contextFr) + '>' + contextHtml(phrase, '', e) + '</div>' +
+shown = '<div class="jp-big pronounce-phrase sentence-tip" lang="ja" data-testid="pronounce-phrase"' + translationTipAttrs(e.contextFr, e.context) + '>' + contextHtml(phrase, '', e) + '</div>' +
 '<p class="hint pronounce-target-hint">' + esc(e.contextFr || 'Toute la phrase, sans t’arrêter.') + '</p>' +
+wordByWordDetails(phrase, 'pronounce-word-by-word') +
 contextNoteHtml(e);
 } else {
 shown = '<div class="jp-big" lang="ja" data-testid="pronounce-word">' + wordRubyHtml(e) + '</div>' +
@@ -1526,7 +1727,8 @@ function openSettings() {
     '<div class="setting-row"><div><strong>Vitesse audio</strong><small>Voix japonaise du navigateur</small></div><div style="display:flex;align-items:center;gap:8px"><input type="range" min="0.5" max="1.3" step="0.05" value="' + s.rate + '" data-setting="rate" style="width:110px"><button class="btn ghost small" data-action="test-voice">Tester</button></div></div>' +
     '<div class="setting-row"><div><strong>Sauvegarde</strong><small>Exporte ou restaure ta progression</small></div><div class="modal-actions" style="margin:0"><button class="btn ghost small" data-action="export-data">Exporter</button><button class="btn ghost small" data-action="import-data">Importer</button></div></div>' +
     '<input type="file" id="dataFile" accept=".json,application/json" hidden><div class="modal-actions"><button class="btn danger-text" data-action="reset-data">Tout effacer</button></div>' +
-    '<p class="hint">Kotoba stocke tout dans ce navigateur. Utilise l\'export pour passer d\'un appareil à l\'autre.</p>');
+    '<p class="hint">Kotoba stocke tout dans ce navigateur. Utilise l\'export pour passer d\'un appareil à l\'autre.</p>' +
+    '<p class="hint data-credit">Sources : <a href="https://kanjikana.com/en/words/core-1000" target="_blank" rel="noopener">Kanjikana Core 1000</a> (CC BY 4.0) · <a href="https://tatoeba.org" target="_blank" rel="noopener">Tatoeba</a> (CC BY 2.0 FR).</p>');
 }
 function openDetail(id) {
 const e = entries.filter(function (x) { return x.id === id; })[0];
@@ -1560,7 +1762,7 @@ openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
 <div class='detail-romaji'>${esc(e.romaji)}</div>${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
-<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp sentence-tip' lang='ja'${translationTipAttrs(e.contextFr)}>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${contextNoteHtml(e)}
+<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp sentence-tip' lang='ja'${translationTipAttrs(e.contextFr, e.context)}>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${wordByWordDetails(e.context, 'detail-word-by-word')}${contextNoteHtml(e)}
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
 ${stageHtml}
 ${pronunciationHistory}

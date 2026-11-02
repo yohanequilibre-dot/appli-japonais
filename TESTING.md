@@ -48,7 +48,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 ## 3. Le parcours à vérifier en cinq minutes
 
 1. **Accueil** : la carte « Prêt à apprendre ? » et le bouton « Apprendre de nouveaux mots » s'affichent. Le compteur de cartes dues et l'objectif XP sont visibles.
-2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Le mot puis la phrase de contexte sont lus automatiquement, sans clic. Un verdict explicite dit « C’est correct » ou « Ce n’est pas correct ». Tu dois voir le japonais avec une lecture latine au-dessus de chaque unité (par exemple `o` au-dessus de `お`, `nega` au-dessus de `願`, puis `i`, `shi`, `ma`, `su`), sans ligne de kana dupliquée ; la phrase de contexte est annotée de la même façon. Le romaji complet est affiché sous le mot ; pour `お願いします`, `ください` (kudasai) est aussi accepté et signalé comme variante. `お願いします` est plus doux et général ; `ください` est plus direct, mais les deux sont polis. Survole une phrase de contexte (ou place le focus dessus au clavier) : une infobulle affiche sa traduction, et les phrases japonaises ont plus d’espace entre les caractères.
+2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Le mot puis la phrase de contexte sont lus automatiquement, sans clic. Un verdict explicite dit « C’est correct » ou « Ce n’est pas correct ». Tu dois voir le japonais avec une lecture latine au-dessus de chaque unité (par exemple `o` au-dessus de `お`, `nega` au-dessus de `願`, puis `i`, `shi`, `ma`, `su`), sans ligne de kana dupliquée ; la phrase de contexte est annotée de la même façon. Le romaji complet est affiché sous le mot ; pour `お願いします`, `ください` (kudasai) est aussi accepté et signalé comme variante. `お願いします` est plus doux et général ; `ください` est plus direct, mais les deux sont polis. Survole une phrase de contexte (ou place le focus dessus au clavier) : une infobulle affiche sa traduction complète et un aperçu « Mot à mot ». Ouvre aussi le bloc « Mot à mot » sous la phrase pour voir chaque mot et particule avec sa traduction. Les phrases japonaises ont plus d’espace entre les caractères.
 3. **Validation** : clique sur « Passer au suivant ». La carte suivante arrive immédiatement, sans écran intermédiaire.
 4. **Import** : va dans « Importer », colle `bonjour | kon-ni-chi-wa`, clique sur « Analyser la liste ». L'aperçu doit montrer こんにちは, le romaji et le contexte `こんにちは、花さん！`. Clique sur « Importer 1 mot ».
 5. **Mes mots** : clique sur le filtre « Importés ». Le filtre « Mal prononcés » garde les mots dont le dernier essai micro était rouge. La ligne `bonjour` / こんにちは est là. Clique dessus : la fiche affiche le français, le japonais, le romaji et le contexte. Tu peux modifier ou supprimer ce mot importé.
@@ -60,6 +60,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 10. **Parcours** : sur l'accueil, « Mon parcours » montre Nouveaux, En révision, Validés (10 révisions) et Ultimes (30). Clique sur une carte pour ouvrir le filtre correspondant dans Mes mots ; la fiche d'un mot affiche sa barre de progression.
 11. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis sur le bouton d’écoute du micro. Choisis « La phrase » si le mot a un contexte. Le niveau audio, le score, l’écart syllabique et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
 12. **Grammaire** : l’onglet « Grammaire » ouvre les leçons. Vérifie que « L’ordre de la phrase » s’affiche, que l’explication de 行きます / iku est présente et que les exemples ont des furigana.
+13. **Pack de 1 000 mots et escalade** : l’accueil doit afficher « 1 000 courants + 60 escalade ». Ouvre « Escalade · matériel », puis un mot comme ロープ : sa fiche affiche le mot, sa lecture, son romaji et une phrase de contexte. Vérifie que « Mot à mot » découpe ロープ / を / しっかり / 結びます avec leurs traductions.
 
 ## 4. Le test exact de ta demande
 
@@ -118,7 +119,9 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - le parcours par étapes et les filtres Validés / Ultimes ;
 - la prononciation du mot et de la phrase entière, avec score, écart syllabique, réécoute et historique ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;
-- les furigana de l’onglet Grammaire et le vocabulaire quotidien.
+- les furigana de l’onglet Grammaire et le vocabulaire quotidien ;
+- les 1 000 mots courants, les 60 mots d’escalade et la décomposition mot à mot ;
+- l’infobulle avec traduction complète et aperçu mot à mot.
 
 Le test de prononciation simule la reconnaissance du navigateur pour rester rapide et déterministe. La capture micro réelle et le modèle Whisper ne sont pas lancés en CI : leur fonctionnement se vérifie une fois à la main, dans un navigateur avec micro.
 

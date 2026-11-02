@@ -113,6 +113,8 @@ function applyTooltips() {
     if (!text) return;
     jp.classList.add('sentence-tip');
     jp.setAttribute('data-tooltip', text);
+    var originalJp = jp.getAttribute('data-grammar-jp') || jp.textContent || '';
+    if (originalJp) jp.setAttribute('data-tooltip-jp', originalJp);
     jp.setAttribute('tabindex', '0');
   });
 }
