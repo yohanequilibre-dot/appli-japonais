@@ -1214,6 +1214,16 @@ will-change: transform, opacity;
 .conversation-hero-stats span { color: var(--muted); font-size: .76rem; font-weight: 800; }
 .conversation-hero-stats small { margin-top: 8px; color: var(--green-dark); font-size: .68rem; font-weight: 900; letter-spacing: .08em; }
 .conversation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.conversation-review-panel { margin-top: 16px; border-color: var(--amber); }
+.conversation-review-total { display: flex; flex-direction: column; align-items: center; min-width: 74px; padding: 8px 12px; border: 1px solid var(--amber); border-radius: 14px; background: var(--surface); }
+.conversation-review-total b { color: var(--amber); font-size: 1.45rem; line-height: 1; }
+.conversation-review-total small { margin-top: 3px; color: var(--muted); font-size: .66rem; font-weight: 800; }
+.conversation-review-list { display: grid; gap: 8px; margin-top: 12px; }
+.conversation-review-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.conversation-review-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.conversation-review-copy strong { font-size: .88rem; }
+.conversation-review-copy small { overflow: hidden; color: var(--muted); font-size: .74rem; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-review-copy small span { color: var(--text); font-family: var(--jp); }
 .conv-card { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; box-shadow: var(--shadow-sm); }
 .conv-card:hover { border-color: var(--green); transform: translateY(-1px); }
 .conv-card-top { display: flex; align-items: center; justify-content: space-between; }
@@ -1298,6 +1308,8 @@ will-change: transform, opacity;
   .conversation-form .btn { width: 100%; }
   .conversation-voice-row { align-items: flex-start; }
   .conversation-form .conversation-voice-row .btn { width: auto; }
+  .conversation-review-row { align-items: flex-start; flex-wrap: wrap; }
+  .conversation-review-row .btn { width: 100%; }
   .conv-summary-line { align-items: flex-start; flex-direction: column; gap: 4px; }
   .conv-summary-line .conv-jp, .conv-summary-line .conv-fr { flex: none; }
   .bottom-nav a { padding-left: 2px; padding-right: 2px; font-size: .59rem; }

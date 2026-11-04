@@ -721,6 +721,28 @@ test('conversation : rejoue uniquement les répliques ratées', async ({ page })
   await expect(page.getByTestId('conversation-retry-missed')).toHaveCount(0);
 });
 
+test('conversation : les répliques ratées persistent après rechargement', async ({ page }) => {
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-scenario-cafe').click();
+  await page.getByTestId('conversation-answer').fill('さようなら。');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Presque');
+  await page.getByTestId('conversation-close').click();
+  await expect(page.getByTestId('conversation-review-panel')).toBeVisible();
+  await expect(page.getByTestId('conversation-review-cafe')).toContainText('1 réplique');
+  await page.reload();
+  await expect(page.getByTestId('conversation-review-panel')).toBeVisible();
+  await expect(page.getByTestId('conversation-review-panel')).toContainText('Commander au café');
+  await page.getByTestId('conversation-review-start-cafe').click();
+  await expect(page.getByTestId('conversation-review-note')).toContainText('uniquement les répliques');
+  await expect(page.getByTestId('conversation-partner')).toContainText('ご注文は何ですか');
+  await page.getByTestId('conversation-answer').fill('ホットコーヒーをください。');
+  await page.getByTestId('conversation-submit').click();
+  await page.getByTestId('conversation-next').click();
+  await page.getByTestId('conversation-other').click();
+  await expect(page.getByTestId('conversation-review-panel')).toHaveCount(0);
+});
+
 test('conversation : le mode écoute masque le texte avant la réponse', async ({ page }) => {
   await page.goto('/#parler');
   await page.getByTestId('conversation-scenario-cafe').click();

@@ -749,12 +749,14 @@ function phrasePanelHtml() {
 function conversationPanelHtml() {
   if (!CONV || !Array.isArray(CONV.scenarios) || !CONV.scenarios.length) return '';
   const picks = CONV.scenarios.slice(0, 3);
+  const reviewCount = conversationReviewCount();
   return '<section class="panel conversation-panel" data-testid="conversation-panel">' +
     '<div class="panel-head"><div><p class="eyebrow">Parler aux gens</p><h2>Des phrases pour la vraie vie</h2>' +
     '<p>Commandes, chemin, invitations, imprévus : réponds en japonais poli, puis compare avec un modèle naturel.</p></div>' +
     '<button class="btn primary" data-action="go-conversation" data-testid="go-conversation">Toutes les situations</button></div>' +
     '<div class="conversation-mini-grid">' + picks.map(conversationMiniCardHtml).join('') + '</div>' +
-    '<p class="hint">' + CONV.scenarios.length + ' situations · kana, kanji ou romaji acceptés · audio et mode écoute</p></section>';
+    '<p class="hint">' + CONV.scenarios.length + ' situations · kana, kanji ou romaji acceptés · audio et mode écoute' +
+    (reviewCount ? ' · 🎯 ' + reviewCount + ' réplique' + (reviewCount === 1 ? '' : 's') + ' à retravailler' : '') + '</p></section>';
 }
 function conversationMiniCardHtml(scenario) {
   return '<button class="conv-mini" data-action="start-conversation" data-id="' + attr(scenario.id) + '" data-testid="conversation-mini-' + attr(scenario.id) + '">' +
@@ -773,12 +775,63 @@ function conversationListHtml() {
     '<p class="lead">Lis la réplique ou active le mode écoute, réponds en japonais poli, puis compare avec le modèle. Les variantes naturelles sont acceptées.</p>' +
     '<button class="btn primary conversation-random" data-action="random-conversation" data-testid="conversation-random">🎲 Situation surprise</button></div>' +
     '<div class="conversation-hero-stats"><b>' + CONV.scenarios.length + '</b><span>situations</span><small>A1 → A2</small></div></section>' +
+    conversationReviewPanelHtml() +
     '<div class="conversation-grid">' + cards + '</div>' +
     '<section class="panel conversation-how"><h2>Comment ça marche</h2><ol>' +
     '<li>Écoute la réplique et lis sa traduction.</li><li>Réponds avec tes mots : kana, kanji ou romaji.</li>' +
     '<li>Active le mode écoute pour masquer le texte et travailler la compréhension orale.</li>' +
     '<li>Compare, réécoute le modèle, puis enchaîne la réplique suivante.</li></ol>' +
     '<p class="hint">Astuce : répète la réponse à voix haute après l’avoir vérifiée. C’est cette production orale qui te servira dehors.</p></section>';
+}
+function conversationReviewGroups() {
+  if (!CONV || !state.conversationReview || typeof state.conversationReview !== 'object') return [];
+  const groups = {};
+  Object.keys(state.conversationReview).forEach(function (key) {
+    const item = state.conversationReview[key];
+    if (!item || typeof item !== 'object') return;
+    const missedAt = Math.max(0, Number(item.missedAt) || 0);
+    const clearedAt = Math.max(0, Number(item.clearedAt) || 0);
+    if (!missedAt || missedAt <= clearedAt) return;
+    const scenario = CONV.scenarioById ? CONV.scenarioById(item.scenario) : null;
+    const turn = Math.floor(Number(item.turn));
+    if (!scenario || !isFinite(turn) || turn < 0 || !scenario.turns[turn]) return;
+    if (!groups[scenario.id]) groups[scenario.id] = { scenario: scenario, items: [], latest: 0 };
+    groups[scenario.id].items.push({ turn: turn, missedAt: missedAt });
+    groups[scenario.id].latest = Math.max(groups[scenario.id].latest, missedAt);
+  });
+  return Object.keys(groups).map(function (id) {
+    const group = groups[id];
+    group.items.sort(function (a, b) { return a.turn - b.turn; });
+    return group;
+  }).sort(function (a, b) { return b.latest - a.latest; });
+}
+function conversationReviewCount() {
+  return conversationReviewGroups().reduce(function (total, group) { return total + group.items.length; }, 0);
+}
+function conversationReviewPanelHtml() {
+  const groups = conversationReviewGroups();
+  if (!groups.length) return '';
+  const total = groups.reduce(function (sum, group) { return sum + group.items.length; }, 0);
+  const rows = groups.map(function (group) {
+    const scenario = group.scenario;
+    const count = group.items.length;
+    const sample = scenario.turns[group.items[0].turn].model.jp;
+    return '<div class="conversation-review-row" data-testid="conversation-review-' + attr(scenario.id) + '">' +
+      '<span class="conv-emoji" aria-hidden="true">' + esc(scenario.emoji) + '</span>' +
+      '<div class="conversation-review-copy"><strong>' + esc(scenario.title) + '</strong>' +
+      '<small>' + count + ' réplique' + (count === 1 ? '' : 's') + ' à revoir · <span lang="ja">' + esc(sample) + '</span></small></div>' +
+      '<button class="btn ghost small" data-action="review-conversation-misses" data-id="' + attr(scenario.id) + '" data-testid="conversation-review-start-' + attr(scenario.id) + '" aria-label="Réviser les répliques ratées de ' + attr(scenario.title) + '">Réviser</button></div>';
+  }).join('');
+  return '<section class="panel conversation-review-panel" data-testid="conversation-review-panel">' +
+    '<div class="panel-head"><div><p class="eyebrow">À retravailler</p><h2>Tes phrases à revoir</h2>' +
+    '<p>Les répliques ratées restent ici, même après avoir fermé l’onglet.</p></div>' +
+    '<span class="conversation-review-total"><b>' + total + '</b><small>réplique' + (total === 1 ? '' : 's') + '</small></span></div>' +
+    '<div class="conversation-review-list">' + rows + '</div></section>';
+}
+function reviewConversationMisses(scenarioId) {
+  const group = conversationReviewGroups().filter(function (item) { return item.scenario.id === scenarioId; })[0];
+  if (!group) { toast('Aucune réplique à revoir.'); renderConversation(); return; }
+  startConversation(scenarioId, { turnIndices: group.items.map(function (item) { return item.turn; }) });
 }
 function conversationTurnIndex() {
   const queue = conversationState && conversationState.queue;
@@ -818,7 +871,7 @@ function conversationSessionHtml() {
       '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
       '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '" data-slow="1">🔊 Écouter</button></div>';
   return '<section class="panel conversation-session" data-testid="conversation-session">' +
-    '<div class="conversation-top"><button class="btn ghost small" data-action="close-conversation">← Situations</button>' +
+    '<div class="conversation-top"><button class="btn ghost small" data-action="close-conversation" data-testid="conversation-close">← Situations</button>' +
     '<div class="conversation-tools"><button class="btn ghost small' + (listenOn ? ' active' : '') + '" data-action="toggle-conversation-listen" aria-pressed="' + (listenOn ? 'true' : 'false') + '" data-testid="conversation-listen">🎧 Écoute</button>' +
     '<span class="conversation-count">' + (conversationState.review ? '🎯 Révision ciblée · ' : '') + esc(scenario.title) + ' · ' + (conversationState.index + 1) + '/' + total + '</span></div></div>' +
     '<div class="conversation-progress" aria-hidden="true"><span style="width:' + progress + '%"></span></div>' +
@@ -998,6 +1051,25 @@ function retryMissedConversation() {
   const turnIndices = conversationState.missed.slice();
   startConversation(id, { turnIndices: turnIndices });
 }
+function recordConversationReview(scenarioId, turnIndex, ok) {
+  if (!state.conversationReview || typeof state.conversationReview !== 'object') state.conversationReview = {};
+  const key = String(scenarioId) + ':' + turnIndex;
+  const previous = state.conversationReview[key];
+  const now = Date.now();
+  if (ok) {
+    if (!previous) return;
+    previous.clearedAt = Math.max(now, Number(previous.clearedAt) || 0);
+  } else {
+    state.conversationReview[key] = {
+      scenario: scenarioId,
+      turn: turnIndex,
+      missedAt: now,
+      clearedAt: 0,
+      count: Math.max(1, (Number(previous && previous.count) || 0) + 1)
+    };
+  }
+  persist();
+}
 function conversationPronunciationEntry(turn) {
   const alternatives = [];
   (turn.accepted || []).forEach(function (item) {
@@ -1033,6 +1105,7 @@ function submitConversation(form) {
   if (ok) conversationState.missed = conversationState.missed.filter(function (idx) { return idx !== turnIndex; });
   else if (conversationState.missed.indexOf(turnIndex) < 0) conversationState.missed.push(turnIndex);
   conversationState.correct = conversationState.queue.filter(function (idx) { return conversationState.results[idx] === true; }).length;
+  recordConversationReview(conversationState.scenario.id, turnIndex, ok);
   conversationState.feedback = { ok: ok, answer: answer, pronunciation: pronunciation };
   renderConversation();
   const next = $('[data-action="next-conversation"]');
@@ -2475,6 +2548,7 @@ function applySyncedState(next) {
   state.stats = Object.assign({}, state.stats, next.stats || {});
   state.settings = Object.assign({}, state.settings, next.settings || {});
   state.flags = Object.assign({}, state.flags, next.flags || {});
+  if (next.conversationReview && typeof next.conversationReview === 'object') state.conversationReview = next.conversationReview;
   if (next.createdAt) state.createdAt = Math.min(state.createdAt || next.createdAt, next.createdAt);
   if (next.version) state.version = next.version;
   entries = buildEntries();
@@ -2778,6 +2852,7 @@ return;
     case 'next-conversation': nextConversation(); break;
     case 'retry-conversation': retryConversation(); break;
     case 'retry-missed-conversation': retryMissedConversation(); break;
+    case 'review-conversation-misses': reviewConversationMisses(id); break;
     case 'toggle-conversation-listen': toggleConversationListen(); break;
     case 'reveal-conversation': revealConversation(); break;
     case 'conversation-voice': startConversationVoice(); break;

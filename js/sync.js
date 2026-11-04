@@ -163,6 +163,23 @@
     });
     return out;
   }
+  function mergeConversationReview(local, remote) {
+    var out = {};
+    var keys = {};
+    [local, remote].forEach(function (map) {
+      Object.keys(map || {}).forEach(function (key) { keys[key] = true; });
+    });
+    Object.keys(keys).forEach(function (key) {
+      var l = local && local[key];
+      var r = remote && remote[key];
+      if (!l && !r) return;
+      var lt = Math.max(numeric(l && l.missedAt), numeric(l && l.clearedAt));
+      var rt = Math.max(numeric(r && r.missedAt), numeric(r && r.clearedAt));
+      var chosen = (r && (!l || rt > lt)) ? r : l;
+      if (chosen) out[key] = Object.assign({}, chosen);
+    });
+    return out;
+  }
   function mergeStats(local, remote) {
     var left = local || {};
     var right = remote || {};
@@ -189,6 +206,7 @@
       flags.daily = String(local.flags.daily) > String(remote.flags.daily) ? local.flags.daily : remote.flags.daily;
     }
     out.flags = flags;
+    out.conversationReview = mergeConversationReview(local.conversationReview, remote.conversationReview);
     out.settings = Object.assign({}, remote.settings || {}, local.settings || {});
     out.version = local.version || remote.version;
     return out;

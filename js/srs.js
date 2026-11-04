@@ -40,7 +40,8 @@
         lastDay: null, daily: {}, history: {}
       },
       settings: { goal: 50, romaji: true, furigana: true, theme: "system", rate: 0.9 },
-      flags: {}
+      flags: {},
+      conversationReview: {}
     };
   }
 
@@ -78,6 +79,22 @@
     if (["system", "light", "dark"].indexOf(s.settings.theme) < 0) s.settings.theme = "system";
 
     if (obj.flags && typeof obj.flags === "object") s.flags = obj.flags;
+    if (obj.conversationReview && typeof obj.conversationReview === "object") {
+      Object.keys(obj.conversationReview).forEach(function (key) {
+        const item = obj.conversationReview[key];
+        if (!item || typeof item !== "object") return;
+        const scenario = String(item.scenario || "").trim();
+        const turn = Math.floor(Number(item.turn));
+        if (!scenario || !isFinite(turn) || turn < 0) return;
+        s.conversationReview[scenario + ":" + turn] = {
+          scenario: scenario,
+          turn: turn,
+          missedAt: Math.max(0, Number(item.missedAt) || 0),
+          clearedAt: Math.max(0, Number(item.clearedAt) || 0),
+          count: Math.max(1, Number(item.count) || 1)
+        };
+      });
+    }
     s.version = VERSION;
     return s;
   }

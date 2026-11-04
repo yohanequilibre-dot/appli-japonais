@@ -523,11 +523,36 @@ test("synchronisation : fusionne les progrès récents sans écraser les autres"
   assert.equal(merged.flags.daily, "2026-11-02");
 });
 
+test("conversation : les répliques ratées sont normalisées et fusionnées", function () {
+  const local = {
+    conversationReview: {
+      "meet:0": { scenario: "meet", turn: 0, missedAt: 100, clearedAt: 0, count: 2 }
+    }
+  };
+  const normalized = Store.normalizeState(local);
+  assert.equal(normalized.conversationReview["meet:0"].count, 2);
+  assert.equal(normalized.conversationReview["meet:0"].missedAt, 100);
+
+  const remote = {
+    conversationReview: {
+      "meet:0": { scenario: "meet", turn: 0, missedAt: 90, clearedAt: 200, count: 1 },
+      "cafe:1": { scenario: "cafe", turn: 1, missedAt: 150, clearedAt: 0, count: 1 }
+    }
+  };
+  const merged = Sync.mergeStates(local, remote);
+  assert.equal(merged.conversationReview["meet:0"].clearedAt, 200, "la correction la plus récente gagne");
+  assert.equal(merged.conversationReview["cafe:1"].missedAt, 150, "les erreurs de l'autre appareil sont conservées");
+});
+
 test("synchronisation : sans état distant, l'état local est conservé", function () {
   const local = { entries: { a: { id: "a" } }, progress: { water: { reps: 3 } }, stats: { xp: 4 } };
   const merged = Sync.mergeStates(local, null);
   assert.deepEqual(merged, local);
   assert.notEqual(merged, local, "la copie évite de partager les objets");
+});
+
+test("conversation : l'état par défaut contient le suivi à retravailler", function () {
+  assert.deepEqual(Store.defaultState().conversationReview, {});
 });
 
 test("conversation : accepte japonais, kana et romaji, puis refuse une autre réponse", function () {
