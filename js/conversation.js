@@ -880,6 +880,222 @@
           tip: 'カードで = par carte ; で indique le moyen de paiement.'
         }
       ]
+    },
+    {
+      id: 'konbini',
+      emoji: '🏪',
+      title: 'Au konbini',
+      level: 'A1',
+      goal: 'Payer, refuser un sac et demander des baguettes',
+      situation: 'Tu achètes un onigiri et une boisson dans un konbini. Le caissier te parle.',
+      speaker: '店員',
+      speakerFr: 'le caissier',
+      turns: [
+        {
+          partner: {
+            jp: 'いらっしゃいませ。袋はご利用ですか。',
+            reading: 'いらっしゃいませ。ふくろはごりようですか。',
+            fr: 'Bienvenue. Avez-vous besoin d’un sac ?'
+          },
+          task: 'Dis que tu n’as pas besoin de sac.',
+          accepted: [
+            ['いいえ、大丈夫です。', 'いいえ、だいじょうぶです。'],
+            ['袋は要りません。', 'ふくろはいりません。'],
+            ['いいえ、いりません。', 'いいえ、いりません。']
+          ],
+          model: {
+            jp: 'いいえ、大丈夫です。',
+            reading: 'いいえ、だいじょうぶです。',
+            romaji: 'Iie, daijōbu desu.',
+            fr: 'Non, ça va.'
+          },
+          tip: '大丈夫です permet de refuser poliment. 袋は要りません est plus explicite : « je n’ai pas besoin de sac ».'
+        },
+        {
+          partner: {
+            jp: 'お支払いは現金ですか、カードですか。',
+            reading: 'おしはらいはげんきんですか、かーどですか。',
+            fr: 'Vous payez en espèces ou par carte ?'
+          },
+          task: 'Dis que tu paies par carte.',
+          accepted: [
+            ['カードでお願いします。', 'かーどでおねがいします。'],
+            ['カードで払います。', 'かーどではらいます。'],
+            ['カードです。', 'かーどです。']
+          ],
+          model: {
+            jp: 'カードでお願いします。',
+            reading: 'かーどでおねがいします。',
+            romaji: 'Kādo de onegai shimasu.',
+            fr: 'Par carte, s’il vous plaît.'
+          },
+          tip: 'で indique le moyen de paiement : カードで = par carte. 現金 = espèces.'
+        },
+        {
+          partner: {
+            jp: 'お箸はお付けしますか。',
+            reading: 'おはしはおつけしますか。',
+            fr: 'Voulez-vous des baguettes ?'
+          },
+          task: 'Dis que tu veux des baguettes.',
+          accepted: [
+            ['はい、お願いします。', 'はい、おねがいします。'],
+            ['お箸をお願いします。', 'おはしをおねがいします。'],
+            ['お願いします。', 'おねがいします。']
+          ],
+          model: {
+            jp: 'はい、お願いします。',
+            reading: 'はい、おねがいします。',
+            romaji: 'Hai, onegai shimasu.',
+            fr: 'Oui, s’il vous plaît.'
+          },
+          tip: 'お箸 = baguettes ; お付けしますか = « souhaitez-vous que je les ajoute ? ». はい、お願いします accepte poliment.'
+        }
+      ]
+    },
+    {
+      id: 'opinion',
+      emoji: '🍣',
+      title: 'Parler de ses goûts',
+      level: 'A2',
+      goal: 'Dire ce que tu aimes et ce que tu préfères',
+      situation: 'Tu discutes de cuisine japonaise avec un ami.',
+      speaker: '友だち',
+      speakerFr: 'un ami',
+      turns: [
+        {
+          partner: {
+            jp: '日本の食べ物は好きですか。',
+            reading: 'にほんのたべものはすきですか。',
+            fr: 'Tu aimes la cuisine japonaise ?'
+          },
+          task: 'Dis que tu aimes beaucoup les sushis.',
+          accepted: [
+            ['はい、寿司が大好きです。', 'はい、すしがだいすきです。'],
+            ['はい、寿司がとても好きです。', 'はい、すしがとてもすきです。'],
+            ['寿司が好きです。', 'すしがすきです。']
+          ],
+          model: {
+            jp: 'はい、寿司が大好きです。',
+            reading: 'はい、すしがだいすきです。',
+            romaji: 'Hai, sushi ga daisuki desu.',
+            fr: 'Oui, j’adore les sushis.'
+          },
+          tip: '好き = aimer ; 大好き = adorer. La particule が introduit ce que l’on aime.'
+        },
+        {
+          partner: {
+            jp: 'そうですか。何が一番好きですか。',
+            reading: 'そうですか。なにがいちばんすきですか。',
+            fr: 'Ah oui ? Qu’est-ce que tu préfères ?'
+          },
+          task: 'Réponds que tu préfères le saumon.',
+          accepted: [
+            ['サーモンが一番好きです。', 'さーもんがいちばんすきです。'],
+            ['特にサーモンが好きです。', 'とくにさーもんがすきです。'],
+            ['サーモンが好きです。', 'さーもんがすきです。']
+          ],
+          model: {
+            jp: 'サーモンが一番好きです。',
+            reading: 'さーもんがいちばんすきです。',
+            romaji: 'Sāmon ga ichiban suki desu.',
+            fr: 'Je préfère le saumon.'
+          },
+          tip: '一番 = le plus ; 特に = surtout. サーモン est le saumon.'
+        },
+        {
+          partner: {
+            jp: '私は納豆が苦手です。食べられますか。',
+            reading: 'わたしはなっとうがにがてです。たべられますか。',
+            fr: 'Moi, je n’aime pas trop le natto. Tu peux en manger ?'
+          },
+          task: 'Dis que tu n’aimes pas trop le natto non plus.',
+          accepted: [
+            ['私も納豆が苦手です。', 'わたしもなっとうがにがてです。'],
+            ['納豆はあまり好きじゃないです。', 'なっとうはあまりすきじゃないです。'],
+            ['私も苦手です。', 'わたしもにがてです。']
+          ],
+          model: {
+            jp: '私も納豆が苦手です。',
+            reading: 'わたしもなっとうがにがてです。',
+            romaji: 'Watashi mo nattō ga nigate desu.',
+            fr: 'Moi non plus, je n’aime pas trop le natto.'
+          },
+          tip: '苦手 = ne pas être à l’aise avec / ne pas aimer. も = « aussi ». あまり好きじゃない est plus familier.'
+        }
+      ]
+    },
+    {
+      id: 'help',
+      emoji: '🧳',
+      title: 'Demander de l’aide',
+      level: 'A2',
+      goal: 'Signaler un objet perdu et demander où aller',
+      situation: 'Tu as perdu ton portefeuille. Tu t’adresses à un agent de gare.',
+      speaker: '駅員',
+      speakerFr: 'un agent de gare',
+      turns: [
+        {
+          partner: {
+            jp: 'どうしましたか。',
+            reading: 'どうしましたか。',
+            fr: 'Que se passe-t-il ?'
+          },
+          task: 'Dis que tu as perdu ton portefeuille.',
+          accepted: [
+            ['財布をなくしました。', 'さいふをなくしました。'],
+            ['すみません、財布をなくしました。', 'すみません、さいふをなくしました。'],
+            ['財布を落としました。', 'さいふをおとしました。']
+          ],
+          model: {
+            jp: 'すみません、財布をなくしました。',
+            reading: 'すみません、さいふをなくしました。',
+            romaji: 'Sumimasen, saifu o nakushimashita.',
+            fr: 'Excusez-moi, j’ai perdu mon portefeuille.'
+          },
+          tip: 'なくしました = « j’ai perdu » ; 落としました = « j’ai fait tomber / perdu ». 財布 = portefeuille.'
+        },
+        {
+          partner: {
+            jp: 'いつ、どこでなくしましたか。',
+            reading: 'いつ、どこでなくしましたか。',
+            fr: 'Quand et où l’avez-vous perdu ?'
+          },
+          task: 'Dis que tu l’as perdu dans le train, il y a environ dix minutes.',
+          accepted: [
+            ['十分前に電車の中でなくしました。', 'じゅっぷんまえにでんしゃのなかでなくしました。'],
+            ['十分ぐらい前に電車でなくしました。', 'じゅっぷんぐらいまえにでんしゃでなくしました。'],
+            ['電車の中で十分前になくしました。', 'でんしゃのなかでじゅっぷんまえになくしました。']
+          ],
+          model: {
+            jp: '十分前に電車の中でなくしました。',
+            reading: 'じゅっぷんまえにでんしゃのなかでなくしました。',
+            romaji: 'Juppun mae ni densha no naka de nakushimashita.',
+            fr: 'Je l’ai perdu dans le train il y a dix minutes.'
+          },
+          tip: '〜分前 = il y a … minutes ; 〜の中で = à l’intérieur de. 十分 se prononce ici じゅっぷん.'
+        },
+        {
+          partner: {
+            jp: 'わかりました。駅の忘れ物センターに届いているかもしれません。',
+            reading: 'わかりました。えきのわすれものせんたーにとどいているかもしれません。',
+            fr: 'Je vois. Il est peut-être arrivé au centre des objets trouvés de la gare.'
+          },
+          task: 'Demande où se trouve le centre des objets trouvés.',
+          accepted: [
+            ['忘れ物センターはどこですか。', 'わすれものせんたーはどこですか。'],
+            ['それはどこにありますか。', 'それはどこにありますか。'],
+            ['駅のどこですか。', 'えきのどこですか。']
+          ],
+          model: {
+            jp: '忘れ物センターはどこですか。',
+            reading: 'わすれものせんたーはどこですか。',
+            romaji: 'Wasuremono sentā wa doko desu ka.',
+            fr: 'Où se trouve le centre des objets trouvés ?'
+          },
+          tip: '忘れ物 = objet oublié ou perdu ; 届いている = « a été déposé / est arrivé ». 〜はどこですか demande le lieu.'
+        }
+      ]
     }
   ];
 

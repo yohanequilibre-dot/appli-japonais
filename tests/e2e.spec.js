@@ -692,6 +692,23 @@ test('conversation : répond et accepte le romaji dans une situation réelle', a
   await expect(page.getByTestId('conversation-summary')).toContainText('3/3');
 });
 
+test('conversation : se débrouiller au konbini', async ({ page }) => {
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-scenario-konbini').click();
+  await expect(page.getByTestId('conversation-partner')).toContainText('袋はご利用ですか');
+  await page.getByTestId('conversation-answer').fill('いいえ、大丈夫です。');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
+  await page.getByTestId('conversation-next').click();
+  await page.getByTestId('conversation-answer').fill('カードでお願いします。');
+  await page.getByTestId('conversation-submit').click();
+  await page.getByTestId('conversation-next').click();
+  await page.getByTestId('conversation-answer').fill('はい、お願いします。');
+  await page.getByTestId('conversation-submit').click();
+  await page.getByTestId('conversation-next').click();
+  await expect(page.getByTestId('conversation-summary')).toContainText('3/3');
+});
+
 test('conversation : rejoue uniquement les répliques ratées', async ({ page }) => {
   await page.goto('/#parler');
   await page.getByTestId('conversation-scenario-meet').click();
