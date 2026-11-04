@@ -31,15 +31,19 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Révision espacée** par paliers : 10 min, 1 j, 2 j, 4 j, 8 j, 16 j, 32 j, 64 j, 128 j, 256 j.
 - **Parcours par étapes** : un mot passe de « Nouveau » à « En révision », puis à « Validé » après 10 révisions et à « Ultime » après 30. Les onglets du parcours ouvrent directement le filtre correspondant dans Mes mots, et chaque fiche montre sa barre de progression.
 - **Contexte annoté** : chaque unité du mot et de la phrase de contexte porte sa lecture latine (romaji) au-dessus ; les groupes de kanji gardent leur lecture de groupe, et les kana sont lus séparément. Aucune ligne de kana dupliquée.
+- **Formes polies partout** : les verbes sont présentés et pratiqués à la forme ます (働きます, 働きません, 働きました, 働きませんでした), avec la question et les formes neutres expliquées dans la fiche. Les formes conjuguées de la phrase de contexte reçoivent aussi leur lecture latine (働いています → はたら + います).
+- **Exemples variés** : en plus de la phrase principale, la fiche de chaque verbe courant montre des exemples supplémentaires (négation, passé, question) pour voir la forme en situation.
 - **Traduction au survol** : survole une phrase de contexte (ou place le focus dessus au clavier) pour afficher sa traduction dans une infobulle, sans quitter la carte.
 - **Traduction mot à mot** : ouvre « Mot à mot » sous une phrase, ou survole-la, pour voir chaque mot ou particule avec sa traduction. Les particules indiquent leur rôle ; les mots hors lexique sont signalés.
 - **Nuances de registre** : la carte de rappel indique seulement le registre (« Version formelle » ou « Version familière ») ; la fiche et la réponse précisent les variantes さようなら / じゃあね.
 - **Réponse lue automatiquement** : dès que la réponse s’affiche — par révélation ou par résultat micro — le mot puis la phrase de contexte sont lus sans clic. Un verdict explicite indique si c’est correct ou non.
 - **Alternatives acceptées** : pour « s’il vous plaît », お願いします et ください (kudasai) sont acceptés. La fiche explique la nuance : お願いします est plus doux et général ; ください est plus direct et concret, mais les deux restent polis.
-- **Quatre modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation. Le bouton « Passer au suivant » enchaîne immédiatement la carte suivante.
+- **Six modes de session** : rappel (révéler puis valider), QCM, écoute, prononciation, compréhension (japonais → sens) et production écrite (français → japonais, en kana, kanji ou romaji). Le bouton « Passer au suivant » enchaîne immédiatement la carte suivante.
+- **Entraînement actif** : les cartes « Compréhension » et « Production » sont accessibles depuis Réviser. La session du jour alterne aussi les directions pour éviter de seulement reconnaître le français.
 - **Micro intégré à la révision** : sur la carte française, « 🎙️ Prononcer » écoute, donne un score et révèle la fiche dans tous les cas, même si la prononciation est imparfaite. La carte s'illumine fortement en vert ou en rouge selon le résultat, le détail est centré sous la fiche et le retry reste disponible. Dans la fiche d'un mot, « Prononcer » ouvre la carte de prononciation ; le micro ne démarre qu’au clic sur le bouton d’écoute.
 - **Prononciation guidée** : le mot d’abord, puis la phrase complète dès qu’il est validé (si le mot a un contexte) ; score sur 100 et historique des dernières tentatives dans la fiche du mot. La capture est mono, filtrée, normalisée et coupée automatiquement après un silence ; le retour montre le niveau, les sons manquants ou en trop, le petit っ et les voyelles longues, puis un conseil. En mode IA locale, réécoute ta prise à côté de la voix modèle. Deux moteurs au choix : la reconnaissance du navigateur ou **Whisper en local** (IA, sans clé API, décodage beam search).
 - **Atelier de phrases** : à partir des phrases de contexte déjà présentes, complète un mot en kana ou romaji, remets une phrase dans l’ordre ou écoute-la puis reconstruis-la avec des tuiles. Chaque réponse est corrigée et expliquée avec le mot à mot.
+- **Conversation de la vraie vie** : 8 situations et 24 répliques pour se présenter, commander, demander son chemin, faire répéter, proposer un déjeuner, demander une recommandation et prendre congé. Tu réponds en kana, kanji ou romaji ; les variantes polies sont acceptées, la réponse modèle est lue et expliquée avec une astuce de politesse. Chaque situation propose trois échanges, le mode écoute masque le texte pour travailler la compréhension orale, et « Répondre à l’oral » transcrit ta voix japonaise dans le champ de réponse avant vérification.
 - **Session du jour** : un parcours guidé qui mélange les cartes dues, quelques nouveaux mots, deux phrases et une prononciation ciblée.
 - **Compte et synchronisation** : crée un compte e-mail / mot de passe et retrouve tes révisions, tes mots importés et tes statistiques sur ton téléphone comme sur ton PC. La progression reste locale hors ligne et les états sont fusionnés avant chaque envoi.
 - **Furigana et romaji partout** : les mots, les phrases de contexte et les exemples de l’onglet Grammaire sont annotés automatiquement ; la lecture latine est affichée au-dessus des kanji.
@@ -53,6 +57,19 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Sauvegarde** : export / import JSON de toute la progression.
 - **PWA** : installation sur l'écran d'accueil et consultation hors ligne après le premier chargement.
 - **Thème clair / sombre / système**, furigana et romaji activables.
+
+## Méthode d’apprentissage
+
+L’app combine plusieurs principes bien établis en sciences de l’apprentissage :
+
+- **Récupération active** : l’app demande de retrouver le sens ou le mot avant de révéler la réponse, plutôt que de relire passivement.
+- **Espacement** : les révisions reviennent à intervalles croissants ; le calendrier et les paliers sont visibles dans l’app.
+- **Interleaving** : la session du jour mélange révisions, compréhension, production, phrases et prononciation au lieu de bloquer une seule compétence.
+- **Input et output** : les phrases contextualisées et l’écoute entraînent la compréhension ; la production écrite et la prononciation obligent à récupérer la langue pour communiquer.
+- **Tâches communicatives** : les conversations partent d’une situation et d’une intention (« demander le chemin », « faire répéter »), pas d’une liste de mots. C’est le transfert vers la vraie conversation qui est entraîné.
+- **Feedback immédiat** : chaque essai est corrigé, avec la bonne réponse, la lecture et le contexte.
+
+Références utiles : [retrievalpractice.org](https://www.retrievalpractice.org/), [EduResearch — spacing and retrieval](https://www.edresearch.edu.au/guides-resources/practice-guides/spacing-and-retrieval-practice-guide-full-publication), [The Triple Helix — input and output](https://voices.uchicago.edu/triplehelix/2025/05/20/effective-language-learning-focus-on-input-or-output/).
 
 ## Formats d'import acceptés
 
@@ -110,6 +127,7 @@ js/reading.js          lectures kana et furigana automatiques
 js/grammar-reading.js  furigana des exemples de grammaire
 js/pronunciation.js    comparaison, score et contrôle du rythme
 js/phrase.js           exercices de phrases : trou, ordre et dictée
+js/conversation.js     situations de conversation, variantes, correction kana/romaji et mode écoute
 js/whisper.js          micro et transcription Whisper locale
 js/whisper-worker.js   worker du modèle Whisper (Transformers.js)
 js/sync.js             client de compte et fusion des progressions
@@ -129,8 +147,9 @@ tests/                 tests unitaires, E2E et serveur de test
 - La synchronisation n'inclut pas encore la vérification d'e-mail, la réinitialisation du mot de passe ni le chiffrement de bout en bout de la progression. Utilise un mot de passe unique pour ce compte.
 - La voix japonaise dépend des voix installées sur l'ordinateur ou le téléphone. L'application reste utilisable sans audio.
 - L'OCR télécharge Tesseract.js et les modèles japonais / français au premier usage : une connexion est nécessaire la première fois. Une image nette et contrastée améliore beaucoup le résultat.
+- Les conversations sont des mises en situation scriptées : elles donnent des formules solides et un entraînement de production, mais elles ne remplacent pas une conversation imprévisible avec un locuteur natif. Répète les réponses à voix haute, puis essaie-les en vrai.
 - Les lectures et les phrases de contexte sont un point de départ : l'import permet d'ajouter ton propre vocabulaire, avec tes propres phrases.
-- La reconnaissance du navigateur peut envoyer l'audio au service du navigateur. Le moteur « IA locale » Whisper reste dans le navigateur, mais télécharge le modèle (plusieurs dizaines de Mo) au premier usage, puis le garde en cache.
+- La reconnaissance du navigateur peut envoyer l'audio au service du navigateur. Le moteur « IA locale » Whisper reste dans le navigateur, mais télécharge le modèle (plusieurs dizaines de Mo) au premier usage, puis le garde en cache. La réponse orale de l'onglet Parler utilise la reconnaissance du navigateur : Chrome ou Edge sont recommandés, et une connexion peut être nécessaire selon le navigateur.
 - Le score de prononciation est indicatif : il compare la transcription à la lecture attendue, en convertissant les kanji en kana et en tolérant les particules は / を / へ, mais ce n'est pas un jugement humain.
 
 ## Sources et licences

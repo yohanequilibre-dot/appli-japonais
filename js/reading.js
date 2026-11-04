@@ -88,6 +88,21 @@ try { annotated = P.annotate(base, rd); } catch (e) { annotated = ''; }
 if (!annotated || annotated === base || annotated.indexOf('[') < 0) return;
 if (!map.has(base)) map.set(base, annotated);
 }
+function addPoliteForms(map) {
+var Pol = root.Kotoba && root.Kotoba.Polite;
+if (!Pol || !Pol.variants) return;
+function addEntry(entry) {
+var forms = Pol.variants(entry) || [];
+forms.forEach(function (form) {
+if (form && form.jp) add(map, form.jp, form.ruby, form.reading);
+});
+}
+var Lex = root.Kotoba && root.Kotoba.Lexicon;
+if (Lex && Lex.entries) Lex.entries.forEach(addEntry);
+(root.UNITS_DATA || []).forEach(function (unit) {
+(unit.words || []).forEach(addEntry);
+});
+}
 function dictionary() {
 if (cache) return cache;
 var map = new Map();
@@ -104,6 +119,7 @@ else if (word && word.jp) add(map, word.jp, word.ruby, word.reading);
 EXTRA.forEach(function (pair) {
 if (!map.has(pair[0])) map.set(pair[0], pair[1]);
 });
+addPoliteForms(map);
 cache = {
 map: map,
 keys: Array.from(map.keys()).sort(function (a, b) { return b.length - a.length; })

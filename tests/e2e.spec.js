@@ -11,6 +11,95 @@ clone.querySelectorAll('rt').forEach((node) => node.remove());
 return clone.textContent.replace(/\s+/g, ' ').trim();
 });
 }
+
+const SYNC_API_RE = /^https:\/\/site-8663ef28787c4307a825b86f37a2dc1c\.freebuff\.page\/api\//;
+
+function createSyncMock() {
+  const users = new Map();
+  const tokens = new Map();
+  let sequence = 0;
+  const headers = {
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'access-control-allow-headers': 'content-type, authorization'
+  };
+  async function reply(route, status, body) {
+    await route.fulfill({ status, headers, contentType: 'application/json', body: JSON.stringify(body) });
+  }
+  function newToken(user) {
+    const token = 'e2e-token-' + (++sequence);
+    tokens.set(token, user);
+    return token;
+  }
+  function authenticated(route) {
+    const value = route.request().headers().authorization || '';
+    return tokens.get(value.replace(/^Bearer\s+/i, '')) || null;
+  }
+  async function install(context) {
+    await context.route(SYNC_API_RE, async function (route) {
+      const request = route.request();
+      const method = request.method();
+      if (method === 'OPTIONS') { await route.fulfill({ status: 204, headers }); return; }
+      const path = new URL(request.url()).pathname;
+      let data = {};
+      try { data = request.postDataJSON() || {}; } catch (e) { data = {}; }
+      if (path === '/api/register' && method === 'POST') {
+        const email = String(data.email || '').trim().toLowerCase();
+        if (!email || !data.password) { await reply(route, 400, { error: 'E-mail et mot de passe requis.' }); return; }
+        if (users.has(email)) { await reply(route, 409, { error: 'Un compte existe déjà avec cet e-mail.' }); return; }
+        const user = { email: email, password: String(data.password), state: null, revision: 0 };
+        users.set(email, user);
+        const token = newToken(user);
+        await reply(route, 200, { token: token, user: { email: email }, revision: 0 });
+        return;
+      }
+      if (path === '/api/login' && method === 'POST') {
+        const email = String(data.email || '').trim().toLowerCase();
+        const user = users.get(email);
+        if (!user || user.password !== String(data.password)) { await reply(route, 401, { error: 'E-mail ou mot de passe incorrect.' }); return; }
+        await reply(route, 200, { token: newToken(user), user: { email: email }, revision: user.revision });
+        return;
+      }
+      const user = authenticated(route);
+      if (!user) { await reply(route, 401, { error: 'Session expirée.' }); return; }
+      if (path === '/api/me' && method === 'GET') {
+        await reply(route, 200, { user: { email: user.email }, revision: user.revision });
+        return;
+      }
+      if (path === '/api/state' && method === 'GET') {
+        await reply(route, 200, { state: user.state, revision: user.revision });
+        return;
+      }
+      if (path === '/api/state' && method === 'PUT') {
+        if (Number(data.baseRevision) !== user.revision) {
+          await reply(route, 409, { error: 'Conflit de révision.', state: user.state, revision: user.revision });
+          return;
+        }
+        user.state = data.state;
+        user.revision++;
+        await reply(route, 200, { revision: user.revision });
+        return;
+      }
+      if (path === '/api/logout' && method === 'POST') {
+        tokens.delete((request.headers().authorization || '').replace(/^Bearer\s+/i, ''));
+        await reply(route, 200, {});
+        return;
+      }
+      if (path === '/api/account' && method === 'DELETE') {
+        tokens.delete((request.headers().authorization || '').replace(/^Bearer\s+/i, ''));
+        users.delete(user.email);
+        await reply(route, 200, {});
+        return;
+      }
+      await reply(route, 404, { error: 'Route inconnue.' });
+    });
+  }
+  return {
+    install: install,
+    snapshot: function (email) { return users.get(String(email).trim().toLowerCase()) || null; }
+  };
+}
+
 test('accueil, carte français puis japonais et contexte', async ({ page }) => {
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
@@ -65,6 +154,16 @@ test('la réponse lance automatiquement le mot puis le contexte', async ({ page 
   await page.getByTestId('cta-main').click();
   await page.getByTestId('reveal').click();
   await expect.poll(() => page.evaluate(() => window.__spoken)).toEqual(['こんにちは', 'こんにちは、元気ですか。']);
+});
+
+test('formes polies : conjugaison, exemples et lecture du verbe dans la phrase', async ({ page }) => {
+  await page.goto('/#mots');
+  await page.getByTestId('search').fill('働きます');
+  await page.locator('.word-row').first().click();
+  await expect(page.getByTestId('polite-forms')).toContainText('Négatif');
+  await expect(page.getByTestId('polite-forms')).toContainText('hatarakimasen');
+  await expect(page.getByTestId('examples')).toContainText('week-end');
+  await expect(page.locator('.detail-context > p.jp .rt-romaji').filter({ hasText: 'hatara' })).toHaveCount(1);
 });
 
 test('le micro rend la correction explicite et relit la réponse', async ({ page }) => {
@@ -381,6 +480,23 @@ test('parcours : onglets et filtre des étapes', async ({ page }) => {
   await expect(page.locator('.chip[data-filter="ultimate"]')).toBeVisible();
 });
 
+test('entraînement actif : production écrite accepte le romaji', async ({ page }) => {
+  await page.goto('/#reviser');
+  await page.getByTestId('review-production').click();
+  await expect(page.getByTestId('production-card')).toBeVisible();
+  await page.getByTestId('production-input').fill('konnichiwa');
+  await page.getByTestId('production-submit').click();
+  await expect(page.getByTestId('feedback')).toContainText('Bonne réponse');
+});
+
+test('entraînement actif : compréhension japonais vers français', async ({ page }) => {
+  await page.goto('/#reviser');
+  await page.getByTestId('review-comprehension').click();
+  expect(await baseText(page.getByTestId('comprehension-prompt'))).toContain('こんにちは');
+  await page.locator('.option.fr').filter({ hasText: 'bonjour (après-midi)' }).click();
+  await expect(page.getByTestId('feedback')).toContainText('Bonne réponse');
+});
+
 test('révision : le micro valide puis révèle la fiche', async ({ page }) => {
   await page.addInitScript(() => {
     class FakeRecognition {
@@ -553,9 +669,145 @@ test('atelier de phrases : exercice, révélation et enchaînement', async ({ pa
   await expect(page.getByTestId('phrase-card')).toBeVisible();
 });
 
+test('conversation : répond et accepte le romaji dans une situation réelle', async ({ page }) => {
+  await page.goto('/#parler');
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+  await page.getByTestId('conversation-scenario-meet').click();
+  await expect(page.getByTestId('conversation-session')).toBeVisible();
+  await expect(page.getByTestId('conversation-partner')).toContainText('お名前は何ですか');
+  await page.getByTestId('conversation-answer').fill('私はレアです。');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
+  await page.getByTestId('conversation-next').click();
+  await expect(page.getByTestId('conversation-partner')).toContainText('お国はどちらですか');
+  await page.getByTestId('conversation-answer').fill('furansu kara kimashita');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
+  await page.getByTestId('conversation-next').click();
+  await expect(page.getByTestId('conversation-partner')).toContainText('どのくらい勉強していますか');
+  await page.getByTestId('conversation-answer').fill('六ヶ月勉強しています。');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
+  await page.getByTestId('conversation-next').click();
+  await expect(page.getByTestId('conversation-summary')).toContainText('3/3');
+});
+
+test('conversation : le mode écoute masque le texte avant la réponse', async ({ page }) => {
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-scenario-cafe').click();
+  await page.getByTestId('conversation-listen').click();
+  await expect(page.getByTestId('conversation-listen')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('conversation-reveal')).toBeVisible();
+  await expect(page.getByTestId('conversation-partner')).not.toContainText('ご注文は何ですか');
+  await page.getByTestId('conversation-reveal').click();
+  await expect(page.getByTestId('conversation-partner')).toContainText('ご注文は何ですか');
+});
+
+test('conversation : répondre à l’oral remplit la réponse japonaise', async ({ page }) => {
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+      start() {
+        const result = [{ transcript: '私はレアです。' }];
+        result.isFinal = true;
+        const results = [result];
+        setTimeout(() => {
+          if (this.onresult) this.onresult({ results });
+          if (this.onend) this.onend();
+        }, 30);
+      }
+      stop() {}
+      abort() {}
+    }
+    window.SpeechRecognition = FakeRecognition;
+    window.webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.goto('/#parler');
+  await page.reload();
+  await page.getByTestId('conversation-scenario-meet').click();
+  await page.getByTestId('conversation-voice').click();
+  await expect(page.getByTestId('conversation-answer')).toHaveValue('私はレアです。');
+  await expect(page.getByTestId('conversation-voice-status')).toContainText('Transcription reçue');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
+});
+
 test('session du jour : lance un parcours guidé', async ({ page }) => {
   await expect(page.getByTestId('today-panel')).toBeVisible();
   await page.getByTestId('start-today').click();
   await expect(page.locator('#session')).toBeVisible();
-  await expect(page.getByTestId('progress')).toBeVisible();
+  await expect(page.locator('#session [role="progressbar"]')).toBeVisible();
+  await expect(page.locator('#session [role="progressbar"]')).toHaveAttribute('aria-valuenow', '0');
+});
+
+test('synchronisation : deux appareils fusionnent leurs progressions', async ({ browser }) => {
+  test.setTimeout(60000);
+  const email = 'e2e-sync@example.com';
+  const password = 'motdepasse-e2e';
+  const api = createSyncMock();
+  const contextA = await browser.newContext({ baseURL: 'http://127.0.0.1:4173', serviceWorkers: 'block', viewport: { width: 1280, height: 900 } });
+  const contextB = await browser.newContext({ baseURL: 'http://127.0.0.1:4173', serviceWorkers: 'block', viewport: { width: 1280, height: 900 } });
+  await api.install(contextA);
+  await api.install(contextB);
+  const a = await contextA.newPage();
+  const b = await contextB.newPage();
+
+  await a.goto('/#importer');
+  await a.getByTestId('import-textarea').fill('navet de test | かぶ | kabu | かぶを食べます。 | Je mange un navet.');
+  await a.getByTestId('preview-import').click();
+  await a.getByTestId('do-import').click();
+  await expect(a.locator('#view-library')).toBeVisible();
+  const importedId = await a.evaluate(function () {
+    return Object.keys(JSON.parse(localStorage.getItem('kotoba.v3')).entries)[0];
+  });
+  expect(importedId).toBeTruthy();
+
+  await a.locator('#accountBtn').click();
+  await a.locator('[data-action="sync-mode"][data-mode="register"]').click();
+  await a.locator('input[name="email"]').fill(email);
+  await a.locator('input[name="password"]').fill(password);
+  await a.locator('[data-sync-submit]').click();
+  await expect(a.locator('#accountBtn')).toHaveClass(/is-on/);
+  await expect.poll(function () {
+    const user = api.snapshot(email);
+    return !!(user && user.state && user.state.entries && user.state.entries[importedId]);
+  }).toBe(true);
+
+  await a.locator('#accountBtn').click();
+  await expect(a.locator('.modal-panel')).toContainText('Compte connecté');
+  await a.locator('.modal-head [data-action="close-modal"]').click();
+
+  await b.goto('/');
+  await b.getByTestId('cta-main').click();
+  await b.getByTestId('reveal').click();
+  await b.getByTestId('grade-good').click();
+  await expect(b.getByTestId('reveal')).toBeVisible();
+  const reviewedId = await b.evaluate(function () {
+    const state = JSON.parse(localStorage.getItem('kotoba.v3'));
+    return Object.keys(state.progress).filter(function (id) { return (state.progress[id].reps || 0) > 0; })[0];
+  });
+  expect(reviewedId).toBeTruthy();
+  await b.evaluate(function () { document.querySelector('.desktop-nav [data-nav=library]').click(); });
+
+  await b.locator('#accountBtn').click();
+  await b.locator('input[name="email"]').fill(email);
+  await b.locator('input[name="password"]').fill(password);
+  await b.locator('[data-sync-submit]').click();
+  await expect(b.locator('#accountBtn')).toHaveClass(/is-on/);
+  await b.locator('.chip[data-filter="imported"]').click();
+  await expect(b.locator('#libraryList')).toContainText('navet de test');
+  await expect.poll(function () {
+    const user = api.snapshot(email);
+    return user && user.state && user.state.progress && user.state.progress[reviewedId] ? user.state.progress[reviewedId].reps : 0;
+  }).toBeGreaterThan(0);
+
+  await a.locator('#accountBtn').click();
+  await a.locator('[data-action="sync-now"]').click();
+  await expect(a.locator('#xpVal')).toHaveText('10');
+  const aState = await a.evaluate(function () { return JSON.parse(localStorage.getItem('kotoba.v3')); });
+  expect(aState.progress[reviewedId].reps).toBeGreaterThan(0);
+  expect(aState.entries[importedId]).toBeTruthy();
+
+  await contextA.close();
+  await contextB.close();
 });

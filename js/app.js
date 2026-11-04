@@ -12,6 +12,7 @@ const P = window.Kotoba.Parser;
 const S = window.Kotoba.Store;
 const PH = window.Kotoba.Phrase;
 const SY = window.Kotoba.Sync || null;
+const CONV = window.Kotoba.Conversation || null;
 const $ = function (sel, root) { return (root || document).querySelector(sel); };
 const $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
@@ -19,6 +20,7 @@ const state = S.load();
 let entries = [];
 let view = 'learn';
 let session = null;
+let conversationState = null;
 const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null, validationTimer: 0 };
 let toastTimer = 0;
 let syncBusy = false;
@@ -31,8 +33,8 @@ let glossIndex = null;
 let glossKeys = null;
 let glossRoles = null;
 
-const VIEWS = { learn: '#view-learn', review: '#view-review', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
-const FROM_HASH = { apprendre: 'learn', reviser: 'review', mots: 'library', importer: 'import', grammaire: 'grammar' };
+const VIEWS = { learn: '#view-learn', review: '#view-review', conversation: '#view-conversation', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
+const FROM_HASH = { apprendre: 'learn', reviser: 'review', parler: 'conversation', mots: 'library', importer: 'import', grammaire: 'grammar' };
 
 /* ---------- Utilitaires ---------- */
 function esc(value) {
@@ -336,13 +338,42 @@ function kanaContextHtml(text, highlight) {
   const idx = raw.indexOf(target);
   return render(raw.slice(0, idx)) + '<mark>' + render(target) + '</mark>' + render(raw.slice(idx + target.length));
 }
+function rubyForTarget(ruby, target) {
+  const raw = String(ruby || '');
+  const plain = P.stripAnnotations(raw);
+  const wanted = P.stripAnnotations(String(target || ''));
+  if (!raw || !wanted) return '';
+  const index = plain.indexOf(wanted);
+  if (index < 0) return '';
+  const end = index + wanted.length;
+  let pos = 0, out = '', annotated = false;
+  raw.replace(/([^\s\[\]]+?)\[([^\]]+)\]|([^\s\[\]]+)/g, function (match, base, reading, text) {
+    const value = base || text || '';
+    const start = pos;
+    const stop = pos + value.length;
+    pos = stop;
+    if (stop <= index || start >= end) return match;
+    if (base && reading && start >= index && stop <= end) {
+      out += value + '[' + reading + ']';
+      annotated = true;
+    } else {
+      const from = Math.max(index, start);
+      const to = Math.min(end, stop);
+      out += value.slice(from - start, to - start);
+    }
+    return match;
+  });
+  return annotated ? out : '';
+}
 function contextHtml(context, hl, entry) {
   const text = String(context || '').trim();
   const target = P.stripAnnotations(String(hl || '').trim());
   if (!text) return '<span class="muted">Pas encore de phrase de contexte.</span>';
   if (window.Kotoba.Reading) {
     const base = entry ? jpKeyOf(entry) : '';
-    const targetRuby = entry && target && target === base ? annotatedRubyOf(entry) : '';
+    const targetRuby = entry && target
+      ? (target === base ? annotatedRubyOf(entry) : rubyForTarget(entry.ruby, target))
+      : '';
     return window.Kotoba.Reading.annotate(text, target, state.settings.furigana, targetRuby);
   }
   const safe = esc(text);
@@ -583,6 +614,14 @@ function download(name, text) {
 }
 
 /* ---------- Données ---------- */
+function prepareEntry(entry) {
+  const Pol = window.Kotoba && window.Kotoba.Polite;
+  const prepared = Pol ? Pol.prepare(entry) : entry;
+  const map = window.VERB_EXAMPLES || {};
+  const examples = map[prepared.jp] || map[prepared.dictionaryForm];
+  if (examples) prepared.examples = examples;
+  return prepared;
+}
 function buildEntries() {
   const list = [];
   (window.UNITS_DATA || []).forEach(function (unit) {
@@ -617,15 +656,26 @@ function buildEntries() {
         nuance = w.nuance ? String(w.nuance) : '';
         contextNote = w.contextNote ? String(w.contextNote) : '';
       }
-      list.push({
+      list.push(prepareEntry({
         id: 'u:' + unit.id + ':' + i,
         unitId: unit.id, theme: unit.name, emoji: unit.emoji || '📘',
         jp: P.stripAnnotations(jp), ruby: ruby,
         reading: reading, romaji: romaji, fr: String(fr),
         context: context, contextFr: contextFr, hl: hl,
         alternatives: alternatives, nuance: nuance, contextNote: contextNote, source: 'base'
-      });
+      }));
     });
+  });
+  Object.keys(state.entries || {}).forEach(function (key) {
+    const e = state.entries[key];
+    if (!e || !e.jp) return;
+    list.push(prepareEntry(Object.assign({ theme: 'Mes mots importés', emoji: '📥' }, e, {
+      id: e.id || key,
+      source: 'import',
+      ruby: e.ruby || e.jp,
+      reading: e.reading && !P.hasKanji(e.reading) ? P.stripAnnotations(e.reading) : kanaFromRuby(e.ruby || e.jp),
+      hl: e.hl || e.jp
+    })));
   });
   glossIndex = null;
   glossKeys = null;
@@ -659,6 +709,7 @@ function showView(name, opts) {
 function render() {
   if (view === 'learn') renderHome();
   else if (view === 'review') renderReview();
+  else if (view === 'conversation') renderConversation();
   else if (view === 'library') renderLibrary();
   else if (view === 'import') renderImport();
   updateChrome();
@@ -674,13 +725,15 @@ function dailyPlanPanelHtml() {
   const parts = [];
   if (c.due) parts.push(Math.min(8, c.due) + ' révision' + (Math.min(8, c.due) === 1 ? '' : 's'));
   if (c.new) parts.push(Math.min(3, c.new) + ' nouveau' + (Math.min(3, c.new) === 1 ? '' : 'x') + ' mot' + (Math.min(3, c.new) === 1 ? '' : 's'));
+  if (c.due >= 2) parts.push('1 compréhension');
+  if (c.due >= 3) parts.push('1 production');
   parts.push('2 phrases');
   parts.push('1 prononciation');
   return '<section class="panel today-panel" data-testid="today-panel">' +
     '<div class="panel-head"><div><p class="eyebrow">Parcours guidé</p><h2>Ta session du jour</h2>' +
-    '<p>Un seul parcours : révisions, phrases et prononciation. ' + esc(parts.join(' · ')) + '.</p></div>' +
+    '<p>Un seul parcours : révisions, compréhension, production, phrases et prononciation. ' + esc(parts.join(' · ')) + '.</p></div>' +
     '<button class="btn primary" data-action="start-today" data-testid="start-today">Commencer</button></div>' +
-    '<div class="today-steps"><span>Mots</span><span>Phrases</span><span>Prononciation</span><span>Bilan</span></div></section>';
+    '<div class="today-steps"><span>Mots</span><span>Compréhension</span><span>Production</span><span>Phrases</span><span>Bilan</span></div></section>';
 }
 function phrasePanelHtml() {
   if (!entries.some(function (entry) { return !!(entry && entry.context); })) return '';
@@ -692,6 +745,281 @@ function phrasePanelHtml() {
     '<button class="mode-btn" data-action="start-phrase" data-type="cloze" data-testid="start-phrase-cloze">Texte à trous</button>' +
     '<button class="mode-btn" data-action="start-phrase" data-type="order" data-testid="start-phrase-order">Remettre en ordre</button>' +
     '<button class="mode-btn" data-action="start-phrase" data-type="dictation" data-testid="start-phrase-dictation">Dictée</button></div></section>';
+}
+function conversationPanelHtml() {
+  if (!CONV || !Array.isArray(CONV.scenarios) || !CONV.scenarios.length) return '';
+  const picks = CONV.scenarios.slice(0, 3);
+  return '<section class="panel conversation-panel" data-testid="conversation-panel">' +
+    '<div class="panel-head"><div><p class="eyebrow">Parler aux gens</p><h2>Des phrases pour la vraie vie</h2>' +
+    '<p>Commandes, chemin, invitations, imprévus : réponds en japonais poli, puis compare avec un modèle naturel.</p></div>' +
+    '<button class="btn primary" data-action="go-conversation" data-testid="go-conversation">Toutes les situations</button></div>' +
+    '<div class="conversation-mini-grid">' + picks.map(conversationMiniCardHtml).join('') + '</div>' +
+    '<p class="hint">' + CONV.scenarios.length + ' situations · kana, kanji ou romaji acceptés · audio et mode écoute</p></section>';
+}
+function conversationMiniCardHtml(scenario) {
+  return '<button class="conv-mini" data-action="start-conversation" data-id="' + attr(scenario.id) + '" data-testid="conversation-mini-' + attr(scenario.id) + '">' +
+    '<span class="conv-mini-emoji" aria-hidden="true">' + esc(scenario.emoji) + '</span>' +
+    '<span class="conv-mini-copy"><b>' + esc(scenario.title) + '</b><small>' + esc(scenario.level) + ' · ' + scenario.turns.length + ' répliques</small></span></button>';
+}
+function conversationListHtml() {
+  const cards = CONV.scenarios.map(function (scenario) {
+    return '<button class="conv-card" data-action="start-conversation" data-id="' + attr(scenario.id) + '" data-testid="conversation-scenario-' + attr(scenario.id) + '">' +
+      '<span class="conv-card-top"><span class="conv-emoji" aria-hidden="true">' + esc(scenario.emoji) + '</span><span class="conv-level">' + esc(scenario.level) + '</span></span>' +
+      '<strong>' + esc(scenario.title) + '</strong><span class="conv-goal">' + esc(scenario.goal) + '</span>' +
+      '<span class="conv-meta">' + scenario.turns.length + ' répliques · écrit ou écoute</span></button>';
+  }).join('');
+  return '<section class="panel conversation-hero" data-testid="conversation-list">' +
+    '<div><p class="eyebrow">Parler aux gens</p><h2>Les situations qui reviennent vraiment</h2>' +
+    '<p class="lead">Lis la réplique ou active le mode écoute, réponds en japonais poli, puis compare avec le modèle. Les variantes naturelles sont acceptées.</p></div>' +
+    '<div class="conversation-hero-stats"><b>' + CONV.scenarios.length + '</b><span>situations</span><small>A1 → A2</small></div></section>' +
+    '<div class="conversation-grid">' + cards + '</div>' +
+    '<section class="panel conversation-how"><h2>Comment ça marche</h2><ol>' +
+    '<li>Écoute la réplique et lis sa traduction.</li><li>Réponds avec tes mots : kana, kanji ou romaji.</li>' +
+    '<li>Active le mode écoute pour masquer le texte et travailler la compréhension orale.</li>' +
+    '<li>Compare, réécoute le modèle, puis enchaîne la réplique suivante.</li></ol>' +
+    '<p class="hint">Astuce : répète la réponse à voix haute après l’avoir vérifiée. C’est cette production orale qui te servira dehors.</p></section>';
+}
+function renderConversation() {
+  const host = $('#view-conversation');
+  if (!host) return;
+  if (!CONV) {
+    host.innerHTML = '<div class="panel"><h2>Conversations indisponibles</h2><p>Le module de conversation n’a pas pu être chargé. Recharge la page.</p></div>';
+    return;
+  }
+  if (conversationState) host.innerHTML = conversationState.completed ? conversationSummaryHtml() : conversationSessionHtml();
+  else host.innerHTML = conversationListHtml();
+}
+function conversationSessionHtml() {
+  const scenario = conversationState.scenario;
+  const turn = scenario.turns[conversationState.index];
+  const last = conversationState.index + 1 >= scenario.turns.length;
+  const progress = Math.round(conversationState.index / scenario.turns.length * 100);
+  const listenOn = !!conversationState.listen;
+  const hideText = listenOn && !conversationState.revealed && !conversationState.feedback;
+  const partner = hideText
+    ? '<p class="conv-listen-hint">🔒 Texte masqué. Écoute la réplique, puis réponds de mémoire.</p>' +
+      '<div class="conversation-actions"><button class="btn primary small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '" data-slow="1" data-testid="conversation-play">🔊 Écouter</button>' +
+      '<button class="btn ghost small" data-action="reveal-conversation" data-testid="conversation-reveal">Afficher le texte</button></div>'
+    : '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
+      '<p class="conv-reading">' + esc(turn.partner.reading) + '</p>' +
+      '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
+      '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '" data-slow="1">🔊 Écouter</button></div>';
+  return '<section class="panel conversation-session" data-testid="conversation-session">' +
+    '<div class="conversation-top"><button class="btn ghost small" data-action="close-conversation">← Situations</button>' +
+    '<div class="conversation-tools"><button class="btn ghost small' + (listenOn ? ' active' : '') + '" data-action="toggle-conversation-listen" aria-pressed="' + (listenOn ? 'true' : 'false') + '" data-testid="conversation-listen">🎧 Écoute</button>' +
+    '<span class="conversation-count">' + esc(scenario.title) + ' · ' + (conversationState.index + 1) + '/' + scenario.turns.length + '</span></div></div>' +
+    '<div class="conversation-progress" aria-hidden="true"><span style="width:' + progress + '%"></span></div>' +
+    '<div class="conversation-scenario-head"><span class="conv-level">' + esc(scenario.level) + '</span><h2>' + esc(scenario.title) + '</h2><p>' + esc(scenario.situation) + '</p></div>' +
+    '<div class="conversation-bubble" data-testid="conversation-partner"><div class="conv-speaker"><span aria-hidden="true">' + esc(scenario.emoji) + '</span> ' + esc(scenario.speaker) + ' <small>· ' + esc(scenario.speakerFr) + '</small></div>' +
+    partner + '</div>' +
+    '<div class="conversation-task"><p class="eyebrow">À toi</p><h3>' + esc(turn.task) + '</h3>' +
+    '<p class="hint">Réponds en japonais poli · kana, kanji ou romaji acceptés</p>' +
+    (conversationState.feedback ? conversationFeedbackHtml(turn, last) : conversationFormHtml()) + '</div></section>';
+}
+function conversationFormHtml() {
+  return '<form class="conversation-form" data-form="conversation">' +
+    '<input id="conversationAnswer" name="answer" class="conversation-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris en japonais ou en romaji…" aria-label="Ta réponse en japonais" data-testid="conversation-answer">' +
+    '<button class="btn primary" type="submit" data-testid="conversation-submit">Vérifier</button>' +
+    '<div class="conversation-voice-row"><button class="btn ghost small" type="button" data-action="conversation-voice" aria-pressed="false" data-testid="conversation-voice">🎙️ Répondre à l’oral</button>' +
+    '<span class="conversation-voice-status" id="conversationVoiceStatus" role="status" aria-live="polite" data-testid="conversation-voice-status">Le micro remplit le champ en japonais ; tu peux corriger avant de vérifier.</span></div></form>';
+}
+function setConversationVoiceStatus(message, tone) {
+  const el = $('#conversationVoiceStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.className = 'conversation-voice-status' + (tone ? ' ' + tone : '');
+}
+function setConversationVoiceButton(listening) {
+  const btn = $('[data-action="conversation-voice"]');
+  if (!btn) return;
+  btn.textContent = listening ? '⏹️ Arrêter' : '🎙️ Répondre à l’oral';
+  btn.setAttribute('aria-pressed', listening ? 'true' : 'false');
+  btn.classList.toggle('active', !!listening);
+}
+function stopConversationVoice() {
+  if (!conversationState) return;
+  conversationState.voiceToken = (conversationState.voiceToken || 0) + 1;
+  if (conversationState.recognition) {
+    try { conversationState.recognition.abort(); } catch (e) { /* ignore */ }
+    conversationState.recognition = null;
+  }
+  setConversationVoiceButton(false);
+}
+function startConversationVoice() {
+  if (!conversationState || conversationState.completed || conversationState.feedback) return;
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Ctor) {
+    setConversationVoiceStatus('La reconnaissance vocale n’est pas disponible dans ce navigateur. Essaie Chrome ou Edge.', 'error');
+    toast('Réponse orale indisponible dans ce navigateur.');
+    return;
+  }
+  stopConversationVoice();
+  const rec = new Ctor();
+  const token = conversationState.voiceToken;
+  conversationState.recognition = rec;
+  rec.lang = 'ja-JP';
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 3;
+  let heard = false;
+  let failed = false;
+  function active() { return conversationState && conversationState.voiceToken === token; }
+  rec.onstart = function () {
+    if (!active()) return;
+    setConversationVoiceButton(true);
+    setConversationVoiceStatus('🎧 J’écoute… parle en japonais.', 'listening');
+  };
+  rec.onresult = function (event) {
+    if (!active()) return;
+    const results = (event && event.results) || [];
+    let finalText = '';
+    let interimText = '';
+    for (let r = 0; r < results.length; r++) {
+      const result = results[r];
+      if (!result || !result.length) continue;
+      const text = String((result[0] && result[0].transcript) || '');
+      if (result.isFinal) finalText += text;
+      else interimText += text;
+    }
+    const transcript = (finalText || interimText).trim();
+    if (!transcript) return;
+    heard = true;
+    const input = $('#conversationAnswer');
+    if (input) {
+      input.value = transcript;
+      input.focus();
+    }
+    if (finalText.trim()) setConversationVoiceStatus('Transcription reçue. Vérifie, corrige si besoin, puis clique sur Vérifier.');
+    else setConversationVoiceStatus('🎧 J’écoute… parle en japonais.', 'listening');
+  };
+  rec.onerror = function (event) {
+    if (!active()) return;
+    const code = event && event.error;
+    if (code === 'aborted') return;
+    failed = true;
+    const messages = {
+      'not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+      'service-not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+      'no-speech': 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.',
+      'audio-capture': 'Aucun micro détecté. Vérifie ton matériel.',
+      'network': 'La reconnaissance vocale a besoin d’une connexion réseau.'
+    };
+    setConversationVoiceStatus(messages[code] || 'La reconnaissance vocale a échoué. Tu peux écrire ta réponse.', 'error');
+  };
+  rec.onend = function () {
+    if (!active()) return;
+    conversationState.recognition = null;
+    setConversationVoiceButton(false);
+    if (!heard && !failed) setConversationVoiceStatus('Je n’ai rien entendu. Rapproche-toi du micro et réessaie.', 'error');
+  };
+  try { rec.start(); } catch (e) {
+    conversationState.recognition = null;
+    setConversationVoiceButton(false);
+    setConversationVoiceStatus('Impossible de démarrer le micro. Tu peux écrire ta réponse.', 'error');
+  }
+}
+function conversationFeedbackHtml(turn, last) {
+  const ok = !!conversationState.feedback.ok;
+  const alternatives = turn.accepted.map(function (item) { return Array.isArray(item) ? item[0] : item; })
+    .filter(function (jp) { return jp && jp !== turn.model.jp; }).slice(0, 3);
+  return '<div class="conversation-feedback ' + (ok ? 'good' : 'bad') + '" data-testid="conversation-feedback">' +
+    '<div class="conv-verdict">' + (ok ? '✅ Bonne réponse !' : '💡 Presque !') + '</div>' +
+    '<p class="conv-attempt">Ta réponse : <b lang="ja">' + esc(conversationState.feedback.answer) + '</b></p>' +
+    '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
+    '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
+    '<p class="conv-fr">' + esc(turn.model.fr) + '</p><div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
+    '<p class="conv-tip"><b>À retenir :</b> ' + esc(turn.tip) + '</p>' +
+    (alternatives.length ? '<details class="conv-alt"><summary>Autres formulations acceptées</summary><ul><li lang="ja">' + alternatives.map(esc).join('</li><li lang="ja">') + '</li></ul></details>' : '') +
+    '<div class="conversation-actions"><button class="btn primary" data-action="next-conversation" data-testid="conversation-next">' + (last ? 'Voir le bilan' : 'Suivant') + '</button>' +
+    (!ok ? '<button class="btn ghost" data-action="retry-conversation" data-testid="conversation-retry">Réessayer</button>' : '') + '</div></div>';
+}
+function conversationSummaryHtml() {
+  const scenario = conversationState.scenario;
+  const total = scenario.turns.length;
+  const correct = conversationState.correct;
+  const lines = scenario.turns.map(function (turn) {
+    return '<div class="conv-summary-line"><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p><p class="conv-fr">' + esc(turn.model.fr) + '</p>' +
+      '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊</button></div>';
+  }).join('');
+  return '<section class="panel conversation-session conversation-summary" data-testid="conversation-summary">' +
+    '<p class="eyebrow">Conversation terminée</p><h2>' + esc(scenario.title) + '</h2>' +
+    '<p class="lead">' + (correct === total ? 'Toutes les répliques sont justes.' : correct + ' réponse' + (correct === 1 ? '' : 's') + ' juste' + (correct === 1 ? '' : 's') + ' sur ' + total + '.') +
+    ' Tu peux rejouer ou choisir une autre situation.</p>' +
+    '<div class="summary-stats"><div><b>' + correct + '/' + total + '</b><span>réponses justes</span></div><div><b>' + esc(scenario.level) + '</b><span>niveau</span></div></div>' +
+    '<div class="conv-summary-lines">' + lines + '</div>' +
+    '<p class="hint">Maintenant, dis les réponses à voix haute sans regarder. C’est le passage à la conversation réelle.</p>' +
+    '<div class="conversation-actions"><button class="btn primary" data-action="start-conversation" data-id="' + attr(scenario.id) + '">Refaire</button>' +
+    '<button class="btn ghost" data-action="close-conversation" data-testid="conversation-other">Autre situation</button></div></section>';
+}
+function startConversation(id) {
+  if (!CONV) return;
+  const scenario = CONV.scenarioById ? CONV.scenarioById(id) : null;
+  if (!scenario) { toast('Situation introuvable.'); return; }
+  conversationState = { scenario: scenario, index: 0, feedback: null, completed: false, correct: 0, listen: false, revealed: false, recognition: null, voiceToken: 0 };
+  try { history.replaceState(null, '', '#parler'); } catch (e) { location.hash = 'parler'; }
+  showView('conversation');
+  setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 80);
+}
+function submitConversation(form) {
+  if (!conversationState || conversationState.completed) return;
+  const input = form.querySelector('input[name="answer"]');
+  const answer = String((input && input.value) || '').trim();
+  if (!answer) { toast('Écris une réponse.'); return; }
+  stopConversationVoice();
+  const turn = conversationState.scenario.turns[conversationState.index];
+  const ok = !!(CONV && CONV.checkAnswer(answer, turn.accepted, turn));
+  if (ok) conversationState.correct += 1;
+  conversationState.feedback = { ok: ok, answer: answer };
+  renderConversation();
+  const next = $('[data-action="next-conversation"]');
+  if (next) next.focus();
+}
+function nextConversation() {
+  if (!conversationState || !conversationState.feedback) return;
+  stopConversationVoice();
+  if (conversationState.index + 1 >= conversationState.scenario.turns.length) {
+    conversationState.completed = true;
+    conversationState.feedback = null;
+  } else {
+    conversationState.index += 1;
+    conversationState.feedback = null;
+  }
+  conversationState.revealed = false;
+  renderConversation();
+  window.scrollTo(0, 0);
+  setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 60);
+}
+function retryConversation() {
+  if (!conversationState) return;
+  stopConversationVoice();
+  conversationState.feedback = null;
+  conversationState.revealed = false;
+  renderConversation();
+  setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 60);
+}
+function closeConversation() {
+  stopConversationVoice();
+  conversationState = null;
+  renderConversation();
+  window.scrollTo(0, 0);
+}
+function toggleConversationListen() {
+  if (!conversationState || conversationState.completed) return;
+  conversationState.listen = !conversationState.listen;
+  conversationState.revealed = false;
+  renderConversation();
+}
+function revealConversation() {
+  if (!conversationState || conversationState.completed) return;
+  conversationState.revealed = true;
+  renderConversation();
+  setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 60);
+}
+function goConversation() {
+  stopConversationVoice();
+  conversationState = null;
+  try { history.replaceState(null, '', '#parler'); } catch (e) { location.hash = 'parler'; }
+  showView('conversation');
 }
 function renderHome() {
   const now = Date.now();
@@ -732,6 +1060,7 @@ function renderHome() {
       '<div class="stat-card"><span class="stat-num">' + c.new + '</span><span class="stat-label">Nouveaux</span></div></div>' +
     journeyPanelHtml(stages) +
     dailyPlanPanelHtml() +
+    conversationPanelHtml() +
     accountPanelHtml() +
     phrasePanelHtml() +
     (ps.attempts ? pronunciationPanelHtml(ps) : '') +
@@ -760,6 +1089,8 @@ const primaryKind = c.due ? 'due' : (c.new ? 'new' : 'quick');
 const primaryLabel = c.due ? `Réviser ${plural(c.due, 'carte due', 'cartes dues')}` : (c.new ? `Découvrir ${plural(c.new, 'nouveau mot', 'nouveaux mots')}` : 'Révision rapide');
 const primaryHint = c.due ? 'Une session de rappel, puis tu valides ta prononciation.' : (c.new ? 'Commence par une série de nouveaux mots.' : 'Un petit tour sur les mots déjà connus.');
 const disabled = !(c.due || c.new || c.seen);
+const activeKind = c.due ? 'due' : (c.new ? 'new' : 'all');
+const activeCount = c.due || c.new || c.seen;
 $('#view-review').innerHTML = `
 <div class='panel review-hero'>
 <div><p class='eyebrow'>Ta session</p><h2>${c.due ? 'On révise un peu ?' : (c.new ? 'Prêt à découvrir ?' : 'Tout est à jour.')}</h2><p class='lead'>${primaryHint}</p></div>
@@ -773,6 +1104,8 @@ ${dailyPlanPanelHtml()}
 <button class='btn primary small' data-action='start' data-kind='due' data-mode='recall'${c.due ? '' : ' disabled'}>Commencer</button>
 <div class='mode-row'><button class='mode-btn active' data-action='start' data-kind='due' data-mode='recall'${c.due ? '' : ' disabled'}>Rappel</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='choice'${c.due ? '' : ' disabled'}>QCM</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='listen'${c.due ? '' : ' disabled'}>Écoute</button><button class='mode-btn' data-action='start' data-kind='due' data-mode='pronounce'>🎙️ Prononciation</button></div>
 </div>
+<button class='review-card' data-action='start' data-kind='${activeKind}' data-mode='comprehension' data-testid='review-comprehension'${disabled ? ' disabled' : ''}><span class='review-num'>${activeCount}</span><strong>Compréhension</strong><span class='hint'>Japonais → sens, sans indice.</span></button>
+<button class='review-card' data-action='start' data-kind='${activeKind}' data-mode='production' data-testid='review-production'${disabled ? ' disabled' : ''}><span class='review-num'>${activeCount}</span><strong>Production</strong><span class='hint'>Français → japonais, en écrivant.</span></button>
 <button class='review-card' data-action='start' data-kind='quick' data-mode='recall'${c.seen ? '' : ' disabled'}><span class='review-num'>${Math.min(10, c.seen)}</span><strong>Révision rapide</strong><span class='hint'>Dix mots au hasard, même s’ils ne sont pas dus.</span></button>
 <button class='review-card' data-action='start' data-kind='all' data-mode='recall'${c.seen ? '' : ' disabled'}><span class='review-num'>${c.seen}</span><strong>Tout revoir</strong><span class='hint'>Tous les mots déjà rencontrés.</span></button>
 <button class='review-card' data-action='start' data-kind='new' data-mode='recall' data-testid='review-start-new'${c.new ? '' : ' disabled'}><span class='review-num'>${c.new}</span><strong>Nouveaux mots</strong><span class='hint'>Découvre jusqu’à dix nouveaux mots.</span></button>
@@ -959,6 +1292,45 @@ function handleImage(file) {
 function wordTask(entry, mode, target) {
   return { entry: entry, mode: mode || 'recall', target: target || '' };
 }
+function productionKey(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/[a-zA-Z]/.test(raw)) {
+    const roman = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+    return roman ? 'r:' + roman : '';
+  }
+  return 'j:' + P.stripAnnotations(raw).replace(/[\s　。、！？!?.,・…「」『』（）()]/g, '');
+}
+function isProductionCorrect(entry, answer) {
+  if (!entry) return false;
+  const key = productionKey(answer);
+  if (!key) return false;
+  const values = [entry.jp, entry.reading, entry.romaji];
+  (entry.alternatives || []).forEach(function (item) {
+    if (item) values.push(item.jp, item.reading, item.romaji);
+  });
+  const accepted = values.map(productionKey).filter(Boolean);
+  if (accepted.indexOf(key) >= 0) return true;
+  if (key.indexOf('r:') !== 0) return false;
+  const roman = key.slice(2);
+  const variants = [roman, roman.replace(/ha$/, 'wa'), roman.replace(/wa$/, 'ha'), roman.replace(/ou/g, 'o'), roman.replace(/oo/g, 'o'), roman.replace(/uu/g, 'u')];
+  return accepted.some(function (candidate) {
+    return candidate.indexOf('r:') === 0 && variants.indexOf(candidate.slice(2)) >= 0;
+  });
+}
+function submitProduction(form) {
+  if (!session || session.phase !== 'question' || !session.current) return;
+  const input = form.querySelector('input[name="answer"]');
+  const answer = String((input && input.value) || '').trim();
+  if (!answer) { toast('Écris une réponse.'); return; }
+  session.productionAnswer = answer;
+  grade(isProductionCorrect(session.current, answer) ? 'good' : 'again');
+}
+function revealProduction() {
+  if (!session || session.phase !== 'question' || !session.current) return;
+  session.productionAnswer = '';
+  grade('again');
+}
 function makePhraseTask(entry, preferred) {
   if (!entry || !PH) return null;
   const exercise = PH.bestType(entry, preferred);
@@ -982,7 +1354,7 @@ function openSession(kind, tasks) {
     kind: kind, tasks: tasks.slice(), current: null, mode: 'recall', task: null, exercise: null,
     phase: 'front', done: 0, correct: 0, xp: 0, total: tasks.length, options: [],
     lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null,
-    phraseSelection: [], phraseResult: null
+    phraseSelection: [], phraseResult: null, productionAnswer: ''
   };
   document.body.style.overflow = 'hidden';
   const root = $('#session');
@@ -1006,8 +1378,9 @@ function startDailyPlan() {
   const tasks = [];
   const used = {};
   const due = S.dueEntries(entries, state, now).slice(0, 8);
-  due.forEach(function (entry) {
-    tasks.push(wordTask(entry, 'recall', 'word'));
+  const activeModes = ['recall', 'comprehension', 'production'];
+  due.forEach(function (entry, index) {
+    tasks.push(wordTask(entry, activeModes[index] || 'recall', 'word'));
     used[entry.id] = true;
   });
   const fresh = entries.filter(function (e) { return S.isNew(state.progress[e.id]); }).slice(0, 3);
@@ -1100,6 +1473,7 @@ renderSession(); return;
   session.pronunciation = null;
   session.phraseSelection = [];
   session.phraseResult = null;
+  session.productionAnswer = '';
   if (session.pronunciationAutoPhrase) {
     session.pronunciationTarget = 'word';
     session.pronunciationAutoPhrase = false;
@@ -1123,7 +1497,7 @@ renderSession(); return;
     session.pronunciationEngine = savedEngine === 'whisper' || (!browserOk && whisperOk) ? 'whisper' : 'browser';
   }
 session.phase = session.mode === 'recall' ? 'front' : 'question';
-  session.options = (session.mode === 'recall' || session.mode === 'pronounce') ? [] : buildOptions(session.current, session.mode);
+  session.options = (session.mode === 'recall' || session.mode === 'pronounce' || session.mode === 'production') ? [] : buildOptions(session.current, session.mode);
   session.lastGrade = null; session.lastChoice = null;
   session.total = Math.max(session.total, session.done + session.tasks.length + 1);
   renderSession();
@@ -1135,7 +1509,7 @@ function buildOptions(entry, mode) {
   const rest = shuffle(entries.filter(function (e) { return e.unitId !== entry.unitId && e.id !== entry.id; }));
   same.concat(rest).forEach(function (e) {
     if (pool.length >= 3 || seen.has(e.id)) return;
-    if (pool.some(function (x) { return x.jp === e.jp || (mode === 'listen' && x.fr === e.fr); })) return;
+    if (pool.some(function (x) { return x.jp === e.jp || ((mode === 'listen' || mode === 'comprehension') && x.fr === e.fr); })) return;
     seen.add(e.id); pool.push(e);
   });
   return shuffle([entry].concat(pool));
@@ -1147,7 +1521,7 @@ function renderSession() {
   if (!session) { root.hidden = true; return; }
   root.hidden = false;
   const pct = Math.min(100, Math.round(session.done / Math.max(1, session.total) * 100));
-  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'phrase' ? phraseView() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : quizView())));
+  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'phrase' ? phraseView() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : (session.mode === 'production' ? productionView() : quizView()))));
   root.innerHTML = '<div class="session-shell"><div class="session-top"><button class="icon-btn" data-action="quit-session" aria-label="Quitter la session">✕</button>' +
     '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><div class="progress-fill" style="width:' + pct + '%" data-testid="progress"></div></div>' +
     '<span class="session-count">' + session.done + '/' + Math.max(session.done, session.total) + '</span></div><div class="session-body">' + body + '</div></div>';
@@ -1160,6 +1534,9 @@ function renderSession() {
   }
   if (session.mode === 'phrase' && session.phase === 'question' && session.exercise && session.exercise.type === 'cloze') {
     setTimeout(function () { const input = $('#phraseAnswer'); if (input) input.focus(); }, 30);
+  }
+  if (session.mode === 'production' && session.phase === 'question') {
+    setTimeout(function () { const input = $('#productionAnswer'); if (input) input.focus(); }, 30);
   }
 }
 function answerVerdictHtml(st, graded) {
@@ -1851,16 +2228,35 @@ try { rec.start(); } catch (e) {
   failRecognition('Impossible de démarrer le micro. Vérifie les autorisations.');
 }
 }
+function productionView() {
+  const e = session.current;
+  if (session.phase === 'feedback') {
+    const attempt = session.productionAnswer
+      ? '<p class="production-attempt" data-testid="production-attempt">Ta réponse : <b lang="ja">' + esc(session.productionAnswer) + '</b></p>'
+      : '';
+    return answerCard(e) + attempt + feedbackHtml();
+  }
+  return '<form class="session-card production-card" data-form="production" data-testid="production-card"><p class="eyebrow">Production écrite</p>' +
+    '<h1 class="prompt-fr">' + frHtml(e.fr) + '</h1>' +
+    '<p class="prompt-hint">Écris le mot en japonais. Kana, kanji ou romaji acceptés.</p>' +
+    '<label class="production-input-wrap"><span class="sr-only">Ta réponse en japonais</span><input id="productionAnswer" name="answer" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="こんにちは / konnichiwa" data-testid="production-input"></label>' +
+    '<div class="production-actions"><button class="btn primary" type="submit" data-testid="production-submit">Vérifier</button><button class="btn ghost" type="button" data-action="production-reveal" data-testid="production-reveal">Voir la réponse</button></div>' +
+    '<p class="hint">La forme polie est attendue. Les espaces et la ponctuation sont ignorés.</p></form>';
+}
 function quizView() {
   const e = session.current;
   if (session.phase === 'feedback') return answerCard(e) + feedbackHtml();
   const listen = session.mode === 'listen';
-  return '<div class="session-card" data-testid="session-card"><p class="eyebrow">' + (listen ? 'Écoute et choisis' : 'Choisis la bonne traduction') + '</p>' +
-    (listen ? '<button class="btn primary big" data-action="speak-text" data-text="' + attr(e.jp) + '" data-testid="listen-again">🔊 Réécouter</button><p class="prompt-hint">Clique sur « Réécouter », puis choisis le sens.</p>'
-      : '<h1 class="prompt-fr">' + frHtml(e.fr) + '</h1><p class="prompt-hint">Quel mot japonais correspond ?</p>') +
+  const comprehension = session.mode === 'comprehension';
+  const prompt = comprehension
+    ? '<h1 class="prompt-jp" data-testid="comprehension-prompt" lang="ja">' + wordRubyHtml(e) + '</h1><p class="prompt-hint">Que signifie ce mot ?</p>'
+    : (listen
+      ? '<button class="btn primary big" data-action="speak-text" data-text="' + attr(e.jp) + '" data-testid="listen-again">🔊 Réécouter</button><p class="prompt-hint">Clique sur « Réécouter », puis choisis le sens.</p>'
+      : '<h1 class="prompt-fr">' + frHtml(e.fr) + '</h1><p class="prompt-hint">Quel mot japonais correspond ?</p>');
+  return '<div class="session-card" data-testid="session-card"><p class="eyebrow">' + (comprehension ? 'Lis et choisis le sens' : (listen ? 'Écoute et choisis' : 'Choisis la bonne traduction')) + '</p>' + prompt +
     '<div class="options" data-testid="options">' + session.options.map(function (o, i) {
-      return '<button class="option' + (listen ? ' fr' : '') + '" data-action="choose" data-id="' + attr(o.id) + '" data-testid="option-' + i + '">' +
-        (listen ? esc(o.fr) : rubyHtml(o.ruby, state.settings.furigana)) + '<span class="option-key">' + (i + 1) + '</span></button>';
+      return '<button class="option' + ((listen || comprehension) ? ' fr' : '') + '" data-action="choose" data-id="' + attr(o.id) + '" data-testid="option-' + i + '">' +
+        ((listen || comprehension) ? esc(o.fr) : rubyHtml(o.ruby, state.settings.furigana)) + '<span class="option-key">' + (i + 1) + '</span></button>';
     }).join('') + '</div></div>';
 }
 function feedbackHtml() {
@@ -2148,6 +2544,34 @@ function openSettings() {
     '<p class="hint">' + (account && account.loggedIn ? 'Compte connecté : ta progression est synchronisée après chaque session.' : 'Kotoba stocke tout dans ce navigateur. Utilise l\'export ou un compte pour passer d\'un appareil à l\'autre.') + '</p>' +
     '<p class="hint data-credit">Sources : <a href="https://kanjikana.com/en/words/core-1000" target="_blank" rel="noopener">Kanjikana Core 1000</a> (CC BY 4.0) · <a href="https://tatoeba.org" target="_blank" rel="noopener">Tatoeba</a> (CC BY 2.0 FR).</p>');
 }
+function politeFormsHtml(e) {
+  const f = e && e.politeForms;
+  if (!f) return '';
+  const labels = [
+    ['present', 'Présent'],
+    ['negative', 'Négatif'],
+    ['past', 'Passé'],
+    ['pastNegative', 'Passé négatif'],
+    ['question', 'Question']
+  ];
+  const rows = labels.map(function (pair) {
+    const form = f[pair[0]];
+    if (!form) return '';
+    return '<div class="polite-form-row"><span>' + pair[1] + '</span><b lang="ja">' + rubyHtml(form.ruby, state.settings.furigana) + '</b><em>' + esc(form.romaji) + '</em></div>';
+  }).join('');
+  const dictionary = e.dictionaryForm && e.dictionaryForm !== e.jp
+    ? '<p class="dictionary-note">Forme du dictionnaire : <b lang="ja">' + esc(e.dictionaryForm) + '</b> (' + esc(e.dictionaryRomaji || '') + '). La carte utilise la forme polie.</p>'
+    : '';
+  return '<div class="polite-forms" data-testid="polite-forms"><div class="context-label">Conjugaison polie</div>' + rows + dictionary + '</div>';
+}
+function examplesHtml(e) {
+  const examples = e && Array.isArray(e.examples) ? e.examples : [];
+  if (!examples.length) return '';
+  return '<div class="examples-block" data-testid="examples"><div class="context-label">Autres exemples</div>' +
+    examples.map(function (ex) {
+      return '<div class="example-row"><p class="context-jp" lang="ja">' + contextHtml(ex.jp, '', e) + '</p><p class="context-fr">' + esc(ex.fr) + '</p></div>';
+    }).join('') + '</div>';
+}
 function openDetail(id) {
 const e = entries.filter(function (x) { return x.id === id; })[0];
 if (!e) return;
@@ -2178,10 +2602,10 @@ const nuance = nuanceOf(e);
 const nuanceHtml = nuance ? '<p class="nuance-note" data-testid="detail-nuance">' + esc(nuance) + '</p>' : '';
 openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
-<div class='detail-romaji'>${esc(e.romaji)}</div>${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
+<div class='detail-romaji'>${esc(e.romaji)}</div>${politeFormsHtml(e)}${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
 <div class='detail-context'><div class='context-label'>En contexte</div><p class='jp sentence-tip' lang='ja'${translationTipAttrs(e.contextFr, e.context)}>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${wordByWordDetails(e.context, 'detail-word-by-word')}${contextNoteHtml(e)}
-${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}</div>
+${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}${examplesHtml(e)}</div>
 ${stageHtml}
 ${pronunciationHistory}
 <div class='detail-meta'>${meta}<span>${esc(stage.label)}</span><span>${esc(e.source === 'import' ? 'Importé' : e.theme)}</span></div>
@@ -2254,8 +2678,9 @@ const nav = event.target.closest ? event.target.closest('[data-nav]') : null;
 if (nav) {
 event.preventDefault();
 const name = nav.getAttribute('data-nav');
-const hashes = { learn: '#apprendre', review: '#reviser', library: '#mots', import: '#importer', grammar: '#grammaire' };
+const hashes = { learn: '#apprendre', review: '#reviser', conversation: '#parler', library: '#mots', import: '#importer', grammar: '#grammaire' };
 const hash = hashes[name];
+if (name === 'conversation') { stopConversationVoice(); conversationState = null; }
 if (hash) { try { history.replaceState(null, '', hash); } catch (err) { location.hash = hash.slice(1); } }
 if (session) closeSession();
 showView(name);
@@ -2267,6 +2692,14 @@ return;
   const id = el.getAttribute('data-id');
   switch (action) {
     case 'start': startSession(el.getAttribute('data-kind'), el.getAttribute('data-mode') || 'recall', el.getAttribute('data-unit')); break;
+    case 'start-conversation': startConversation(id); break;
+    case 'go-conversation': goConversation(); break;
+    case 'next-conversation': nextConversation(); break;
+    case 'retry-conversation': retryConversation(); break;
+    case 'toggle-conversation-listen': toggleConversationListen(); break;
+    case 'reveal-conversation': revealConversation(); break;
+    case 'conversation-voice': startConversationVoice(); break;
+    case 'close-conversation': closeConversation(); break;
     case 'start-today': startDailyPlan(); break;
     case 'start-phrase': startPhraseSession(el.getAttribute('data-type')); break;
     case 'phrase-token': choosePhraseToken(el.getAttribute('data-token')); break;
@@ -2278,6 +2711,7 @@ return;
     case 'reveal': reveal(); break;
     case 'grade': grade(el.getAttribute('data-grade')); break;
     case 'choose': choose(id); break;
+    case 'production-reveal': revealProduction(); break;
     case 'continue-session': nextCard(); break;
     case 'quit-session': quitSession(); break;
     case 'finish-session': finishSession(); break;
@@ -2333,6 +2767,18 @@ case 'pronounce-finish': grade(el.getAttribute('data-good') === '1' ? 'good' : '
   }
 }
 function onSubmit(event) {
+  const conversationForm = event.target.closest ? event.target.closest('[data-form="conversation"]') : null;
+  if (conversationForm) {
+    event.preventDefault();
+    submitConversation(conversationForm);
+    return;
+  }
+  const productionForm = event.target.closest ? event.target.closest('[data-form="production"]') : null;
+  if (productionForm) {
+    event.preventDefault();
+    submitProduction(productionForm);
+    return;
+  }
   const syncForm = event.target.closest ? event.target.closest('[data-form="sync-auth"]') : null;
   if (syncForm) {
     event.preventDefault();
@@ -2390,6 +2836,7 @@ function onInput(event) {
 }
 function onKeydown(event) {
   primeSpeech();
+  if (!session && view === 'conversation' && conversationState && event.key === 'Escape') { closeConversation(); return; }
   const modal = $('#modal');
   if (modal && !modal.hidden && event.key === 'Escape') { closeModal(); return; }
   if (session) {

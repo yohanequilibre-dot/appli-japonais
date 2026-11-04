@@ -4,9 +4,11 @@ const assert = require("assert");
 const Lex = require("../js/lexicon.js");
 const Store = require("../js/srs.js");
 const Parser = require("../js/parser.js");
+const Polite = require("../js/polite.js");
 const Reading = require("../js/reading.js");
 const Pron = require("../js/pronunciation.js");
 const Phrase = require("../js/phrase.js");
+const Conversation = require("../js/conversation.js");
 const Sync = require("../js/sync.js");
 
 let failed = 0;
@@ -142,6 +144,63 @@ test("kana vers romaji", function () {
   assert.equal(Parser.kanaToRomaji("たべる"), "taberu");
   assert.equal(Parser.kanaToRomaji("がっこう"), "gakkou");
   assert.equal(Parser.kanaToRomaji("コーヒー"), "koohii");
+});
+
+test("formes polies : les verbes courants", function () {
+  const eat = Polite.prepare({ jp: "食べる", reading: "たべる", fr: "manger" });
+  assert.equal(eat.jp, "食べます");
+  assert.equal(eat.politeForms.negative.jp, "食べません");
+  assert.equal(eat.politeForms.past.jp, "食べました");
+  assert.equal(eat.politeForms.pastNegative.jp, "食べませんでした");
+  assert.equal(eat.politeForms.question.jp, "食べますか");
+
+  const go = Polite.prepare({ jp: "行く", reading: "いく", fr: "aller" });
+  assert.equal(go.jp, "行きます");
+  assert.equal(go.politeForms.te.jp, "行って");
+
+  const come = Polite.prepare({ jp: "来る", reading: "くる", fr: "venir" });
+  assert.equal(come.jp, "来ます");
+  assert.equal(come.politeForms.te.jp, "来て");
+
+  const make = Polite.prepare({ jp: "する", reading: "する", fr: "faire" });
+  assert.equal(make.jp, "します");
+  assert.equal(make.politeForms.negative.jp, "しません");
+
+  const work = Polite.prepare({ jp: "働く", reading: "はたらく", fr: "travailler" });
+  assert.equal(work.jp, "働きます");
+  assert.equal(work.politeForms.te.jp, "働いて");
+
+  const brush = Polite.prepare({ jp: "磨きます", reading: "みがきます", fr: "brosser" });
+  assert.equal(brush.jp, "磨きます");
+  assert.equal(brush.politeForms.negative.jp, "磨きません");
+});
+
+test("formes polies : variantes de lecture des verbes", function () {
+  const forms = Polite.variants({ jp: "働く", reading: "はたらく", fr: "travailler" });
+  assert.ok(forms.some(function (form) { return form.jp === "働いて"; }));
+  assert.ok(Reading.romajiRubyHtml("働[はたら]いて").indexOf("hatara") >= 0);
+});
+
+test("formes polies : les verbes en -える restent des ichidan", function () {
+  var finir = Polite.conjugate({ jp: "終える", reading: "おえる", fr: "finir" });
+  assert.equal(finir.present.jp, "終えます");
+  assert.equal(finir.negative.jp, "終えません");
+  var enseigner = Polite.conjugate({ jp: "教える", reading: "おしえる", fr: "enseigner" });
+  assert.equal(enseigner.present.jp, "教えます");
+});
+
+test("formes polies : les verbes du pack sont reconnus", function () {
+  [
+    { jp: "登る", reading: "のぼる", fr: "grimper", present: "登ります" },
+    { jp: "怒る", reading: "おこる", fr: "se fâcher", present: "怒ります" },
+    { jp: "決める", reading: "きめる", fr: "décider", present: "決めます" },
+    { jp: "咲く", reading: "さく", fr: "fleurir", present: "咲きます" },
+    { jp: "帰る", reading: "かえる", fr: "rentrer", present: "帰ります" }
+  ].forEach(function (item) {
+    var forms = Polite.conjugate(item);
+    assert.ok(forms, item.jp + " doit être reconnu comme verbe");
+    assert.equal(forms.present.jp, item.present, item.jp);
+  });
 });
 
 test("romaji vers kana", function () {
@@ -469,6 +528,24 @@ test("synchronisation : sans état distant, l'état local est conservé", functi
   const merged = Sync.mergeStates(local, null);
   assert.deepEqual(merged, local);
   assert.notEqual(merged, local, "la copie évite de partager les objets");
+});
+
+test("conversation : accepte japonais, kana et romaji, puis refuse une autre réponse", function () {
+  const scenario = Conversation.scenarioById("meet");
+  assert.ok(scenario);
+  assert.equal(Conversation.checkAnswer("私はレアです。", scenario.turns[0].accepted, scenario.turns[0]), true);
+  assert.equal(Conversation.checkAnswer("わたしはレアです", scenario.turns[0].accepted, scenario.turns[0]), true);
+  assert.equal(Conversation.checkAnswer("watashi wa rea desu", scenario.turns[0].accepted, scenario.turns[0]), true);
+  assert.equal(Conversation.checkAnswer("私はマリーです。", scenario.turns[0].accepted, scenario.turns[0]), true);
+  assert.equal(Conversation.checkAnswer("フランスから来ました。", scenario.turns[1].accepted), true);
+  assert.equal(Conversation.checkAnswer("furansu kara kimashita", scenario.turns[1].accepted), true);
+  assert.equal(Conversation.checkAnswer("watashi wa nihonjin desu", scenario.turns[1].accepted), false);
+  assert.equal(scenario.turns.length, 3, "chaque situation propose trois échanges");
+  assert.equal(Conversation.checkAnswer("六ヶ月勉強しています。", scenario.turns[2].accepted), true);
+  assert.equal(Conversation.checkAnswer("rokkagetsu benkyou shite imasu", scenario.turns[2].accepted), true);
+  const cafe = Conversation.scenarioById("cafe");
+  assert.equal(Conversation.checkAnswer("hotto koohii o kudasai", cafe.turns[0].accepted), true);
+  assert.equal(Conversation.checkAnswer("tennai de onegai shimasu", cafe.turns[2].accepted), true);
 });
 
 if (failed) {

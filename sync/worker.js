@@ -11,6 +11,7 @@ const ORIGINS = new Set([
 const SESSION_DAYS = 30;
 const PBKDF2_ITERATIONS = 100000; // Maximum supporté par WebCrypto sur Workers.
 const MAX_STATE_BYTES = 1500000;
+const MAX_AUTH_BYTES = 16384;
 const encoder = new TextEncoder();
 
 let schemaPromise = null;
@@ -25,7 +26,11 @@ function corsHeaders(origin) {
     'Vary': 'Origin',
     'Cache-Control': 'no-store',
     'Content-Type': 'application/json; charset=utf-8',
-    'X-Content-Type-Options': 'nosniff'
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
   };
 }
 
@@ -38,9 +43,13 @@ function originAllowed(request) {
   return !origin || ORIGINS.has(origin);
 }
 
-async function readJson(request) {
+async function readJson(request, maxBytes) {
   try {
-    return await request.json();
+    const declared = Number(request.headers.get('Content-Length') || 0);
+    if (declared > (maxBytes || MAX_STATE_BYTES)) return null;
+    const text = await request.text();
+    if (text.length > (maxBytes || MAX_STATE_BYTES)) return null;
+    return JSON.parse(text);
   } catch (e) {
     return null;
   }
@@ -144,7 +153,7 @@ async function stateMeta(env, userId) {
 }
 
 async function register(request, env, headers) {
-  const body = await readJson(request);
+  const body = await readJson(request, MAX_AUTH_BYTES);
   const email = validEmail(body && body.email);
   const password = String(body && body.password || '');
   if (!email) return json({ error: 'Adresse e-mail invalide.' }, 400, headers);
@@ -167,7 +176,7 @@ async function register(request, env, headers) {
 }
 
 async function login(request, env, headers) {
-  const body = await readJson(request);
+  const body = await readJson(request, MAX_AUTH_BYTES);
   const email = validEmail(body && body.email);
   const password = String(body && body.password || '');
   if (!email || !password) return json({ error: 'E-mail et mot de passe requis.' }, 400, headers);
@@ -204,7 +213,7 @@ function conflictResponse(row, headers) {
 async function putState(request, env, headers) {
   const user = await sessionFromRequest(request, env);
   if (!user) return json({ error: 'Connecte-toi pour synchroniser.' }, 401, headers);
-  const body = await readJson(request);
+  const body = await readJson(request, MAX_STATE_BYTES + 1024);
   if (!body || !body.state || typeof body.state !== 'object' || Array.isArray(body.state)) {
     return json({ error: 'État de progression invalide.' }, 400, headers);
   }
