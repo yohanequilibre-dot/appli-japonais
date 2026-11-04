@@ -703,6 +703,13 @@ test('conversation : le mode écoute masque le texte avant la réponse', async (
   await expect(page.getByTestId('conversation-partner')).toContainText('ご注文は何ですか');
 });
 
+test('conversation : lance une situation surprise', async ({ page }) => {
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-random').click();
+  await expect(page.getByTestId('conversation-session')).toBeVisible();
+  await expect(page.getByTestId('conversation-partner')).toBeVisible();
+});
+
 test('conversation : répondre à l’oral remplit la réponse japonaise', async ({ page }) => {
   await page.addInitScript(() => {
     class FakeRecognition {

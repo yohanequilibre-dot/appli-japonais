@@ -546,6 +546,12 @@ test("conversation : accepte japonais, kana et romaji, puis refuse une autre ré
   const cafe = Conversation.scenarioById("cafe");
   assert.equal(Conversation.checkAnswer("hotto koohii o kudasai", cafe.turns[0].accepted), true);
   assert.equal(Conversation.checkAnswer("tennai de onegai shimasu", cafe.turns[2].accepted), true);
+  assert.equal(Conversation.scenarios.length, 12, "douze situations de vie réelle");
+  assert.equal(Conversation.scenarios.reduce(function (sum, item) { return sum + item.turns.length; }, 0), 36, "trente-six répliques");
+  assert.equal(Conversation.checkAnswer("往復でお願いします。", Conversation.scenarioById("train").turns[1].accepted), true);
+  assert.equal(Conversation.checkAnswer("レアで予約しています。", Conversation.scenarioById("hotel").turns[0].accepted), true);
+  assert.equal(Conversation.checkAnswer("一日に何回飲みますか。", Conversation.scenarioById("pharmacy").turns[2].accepted), true);
+  assert.equal(Conversation.checkAnswer("カードでお願いします。", Conversation.scenarioById("taxi").turns[2].accepted), true);
 });
 
 if (failed) {

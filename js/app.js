@@ -770,7 +770,8 @@ function conversationListHtml() {
   }).join('');
   return '<section class="panel conversation-hero" data-testid="conversation-list">' +
     '<div><p class="eyebrow">Parler aux gens</p><h2>Les situations qui reviennent vraiment</h2>' +
-    '<p class="lead">Lis la réplique ou active le mode écoute, réponds en japonais poli, puis compare avec le modèle. Les variantes naturelles sont acceptées.</p></div>' +
+    '<p class="lead">Lis la réplique ou active le mode écoute, réponds en japonais poli, puis compare avec le modèle. Les variantes naturelles sont acceptées.</p>' +
+    '<button class="btn primary conversation-random" data-action="random-conversation" data-testid="conversation-random">🎲 Situation surprise</button></div>' +
     '<div class="conversation-hero-stats"><b>' + CONV.scenarios.length + '</b><span>situations</span><small>A1 → A2</small></div></section>' +
     '<div class="conversation-grid">' + cards + '</div>' +
     '<section class="panel conversation-how"><h2>Comment ça marche</h2><ol>' +
@@ -988,6 +989,7 @@ function nextConversation() {
   renderConversation();
   window.scrollTo(0, 0);
   setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 60);
+  if (conversationState.listen && !conversationState.completed) setTimeout(speakConversationPartner, 220);
 }
 function retryConversation() {
   if (!conversationState) return;
@@ -1008,12 +1010,26 @@ function toggleConversationListen() {
   conversationState.listen = !conversationState.listen;
   conversationState.revealed = false;
   renderConversation();
+  if (conversationState.listen) setTimeout(speakConversationPartner, 120);
+}
+function speakConversationPartner() {
+  if (!conversationState || conversationState.completed || conversationState.feedback) return;
+  const turn = conversationState.scenario.turns[conversationState.index];
+  if (turn) speak(turn.partner.jp, Math.max(0.5, (state.settings.rate || 0.9) * 0.72));
 }
 function revealConversation() {
   if (!conversationState || conversationState.completed) return;
   conversationState.revealed = true;
   renderConversation();
   setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 60);
+}
+function randomConversation() {
+  if (!CONV || !Array.isArray(CONV.scenarios) || !CONV.scenarios.length) return;
+  const pool = CONV.scenarios.filter(function (scenario) {
+    return !conversationState || conversationState.scenario.id !== scenario.id;
+  });
+  const pick = (pool.length ? pool : CONV.scenarios)[Math.floor(Math.random() * (pool.length ? pool.length : CONV.scenarios.length))];
+  if (pick) startConversation(pick.id);
 }
 function goConversation() {
   stopConversationVoice();
@@ -2699,6 +2715,7 @@ return;
     case 'toggle-conversation-listen': toggleConversationListen(); break;
     case 'reveal-conversation': revealConversation(); break;
     case 'conversation-voice': startConversationVoice(); break;
+    case 'random-conversation': randomConversation(); break;
     case 'close-conversation': closeConversation(); break;
     case 'start-today': startDailyPlan(); break;
     case 'start-phrase': startPhraseSession(el.getAttribute('data-type')); break;

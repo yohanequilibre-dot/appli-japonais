@@ -592,6 +592,294 @@
           tip: '気をつけて = « fais attention / rentre bien ». 失礼します est la formule polie pour prendre congé.'
         }
       ]
+    },
+    {
+      id: 'train',
+      emoji: '🚆',
+      title: 'Prendre le train',
+      level: 'A1',
+      goal: 'Acheter un billet et choisir son train',
+      situation: 'Tu es à la gare de Tokyo. Tu veux aller à Kyoto.',
+      speaker: '駅員',
+      speakerFr: 'l’employé de la gare',
+      turns: [
+        {
+          partner: {
+            jp: 'どちらまで行きますか。',
+            reading: 'どちらまでいきますか。',
+            fr: 'Où allez-vous ?'
+          },
+          task: 'Dis que tu vas à Kyoto.',
+          accepted: [
+            ['京都まで行きます。', 'きょうとまでいきます。'],
+            ['京都に行きたいです。', 'きょうとにいきたいです。'],
+            ['京都までお願いします。', 'きょうとまでおねがいします。']
+          ],
+          model: {
+            jp: '京都まで行きます。',
+            reading: 'きょうとまでいきます。',
+            romaji: 'Kyōto made ikimasu.',
+            fr: 'Je vais à Kyoto.'
+          },
+          tip: 'まで indique la destination du trajet ; 行きます signifie « aller ».'
+        },
+        {
+          partner: {
+            jp: '片道ですか、往復ですか。',
+            reading: 'かたみちですか、おうふくですか。',
+            fr: 'Aller simple ou aller-retour ?'
+          },
+          task: 'Demande un aller-retour.',
+          accepted: [
+            ['往復でお願いします。', 'おうふくでおねがいします。'],
+            ['往復です。', 'おうふくです。'],
+            ['往復で大丈夫です。', 'おうふくでだいじょうぶです。']
+          ],
+          model: {
+            jp: '往復でお願いします。',
+            reading: 'おうふくでおねがいします。',
+            romaji: 'Ōfuku de onegai shimasu.',
+            fr: 'Un aller-retour, s’il vous plaît.'
+          },
+          tip: '片道 = aller simple ; 往復 = aller-retour. で indique le type de billet choisi.'
+        },
+        {
+          partner: {
+            jp: '何時の電車にしますか。',
+            reading: 'なんじのでんしゃにしますか。',
+            fr: 'Quel train prenez-vous ?'
+          },
+          task: 'Demande le train de dix heures.',
+          accepted: [
+            ['十時の電車でお願いします。', 'じゅうじのでんしゃでおねがいします。'],
+            ['十時にしたいです。', 'じゅうじにしたいです。'],
+            ['十時の電車にします。', 'じゅうじのでんしゃにします。']
+          ],
+          model: {
+            jp: '十時の電車でお願いします。',
+            reading: 'じゅうじのでんしゃでおねがいします。',
+            romaji: 'Jūji no densha de onegai shimasu.',
+            fr: 'Le train de dix heures, s’il vous plaît.'
+          },
+          tip: '〜時の電車 = le train de … heures. 電車 signifie train.'
+        }
+      ]
+    },
+    {
+      id: 'hotel',
+      emoji: '🏨',
+      title: 'À l’hôtel',
+      level: 'A1',
+      goal: 'Faire son check-in et demander le petit-déjeuner',
+      situation: 'Tu arrives à ton hôtel à Kyoto. La réceptionniste t’accueille.',
+      speaker: 'フロント',
+      speakerFr: 'la réceptionniste',
+      turns: [
+        {
+          partner: {
+            jp: 'いらっしゃいませ。ご予約のお名前をお願いします。',
+            reading: 'いらっしゃいませ。ごよやくのおなまえをおねがいします。',
+            fr: 'Bienvenue. Quel nom est la réservation ?'
+          },
+          task: 'Dis que tu as une réservation au nom de Léa.',
+          accepted: [
+            ['レアで予約しています。', 'れあでよやくしています。'],
+            ['レアの名前で予約しています。', 'れあのなまえでよやくしています。'],
+            ['予約はレアです。', 'よやくはれあです。']
+          ],
+          model: {
+            jp: 'レアで予約しています。',
+            reading: 'れあでよやくしています。',
+            romaji: 'Rea de yoyaku shite imasu.',
+            fr: 'J’ai une réservation au nom de Léa.'
+          },
+          tip: '〜で予約しています = « j’ai réservé sous le nom de… ». ご予約 est la forme polie de 予約 (réservation).'
+        },
+        {
+          partner: {
+            jp: 'パスポートをお願いします。',
+            reading: 'ぱすぽーとをおねがいします。',
+            fr: 'Votre passeport, s’il vous plaît.'
+          },
+          task: 'Donne ton passeport poliment.',
+          accepted: [
+            ['はい、どうぞ。', 'はい、どうぞ。'],
+            ['はい、パスポートです。', 'はい、ぱすぽーとです。'],
+            ['どうぞ。', 'どうぞ。']
+          ],
+          model: {
+            jp: 'はい、どうぞ。',
+            reading: 'はい、どうぞ。',
+            romaji: 'Hai, dōzo.',
+            fr: 'Oui, voici.'
+          },
+          tip: 'どうぞ accompagne un objet qu’on tend à quelqu’un : « voici / je vous en prie ».'
+        },
+        {
+          partner: {
+            jp: 'お部屋は三階です。朝食は七時からです。',
+            reading: 'おへやはさんがいです。ちょうしょくはしちじからです。',
+            fr: 'Votre chambre est au troisième étage. Le petit-déjeuner est à partir de sept heures.'
+          },
+          task: 'Demande jusqu’à quelle heure tu peux prendre le petit-déjeuner.',
+          accepted: [
+            ['朝食は何時までですか。', 'ちょうしょくはなんじまでですか。'],
+            ['朝食は何時まで食べられますか。', 'ちょうしょくはなんじまでたべられますか。'],
+            ['朝食の時間を教えてください。', 'ちょうしょくのじかんをおしえてください。']
+          ],
+          model: {
+            jp: '朝食は何時までですか。',
+            reading: 'ちょうしょくはなんじまでですか。',
+            romaji: 'Chōshoku wa nanji made desu ka.',
+            fr: 'Le petit-déjeuner est servi jusqu’à quelle heure ?'
+          },
+          tip: '〜まで = jusqu’à. 朝食 = petit-déjeuner ; 何時 = quelle heure.'
+        }
+      ]
+    },
+    {
+      id: 'pharmacy',
+      emoji: '💊',
+      title: 'À la pharmacie',
+      level: 'A2',
+      goal: 'Expliquer un symptôme et comprendre la posologie',
+      situation: 'Tu as mal à la tête depuis ce matin. Tu entres dans une pharmacie.',
+      speaker: '薬剤師',
+      speakerFr: 'le pharmacien',
+      turns: [
+        {
+          partner: {
+            jp: 'どうしましたか。',
+            reading: 'どうしましたか。',
+            fr: 'Qu’est-ce qui vous arrive ?'
+          },
+          task: 'Dis que tu as mal à la tête.',
+          accepted: [
+            ['頭が痛いです。', 'あたまがいたいです。'],
+            ['頭痛がします。', 'ずつうがします。'],
+            ['頭が痛いんです。', 'あたまがいたいんです。']
+          ],
+          model: {
+            jp: '頭が痛いです。',
+            reading: 'あたまがいたいです。',
+            romaji: 'Atama ga itai desu.',
+            fr: 'J’ai mal à la tête.'
+          },
+          tip: '頭 = tête ; 痛い = douloureux. 〜が痛いです est la structure pour « avoir mal à… ».'
+        },
+        {
+          partner: {
+            jp: '薬を飲みましたか。',
+            reading: 'くすりをのみましたか。',
+            fr: 'Avez-vous pris un médicament ?'
+          },
+          task: 'Dis que non, pas encore.',
+          accepted: [
+            ['いいえ、まだです。', 'いいえ、まだです。'],
+            ['いいえ、まだ飲んでいません。', 'いいえ、まだのんでいません。'],
+            ['まだです。', 'まだです。']
+          ],
+          model: {
+            jp: 'いいえ、まだです。',
+            reading: 'いいえ、まだです。',
+            romaji: 'Iie, mada desu.',
+            fr: 'Non, pas encore.'
+          },
+          tip: 'まだ = pas encore. いいえ、まだです est une réponse courte naturelle.'
+        },
+        {
+          partner: {
+            jp: 'これを食後に飲んでください。',
+            reading: 'これをしょくごにのんでください。',
+            fr: 'Prenez ceci après les repas.'
+          },
+          task: 'Demande combien de fois par jour.',
+          accepted: [
+            ['一日に何回飲みますか。', 'いちにちになんかいのみますか。'],
+            ['一日何回ですか。', 'いちにちなんかいですか。'],
+            ['何回飲めばいいですか。', 'なんかいのめばいいですか。']
+          ],
+          model: {
+            jp: '一日に何回飲みますか。',
+            reading: 'いちにちになんかいのみますか。',
+            romaji: 'Ichinichi ni nankai nomimasu ka.',
+            fr: 'Combien de fois par jour dois-je en prendre ?'
+          },
+          tip: '一日に = par jour ; 何回 = combien de fois. 食後 = après le repas.'
+        }
+      ]
+    },
+    {
+      id: 'taxi',
+      emoji: '🚕',
+      title: 'Prendre un taxi',
+      level: 'A1',
+      goal: 'Donner une destination et payer',
+      situation: 'Tu sors de la gare avec une valise. Tu hèles un taxi.',
+      speaker: '運転手',
+      speakerFr: 'le chauffeur',
+      turns: [
+        {
+          partner: {
+            jp: 'どちらまでですか。',
+            reading: 'どちらまでですか。',
+            fr: 'Où allez-vous ?'
+          },
+          task: 'Dis que tu vas à la gare de Shinjuku.',
+          accepted: [
+            ['新宿駅までお願いします。', 'しんじゅくえきまでおねがいします。'],
+            ['新宿駅に行きたいです。', 'しんじゅくえきにいきたいです。'],
+            ['新宿駅までです。', 'しんじゅくえきまでです。']
+          ],
+          model: {
+            jp: '新宿駅までお願いします。',
+            reading: 'しんじゅくえきまでおねがいします。',
+            romaji: 'Shinjuku-eki made onegai shimasu.',
+            fr: 'À la gare de Shinjuku, s’il vous plaît.'
+          },
+          tip: 'まで = jusqu’à. お願いします rend la demande polie et naturelle dans un taxi.'
+        },
+        {
+          partner: {
+            jp: 'ここでいいですか。',
+            reading: 'ここでいいですか。',
+            fr: 'C’est bien ici ?'
+          },
+          task: 'Dis oui, et demande de t’arrêter ici.',
+          accepted: [
+            ['はい、ここで止めてください。', 'はい、ここでとめてください。'],
+            ['はい、ここで大丈夫です。', 'はい、ここでだいじょうぶです。'],
+            ['ここで止めてください。', 'ここでとめてください。']
+          ],
+          model: {
+            jp: 'はい、ここで止めてください。',
+            reading: 'はい、ここでとめてください。',
+            romaji: 'Hai, koko de tomete kudasai.',
+            fr: 'Oui, arrêtez-vous ici.'
+          },
+          tip: '止めてください = arrêtez-vous s’il vous plaît. ここで = ici.'
+        },
+        {
+          partner: {
+            jp: '千五百円です。カードは使えますよ。',
+            reading: 'せんごひゃくえんです。かーどはつかえますよ。',
+            fr: 'Ça fait mille cinq cents yens. Vous pouvez payer par carte.'
+          },
+          task: 'Dis que tu paies par carte.',
+          accepted: [
+            ['カードでお願いします。', 'かーどでおねがいします。'],
+            ['じゃあ、カードで払います。', 'じゃあ、かーどではらいます。'],
+            ['カードで払います。', 'かーどではらいます。']
+          ],
+          model: {
+            jp: 'カードでお願いします。',
+            reading: 'かーどでおねがいします。',
+            romaji: 'Kādo de onegai shimasu.',
+            fr: 'Par carte, s’il vous plaît.'
+          },
+          tip: 'カードで = par carte ; で indique le moyen de paiement.'
+        }
+      ]
     }
   ];
 
