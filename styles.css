@@ -1257,6 +1257,15 @@ will-change: transform, opacity;
 .conv-verdict { font-size: 1rem; font-weight: 900; }
 .conv-attempt { margin: 6px 0 0; color: var(--muted); font-size: .82rem; }
 .conv-attempt b { color: var(--text); font-family: var(--jp); }
+.conv-pronunciation { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.conv-pronunciation.good { border-color: var(--green); }
+.conv-pronunciation.warn { border-color: var(--amber); }
+.conv-pron-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .82rem; font-weight: 800; }
+.conv-pron-head b { color: var(--green-dark); font-size: 1.05rem; }
+.conv-pron-bar { height: 6px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
+.conv-pron-bar span { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.conv-pronunciation.warn .conv-pron-bar span { background: var(--amber); }
+.conv-pronunciation p { margin: 8px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .conv-model { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .conv-model .conv-jp { margin-top: 4px; font-size: 1.25rem; }
 .conv-romaji { margin: 2px 0 0; color: var(--blue-dark); font-size: .8rem; font-weight: 700; }

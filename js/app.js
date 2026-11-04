@@ -858,6 +858,7 @@ function startConversationVoice() {
   const rec = new Ctor();
   const token = conversationState.voiceToken;
   conversationState.recognition = rec;
+  conversationState.voiceUsed = false;
   rec.lang = 'ja-JP';
   rec.interimResults = true;
   rec.continuous = false;
@@ -885,6 +886,7 @@ function startConversationVoice() {
     const transcript = (finalText || interimText).trim();
     if (!transcript) return;
     heard = true;
+    conversationState.voiceUsed = true;
     const input = $('#conversationAnswer');
     if (input) {
       input.value = transcript;
@@ -926,6 +928,7 @@ function conversationFeedbackHtml(turn, last) {
   return '<div class="conversation-feedback ' + (ok ? 'good' : 'bad') + '" data-testid="conversation-feedback">' +
     '<div class="conv-verdict">' + (ok ? '✅ Bonne réponse !' : '💡 Presque !') + '</div>' +
     '<p class="conv-attempt">Ta réponse : <b lang="ja">' + esc(conversationState.feedback.answer) + '</b></p>' +
+    (conversationState.feedback.pronunciation ? conversationPronunciationHtml(conversationState.feedback.pronunciation) : '') +
     '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
     '<p class="conv-fr">' + esc(turn.model.fr) + '</p><div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
@@ -956,21 +959,43 @@ function startConversation(id) {
   if (!CONV) return;
   const scenario = CONV.scenarioById ? CONV.scenarioById(id) : null;
   if (!scenario) { toast('Situation introuvable.'); return; }
-  conversationState = { scenario: scenario, index: 0, feedback: null, completed: false, correct: 0, listen: false, revealed: false, recognition: null, voiceToken: 0 };
+  conversationState = { scenario: scenario, index: 0, feedback: null, completed: false, correct: 0, listen: false, revealed: false, recognition: null, voiceToken: 0, voiceUsed: false };
   try { history.replaceState(null, '', '#parler'); } catch (e) { location.hash = 'parler'; }
   showView('conversation');
   setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 80);
+}
+function conversationPronunciationEntry(turn) {
+  const alternatives = [];
+  (turn.accepted || []).forEach(function (item) {
+    const jp = Array.isArray(item) ? item[0] : item;
+    const reading = Array.isArray(item) ? (item[1] || item[0]) : item;
+    if (jp && jp !== turn.model.jp) alternatives.push({ jp: jp, reading: reading });
+  });
+  return { jp: turn.model.jp, reading: turn.model.reading, alternatives: alternatives };
+}
+function conversationPronunciationHtml(p) {
+  const score = Math.max(0, Math.min(100, Number(p.score) || 0));
+  return '<div class="conv-pronunciation ' + (p.good ? 'good' : 'warn') + '" data-testid="conversation-pronunciation">' +
+    '<div class="conv-pron-head"><span>🎙️ Prononciation</span><b data-testid="conversation-pronunciation-score">' + score + ' %</b></div>' +
+    '<div class="conv-pron-bar" aria-hidden="true"><span style="width:' + score + '%"></span></div>' +
+    '<p>' + esc(p.tip || 'Réécoute le modèle et répète à voix haute.') + '</p></div>';
 }
 function submitConversation(form) {
   if (!conversationState || conversationState.completed) return;
   const input = form.querySelector('input[name="answer"]');
   const answer = String((input && input.value) || '').trim();
   if (!answer) { toast('Écris une réponse.'); return; }
+  const spoke = !!conversationState.voiceUsed;
   stopConversationVoice();
   const turn = conversationState.scenario.turns[conversationState.index];
   const ok = !!(CONV && CONV.checkAnswer(answer, turn.accepted, turn));
+  let pronunciation = null;
+  if (spoke && ok && window.Kotoba.Pronunciation && window.Kotoba.Pronunciation.best) {
+    const result = window.Kotoba.Pronunciation.best([answer], conversationPronunciationEntry(turn));
+    if (result) pronunciation = { score: result.score, good: result.good, tip: result.tip };
+  }
   if (ok) conversationState.correct += 1;
-  conversationState.feedback = { ok: ok, answer: answer };
+  conversationState.feedback = { ok: ok, answer: answer, pronunciation: pronunciation };
   renderConversation();
   const next = $('[data-action="next-conversation"]');
   if (next) next.focus();
@@ -986,6 +1011,7 @@ function nextConversation() {
     conversationState.feedback = null;
   }
   conversationState.revealed = false;
+  conversationState.voiceUsed = false;
   renderConversation();
   window.scrollTo(0, 0);
   setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 60);
@@ -996,6 +1022,7 @@ function retryConversation() {
   stopConversationVoice();
   conversationState.feedback = null;
   conversationState.revealed = false;
+  conversationState.voiceUsed = false;
   renderConversation();
   setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 60);
 }

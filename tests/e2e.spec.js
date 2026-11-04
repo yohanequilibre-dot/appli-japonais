@@ -737,6 +737,8 @@ test('conversation : répondre à l’oral remplit la réponse japonaise', async
   await expect(page.getByTestId('conversation-voice-status')).toContainText('Transcription reçue');
   await page.getByTestId('conversation-submit').click();
   await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
+  await expect(page.getByTestId('conversation-pronunciation')).toBeVisible();
+  await expect(page.getByTestId('conversation-pronunciation-score')).toContainText('100');
 });
 
 test('session du jour : lance un parcours guidé', async ({ page }) => {
