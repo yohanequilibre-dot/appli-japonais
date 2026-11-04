@@ -780,6 +780,17 @@ function conversationListHtml() {
     '<li>Compare, réécoute le modèle, puis enchaîne la réplique suivante.</li></ol>' +
     '<p class="hint">Astuce : répète la réponse à voix haute après l’avoir vérifiée. C’est cette production orale qui te servira dehors.</p></section>';
 }
+function conversationTurnIndex() {
+  const queue = conversationState && conversationState.queue;
+  return Array.isArray(queue) && queue.length ? queue[conversationState.index] : conversationState.index;
+}
+function conversationTotal() {
+  const queue = conversationState && conversationState.queue;
+  return Array.isArray(queue) && queue.length ? queue.length : conversationState.scenario.turns.length;
+}
+function conversationTurn() {
+  return conversationState.scenario.turns[conversationTurnIndex()];
+}
 function renderConversation() {
   const host = $('#view-conversation');
   if (!host) return;
@@ -792,9 +803,10 @@ function renderConversation() {
 }
 function conversationSessionHtml() {
   const scenario = conversationState.scenario;
-  const turn = scenario.turns[conversationState.index];
-  const last = conversationState.index + 1 >= scenario.turns.length;
-  const progress = Math.round(conversationState.index / scenario.turns.length * 100);
+  const turn = conversationTurn();
+  const total = conversationTotal();
+  const last = conversationState.index + 1 >= total;
+  const progress = Math.round(conversationState.index / total * 100);
   const listenOn = !!conversationState.listen;
   const hideText = listenOn && !conversationState.revealed && !conversationState.feedback;
   const partner = hideText
@@ -808,9 +820,10 @@ function conversationSessionHtml() {
   return '<section class="panel conversation-session" data-testid="conversation-session">' +
     '<div class="conversation-top"><button class="btn ghost small" data-action="close-conversation">← Situations</button>' +
     '<div class="conversation-tools"><button class="btn ghost small' + (listenOn ? ' active' : '') + '" data-action="toggle-conversation-listen" aria-pressed="' + (listenOn ? 'true' : 'false') + '" data-testid="conversation-listen">🎧 Écoute</button>' +
-    '<span class="conversation-count">' + esc(scenario.title) + ' · ' + (conversationState.index + 1) + '/' + scenario.turns.length + '</span></div></div>' +
+    '<span class="conversation-count">' + (conversationState.review ? '🎯 Révision ciblée · ' : '') + esc(scenario.title) + ' · ' + (conversationState.index + 1) + '/' + total + '</span></div></div>' +
     '<div class="conversation-progress" aria-hidden="true"><span style="width:' + progress + '%"></span></div>' +
-    '<div class="conversation-scenario-head"><span class="conv-level">' + esc(scenario.level) + '</span><h2>' + esc(scenario.title) + '</h2><p>' + esc(scenario.situation) + '</p></div>' +
+    '<div class="conversation-scenario-head"><span class="conv-level">' + esc(scenario.level) + '</span><h2>' + esc(scenario.title) + '</h2><p>' + esc(scenario.situation) + '</p>' +
+    (conversationState.review ? '<p class="conv-review-note" data-testid="conversation-review-note">🎯 Tu rejoues uniquement les répliques à retravailler.</p>' : '') + '</div>' +
     '<div class="conversation-bubble" data-testid="conversation-partner"><div class="conv-speaker"><span aria-hidden="true">' + esc(scenario.emoji) + '</span> ' + esc(scenario.speaker) + ' <small>· ' + esc(scenario.speakerFr) + '</small></div>' +
     partner + '</div>' +
     '<div class="conversation-task"><p class="eyebrow">À toi</p><h3>' + esc(turn.task) + '</h3>' +
@@ -939,30 +952,51 @@ function conversationFeedbackHtml(turn, last) {
 }
 function conversationSummaryHtml() {
   const scenario = conversationState.scenario;
-  const total = scenario.turns.length;
+  const total = conversationTotal();
   const correct = conversationState.correct;
-  const lines = scenario.turns.map(function (turn) {
-    return '<div class="conv-summary-line"><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p><p class="conv-fr">' + esc(turn.model.fr) + '</p>' +
+  const missedCount = conversationState.missed.length;
+  const allGood = correct === total;
+  const lines = conversationState.queue.map(function (turnIndex) {
+    const turn = scenario.turns[turnIndex];
+    const ok = conversationState.results[turnIndex] === true;
+    return '<div class="conv-summary-line ' + (ok ? 'good' : 'missed') + '"><span class="conv-summary-mark">' + (ok ? '✓ Juste' : 'À revoir') + '</span>' +
+      '<p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p><p class="conv-fr">' + esc(turn.model.fr) + '</p>' +
       '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊</button></div>';
   }).join('');
+  const lead = allGood
+    ? (conversationState.review ? 'Toutes les répliques ciblées sont justes.' : 'Toutes les répliques sont justes.')
+    : correct + ' réponse' + (correct === 1 ? '' : 's') + ' juste' + (correct === 1 ? '' : 's') + ' sur ' + total + '. Les répliques marquées « À revoir » peuvent être rejouées seules.';
+  const retryLabel = missedCount === 1 ? 'Rejouer la réplique ratée' : 'Rejouer les ' + missedCount + ' répliques ratées';
   return '<section class="panel conversation-session conversation-summary" data-testid="conversation-summary">' +
-    '<p class="eyebrow">Conversation terminée</p><h2>' + esc(scenario.title) + '</h2>' +
-    '<p class="lead">' + (correct === total ? 'Toutes les répliques sont justes.' : correct + ' réponse' + (correct === 1 ? '' : 's') + ' juste' + (correct === 1 ? '' : 's') + ' sur ' + total + '.') +
-    ' Tu peux rejouer ou choisir une autre situation.</p>' +
+    '<p class="eyebrow">' + (conversationState.review ? 'Révision ciblée terminée' : 'Conversation terminée') + '</p><h2>' + esc(scenario.title) + '</h2>' +
+    '<p class="lead">' + lead + ' Tu peux rejouer ou choisir une autre situation.</p>' +
     '<div class="summary-stats"><div><b>' + correct + '/' + total + '</b><span>réponses justes</span></div><div><b>' + esc(scenario.level) + '</b><span>niveau</span></div></div>' +
     '<div class="conv-summary-lines">' + lines + '</div>' +
-    '<p class="hint">Maintenant, dis les réponses à voix haute sans regarder. C’est le passage à la conversation réelle.</p>' +
-    '<div class="conversation-actions"><button class="btn primary" data-action="start-conversation" data-id="' + attr(scenario.id) + '">Refaire</button>' +
+    '<p class="hint">' + (allGood ? 'Maintenant, dis les réponses à voix haute sans regarder. C’est le passage à la conversation réelle.' : 'Rejoue les répliques ratées pendant qu’elles sont fraîches : tu ne refais que celles-ci.') + '</p>' +
+    '<div class="conversation-actions">' + (missedCount ? '<button class="btn primary" data-action="retry-missed-conversation" data-testid="conversation-retry-missed">' + retryLabel + '</button>' : '') +
+    '<button class="btn ' + (missedCount ? 'ghost' : 'primary') + '" data-action="start-conversation" data-id="' + attr(scenario.id) + '" data-testid="conversation-restart">Refaire la situation</button>' +
     '<button class="btn ghost" data-action="close-conversation" data-testid="conversation-other">Autre situation</button></div></section>';
 }
-function startConversation(id) {
+function startConversation(id, options) {
   if (!CONV) return;
   const scenario = CONV.scenarioById ? CONV.scenarioById(id) : null;
   if (!scenario) { toast('Situation introuvable.'); return; }
-  conversationState = { scenario: scenario, index: 0, feedback: null, completed: false, correct: 0, listen: false, revealed: false, recognition: null, voiceToken: 0, voiceUsed: false };
+  const requested = options && Array.isArray(options.turnIndices)
+    ? options.turnIndices.filter(function (idx) { return Number.isInteger(idx) && idx >= 0 && idx < scenario.turns.length; })
+    : [];
+  const unique = requested.filter(function (idx, pos) { return requested.indexOf(idx) === pos; });
+  const review = unique.length > 0;
+  const queue = review ? unique : scenario.turns.map(function (_, idx) { return idx; });
+  conversationState = { scenario: scenario, queue: queue, review: review, results: {}, missed: [], index: 0, feedback: null, completed: false, correct: 0, listen: false, revealed: false, recognition: null, voiceToken: 0, voiceUsed: false };
   try { history.replaceState(null, '', '#parler'); } catch (e) { location.hash = 'parler'; }
   showView('conversation');
   setTimeout(function () { const input = $('#conversationAnswer'); if (input) input.focus(); }, 80);
+}
+function retryMissedConversation() {
+  if (!conversationState || !conversationState.missed.length) return;
+  const id = conversationState.scenario.id;
+  const turnIndices = conversationState.missed.slice();
+  startConversation(id, { turnIndices: turnIndices });
 }
 function conversationPronunciationEntry(turn) {
   const alternatives = [];
@@ -987,14 +1021,18 @@ function submitConversation(form) {
   if (!answer) { toast('Écris une réponse.'); return; }
   const spoke = !!conversationState.voiceUsed;
   stopConversationVoice();
-  const turn = conversationState.scenario.turns[conversationState.index];
+  const turn = conversationTurn();
+  const turnIndex = conversationTurnIndex();
   const ok = !!(CONV && CONV.checkAnswer(answer, turn.accepted, turn));
   let pronunciation = null;
   if (spoke && ok && window.Kotoba.Pronunciation && window.Kotoba.Pronunciation.best) {
     const result = window.Kotoba.Pronunciation.best([answer], conversationPronunciationEntry(turn));
     if (result) pronunciation = { score: result.score, good: result.good, tip: result.tip };
   }
-  if (ok) conversationState.correct += 1;
+  conversationState.results[turnIndex] = ok;
+  if (ok) conversationState.missed = conversationState.missed.filter(function (idx) { return idx !== turnIndex; });
+  else if (conversationState.missed.indexOf(turnIndex) < 0) conversationState.missed.push(turnIndex);
+  conversationState.correct = conversationState.queue.filter(function (idx) { return conversationState.results[idx] === true; }).length;
   conversationState.feedback = { ok: ok, answer: answer, pronunciation: pronunciation };
   renderConversation();
   const next = $('[data-action="next-conversation"]');
@@ -1003,7 +1041,7 @@ function submitConversation(form) {
 function nextConversation() {
   if (!conversationState || !conversationState.feedback) return;
   stopConversationVoice();
-  if (conversationState.index + 1 >= conversationState.scenario.turns.length) {
+  if (conversationState.index + 1 >= conversationTotal()) {
     conversationState.completed = true;
     conversationState.feedback = null;
   } else {
@@ -1041,7 +1079,7 @@ function toggleConversationListen() {
 }
 function speakConversationPartner() {
   if (!conversationState || conversationState.completed || conversationState.feedback) return;
-  const turn = conversationState.scenario.turns[conversationState.index];
+  const turn = conversationTurn();
   if (turn) speak(turn.partner.jp, Math.max(0.5, (state.settings.rate || 0.9) * 0.72));
 }
 function revealConversation() {
@@ -2739,6 +2777,7 @@ return;
     case 'go-conversation': goConversation(); break;
     case 'next-conversation': nextConversation(); break;
     case 'retry-conversation': retryConversation(); break;
+    case 'retry-missed-conversation': retryMissedConversation(); break;
     case 'toggle-conversation-listen': toggleConversationListen(); break;
     case 'reveal-conversation': revealConversation(); break;
     case 'conversation-voice': startConversationVoice(); break;

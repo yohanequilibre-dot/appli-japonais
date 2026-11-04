@@ -692,6 +692,35 @@ test('conversation : répond et accepte le romaji dans une situation réelle', a
   await expect(page.getByTestId('conversation-summary')).toContainText('3/3');
 });
 
+test('conversation : rejoue uniquement les répliques ratées', async ({ page }) => {
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-scenario-meet').click();
+  await page.getByTestId('conversation-answer').fill('さようなら。');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Presque');
+  await page.getByTestId('conversation-next').click();
+  await page.getByTestId('conversation-answer').fill('フランスから来ました。');
+  await page.getByTestId('conversation-submit').click();
+  await page.getByTestId('conversation-next').click();
+  await page.getByTestId('conversation-answer').fill('六ヶ月勉強しています。');
+  await page.getByTestId('conversation-submit').click();
+  await page.getByTestId('conversation-next').click();
+  await expect(page.getByTestId('conversation-summary')).toContainText('2/3');
+  await expect(page.getByTestId('conversation-summary')).toContainText('À revoir');
+  const retryMissed = page.getByTestId('conversation-retry-missed');
+  await expect(retryMissed).toContainText('Rejouer la réplique ratée');
+  await retryMissed.click();
+  await expect(page.getByTestId('conversation-review-note')).toContainText('uniquement les répliques');
+  await expect(page.getByTestId('conversation-partner')).toContainText('お名前は何ですか');
+  await expect(page.getByTestId('conversation-session')).toContainText('1/1');
+  await page.getByTestId('conversation-answer').fill('私はレアです。');
+  await page.getByTestId('conversation-submit').click();
+  await page.getByTestId('conversation-next').click();
+  await expect(page.getByTestId('conversation-summary')).toContainText('1/1');
+  await expect(page.getByTestId('conversation-summary')).toContainText('Toutes les répliques ciblées sont justes');
+  await expect(page.getByTestId('conversation-retry-missed')).toHaveCount(0);
+});
+
 test('conversation : le mode écoute masque le texte avant la réponse', async ({ page }) => {
   await page.goto('/#parler');
   await page.getByTestId('conversation-scenario-cafe').click();
