@@ -41,7 +41,8 @@
       },
       settings: { goal: 50, romaji: true, furigana: true, theme: "system", rate: 0.9 },
       flags: {},
-      conversationReview: {}
+      conversationReview: {},
+      immersion: {}
     };
   }
 
@@ -93,6 +94,20 @@
           missedAt: Math.max(0, Number(item.missedAt) || 0),
           clearedAt: Math.max(0, Number(item.clearedAt) || 0),
           count: Math.max(1, Number(item.count) || 1)
+        };
+      });
+    }
+    if (obj.immersion && typeof obj.immersion === "object") {
+      Object.keys(obj.immersion).forEach(function (id) {
+        const item = obj.immersion[id];
+        if (!item || typeof item !== "object" || !id) return;
+        s.immersion[String(id)] = {
+          completedAt: Math.max(0, Number(item.completedAt) || 0),
+          lastAt: Math.max(0, Number(item.lastAt) || 0),
+          bestScore: Math.max(0, Math.floor(Number(item.bestScore) || 0)),
+          total: Math.max(0, Math.floor(Number(item.total) || 0)),
+          attempts: Math.max(0, Math.floor(Number(item.attempts) || 0)),
+          lastRewardDay: item.lastRewardDay ? String(item.lastRewardDay) : ""
         };
       });
     }

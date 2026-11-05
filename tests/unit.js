@@ -9,6 +9,7 @@ const Reading = require("../js/reading.js");
 const Pron = require("../js/pronunciation.js");
 const Phrase = require("../js/phrase.js");
 const Conversation = require("../js/conversation.js");
+const Immersion = require("../js/immersion.js");
 const Sync = require("../js/sync.js");
 
 let failed = 0;
@@ -605,6 +606,46 @@ test("synchronisation : réunit les conversations quotidiennes", function () {
   assert.equal(merged.stats.conversation["2026-11-04"], 3);
   assert.equal(merged.stats.conversation["2026-11-05"], 1);
   assert.equal(merged.stats.conversation["2026-11-03"], 1);
+});
+
+test("histoires : six récits gradués avec audio, traduction et quiz", function () {
+  assert.equal(Immersion.stories.length, 6, "six histoires originales");
+  const ids = {};
+  Immersion.stories.forEach(function (story) {
+    assert.ok(story.id && !ids[story.id], "identifiant unique : " + story.id);
+    ids[story.id] = true;
+    assert.ok(story.lines.length >= 6, "histoire assez longue : " + story.id);
+    assert.equal(story.questions.length, 2, "deux questions : " + story.id);
+    assert.ok(story.focus.length >= 6, "vocabulaire : " + story.id);
+    story.lines.forEach(function (line) {
+      assert.ok(Immersion.lineJp(line).length > 0);
+      assert.ok(Immersion.lineJp(line).indexOf("[") < 0, "pas d'annotation brute à l'audio");
+      assert.ok(line.fr.length > 0);
+    });
+  });
+  const story = Immersion.storyById("asa");
+  const result = Immersion.scoreStory(story, { 0: 1, 1: 2 });
+  assert.equal(result.score, 2);
+  assert.equal(result.total, 2);
+  assert.equal(result.all, true);
+  assert.equal(Immersion.scoreStory(story, { 0: 0 }).score, 0);
+});
+
+test("histoires : l'état par défaut et la synchronisation conservent les lectures", function () {
+  assert.deepEqual(Store.defaultState().immersion, {});
+  const normalized = Store.normalizeState({ immersion: { asa: { completedAt: 100, lastAt: 120, bestScore: 1, total: 2, attempts: 2 } } });
+  assert.equal(normalized.immersion.asa.bestScore, 1);
+  assert.equal(normalized.immersion.asa.total, 2);
+  const merged = Sync.mergeStates(
+    { immersion: { asa: { completedAt: 100, lastAt: 100, bestScore: 1, total: 2, attempts: 1, lastRewardDay: "2026-11-01" } } },
+    { immersion: { asa: { completedAt: 200, lastAt: 300, bestScore: 2, total: 2, attempts: 3, lastRewardDay: "2026-11-02" }, yama: { completedAt: 50, lastAt: 50, bestScore: 1, total: 2, attempts: 1 } } }
+  );
+  assert.equal(merged.immersion.asa.completedAt, 100, "la première lecture est conservée");
+  assert.equal(merged.immersion.asa.lastAt, 300);
+  assert.equal(merged.immersion.asa.bestScore, 2);
+  assert.equal(merged.immersion.asa.attempts, 3);
+  assert.equal(merged.immersion.asa.lastRewardDay, "2026-11-02");
+  assert.ok(merged.immersion.yama);
 });
 
 test("conversation : accepte japonais, kana et romaji, puis refuse une autre réponse", function () {

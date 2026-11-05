@@ -182,6 +182,30 @@
     });
     return out;
   }
+  function mergeImmersion(local, remote) {
+    var out = {};
+    var keys = {};
+    [local, remote].forEach(function (map) {
+      Object.keys(map || {}).forEach(function (key) { keys[key] = true; });
+    });
+    Object.keys(keys).forEach(function (key) {
+      var l = local && local[key];
+      var r = remote && remote[key];
+      if (!l && !r) return;
+      var left = l || {};
+      var right = r || {};
+      var first = [numeric(left.completedAt), numeric(right.completedAt)].filter(function (n) { return n > 0; });
+      out[key] = {
+        completedAt: first.length ? Math.min.apply(Math, first) : 0,
+        lastAt: Math.max(numeric(left.lastAt), numeric(right.lastAt)),
+        bestScore: Math.max(numeric(left.bestScore), numeric(right.bestScore)),
+        total: Math.max(numeric(left.total), numeric(right.total)),
+        attempts: Math.max(numeric(left.attempts), numeric(right.attempts)),
+        lastRewardDay: String(left.lastRewardDay || '') > String(right.lastRewardDay || '') ? left.lastRewardDay : right.lastRewardDay
+      };
+    });
+    return out;
+  }
   function mergeStats(local, remote) {
     var left = local || {};
     var right = remote || {};
@@ -214,6 +238,7 @@
     }
     out.flags = flags;
     out.conversationReview = mergeConversationReview(local.conversationReview, remote.conversationReview);
+    out.immersion = mergeImmersion(local.immersion, remote.immersion);
     out.settings = Object.assign({}, remote.settings || {}, local.settings || {});
     out.version = local.version || remote.version;
     return out;

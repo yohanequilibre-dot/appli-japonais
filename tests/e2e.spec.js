@@ -932,6 +932,41 @@ test('session du jour : répond à l’oral à une réplique de conversation', a
   await expect(page.getByTestId('conversation-pronunciation-score')).toContainText('100');
 });
 
+test('histoires : lecture, traduction, quiz et progression persistante', async ({ page }) => {
+  await page.goto('/#histoires');
+  await expect(page.getByTestId('reading-list')).toBeVisible();
+  await expect(page.getByTestId('story-card-asa')).toContainText('Le matin de Yui');
+  await page.getByTestId('story-card-asa').click();
+  await expect(page.getByTestId('story-reader')).toBeVisible();
+  const firstLine = await baseText(page.getByTestId('story-line-0'));
+  expect(firstLine).toContain('おはよう');
+  await page.getByTestId('story-translation-0').click();
+  await expect(page.getByTestId('story-fr-0')).toContainText('Bonjour');
+  await page.getByTestId('story-translations-all').click();
+  await expect(page.getByTestId('story-fr-5')).toBeVisible();
+  await page.getByTestId('story-quiz-start').click();
+  await page.getByTestId('story-option-0-1').click();
+  await page.getByTestId('story-option-1-2').click();
+  await expect(page.getByTestId('story-quiz-submit')).toBeEnabled();
+  await page.getByTestId('story-quiz-submit').click();
+  await expect(page.getByTestId('story-result')).toContainText('2 / 2');
+  await expect(page.getByTestId('story-result')).toContainText('+20 XP');
+  await expect(page.getByTestId('story-review-words')).toBeVisible();
+  await page.getByTestId('story-review-words').click();
+  await expect(page.locator('#session')).toBeVisible();
+  await page.locator('[data-action="quit-session"]').click();
+  await expect(page.getByTestId('story-reader')).toBeVisible();
+  const saved = await page.evaluate(function () {
+    return JSON.parse(localStorage.getItem('kotoba.v3'));
+  });
+  expect(saved.immersion.asa.completedAt).toBeGreaterThan(0);
+  expect(saved.immersion.asa.bestScore).toBe(2);
+  expect(saved.stats.xp).toBeGreaterThanOrEqual(20);
+  await page.reload();
+  await expect(page.getByTestId('reading-list')).toBeVisible();
+  await expect(page.getByTestId('story-card-asa')).toContainText('Lue');
+});
+
 test('synchronisation : deux appareils fusionnent leurs progressions', async ({ browser }) => {
   test.setTimeout(60000);
   const email = 'e2e-sync@example.com';

@@ -4,7 +4,7 @@
 <meta charset='utf-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
 <meta name='theme-color' content='#58cc02'>
-<meta name='description' content='Kotoba — apprends le vocabulaire japonais avec les kanji, les furigana, le romaji et des phrases de contexte. Plus de 1000 mots, révision espacée, grammaire, import libre et OCR.'>
+<meta name='description' content='Kotoba — apprends le japonais avec plus de 1000 mots, des histoires immersives, des conversations réelles, la prononciation, les furigana et une révision espacée.'>
 <link rel='manifest' href='manifest.webmanifest'>
 <link rel='icon' href='icon.svg' type='image/svg+xml'>
 <link rel='apple-touch-icon' href='icon.svg'>
@@ -23,6 +23,7 @@
 <a href='#apprendre' data-nav='learn'>Apprendre</a>
 <a href='#reviser' data-nav='review'>Réviser <span class='nav-badge' id='dueBadge'>0</span></a>
 <a href='#parler' data-nav='conversation'>Parler</a>
+<a href='#histoires' data-nav='reading'>Histoires</a>
 <a href='#mots' data-nav='library'>Mes mots</a>
 <a href='#grammaire' data-nav='grammar'>Grammaire</a>
 <a href='#importer' data-nav='import'>Importer</a>
@@ -39,6 +40,7 @@
 <section class='view' id='view-learn' aria-label='Apprendre'></section>
 <section class='view' id='view-review' aria-label='Réviser' hidden></section>
 <section class='view' id='view-conversation' aria-label='Parler' hidden></section>
+<section class='view' id='view-reading' aria-label='Histoires immersives' hidden></section>
 <section class='view' id='view-library' aria-label='Mes mots' hidden></section>
 <section class='view' id='view-import' aria-label='Importer' hidden></section>
 <section class='view' id='view-grammar' aria-label='Grammaire' hidden>
@@ -210,6 +212,10 @@
 <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M21 11.5a8.4 8.4 0 0 1-8.5 8.4 9 9 0 0 1-4-.9L3 21l1.9-5.3a8.4 8.4 0 1 1 16.1-4.2z'/></svg>
 <span>Parler</span>
 </a>
+<a href='#histoires' data-nav='reading'>
+<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/><path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/><path d='M8 6h8M8 10h8M8 14h5'/></svg>
+<span>Lire</span>
+</a>
 <a href='#mots' data-nav='library'>
 <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><rect x='3' y='3' width='7' height='7' rx='1.5'/><rect x='14' y='3' width='7' height='7' rx='1.5'/><rect x='3' y='14' width='7' height='7' rx='1.5'/><rect x='14' y='14' width='7' height='7' rx='1.5'/></svg>
 <span>Mes mots</span>
@@ -243,6 +249,7 @@
 <script src='js/pronunciation.js'></script>
 <script src='js/phrase.js'></script>
 <script src='js/conversation.js'></script>
+<script src='js/immersion.js'></script>
 <script src='js/whisper.js'></script>
 <script src='js/motivation.js'></script>
 <script src='js/sync.js'></script>

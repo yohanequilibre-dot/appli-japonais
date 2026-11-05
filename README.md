@@ -52,6 +52,7 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Série, XP, objectif quotidien** et prévisions des sept prochains jours.
 - **Progression longue durée** : la série compte toutes les activités — cartes, phrases, conversations et défi — et le panneau de série affiche un niveau global avec titre japonais, la progression vers le niveau suivant, une mission conversation quotidienne et les paliers 3 / 7 / 30 jours.
 - **Bilan hebdomadaire** : le bouton « Bilan » ouvre les sept derniers jours avec l’XP, les révisions, les répliques travaillées, les sons prononcés, le jour le plus actif et les répliques encore à revoir.
+- **Histoires immersives** : six récits originaux gradués du N5 au N4, avec furigana et romaji, audio ligne par ligne, traduction à la demande, deux questions de compréhension, XP et révision des mots rencontrés. Une histoire du jour est proposée sur l’accueil ; la progression est conservée et synchronisée.
 - **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, mal prononcés, en révision, validés, ultimes, connus, importés), fiche détaillée, modification et suppression des mots importés.
 - **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés », cinq derniers scores dans la fiche et panneau de progression avec moyenne récente, meilleur score et mots à retravailler.
 - **Onglet Grammaire** : ordre de la phrase, particules, formes ます / neutres, passé, négation, questions, compteurs et constructions quotidiennes.
@@ -130,6 +131,7 @@ js/grammar-reading.js  furigana des exemples de grammaire
 js/pronunciation.js    comparaison, score et contrôle du rythme
 js/phrase.js           exercices de phrases : trou, ordre et dictée
 js/conversation.js     situations de conversation, variantes, correction kana/romaji et mode écoute
+js/immersion.js        six histoires graduées, audio, traduction, quiz et vocabulaire
 js/whisper.js          micro et transcription Whisper locale
 js/whisper-worker.js   worker du modèle Whisper (Transformers.js)
 js/sync.js             client de compte et fusion des progressions

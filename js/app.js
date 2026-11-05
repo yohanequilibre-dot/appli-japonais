@@ -13,6 +13,7 @@ const S = window.Kotoba.Store;
 const PH = window.Kotoba.Phrase;
 const SY = window.Kotoba.Sync || null;
 const CONV = window.Kotoba.Conversation || null;
+const IMM = window.Kotoba.Immersion || null;
 const $ = function (sel, root) { return (root || document).querySelector(sel); };
 const $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
@@ -21,7 +22,8 @@ let entries = [];
 let view = 'learn';
 let session = null;
 let conversationState = null;
-const ui = { filter: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null, validationTimer: 0 };
+let immersionState = null;
+const ui = { filter: 'all', storyLevel: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null, validationTimer: 0 };
 let toastTimer = 0;
 let syncBusy = false;
 let syncTimer = 0;
@@ -34,8 +36,8 @@ let glossKeys = null;
 let glossRoles = null;
 const MAX_IMPORT_CHARS = 2 * 1024 * 1024;
 
-const VIEWS = { learn: '#view-learn', review: '#view-review', conversation: '#view-conversation', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
-const FROM_HASH = { apprendre: 'learn', reviser: 'review', parler: 'conversation', mots: 'library', importer: 'import', grammaire: 'grammar' };
+const VIEWS = { learn: '#view-learn', review: '#view-review', conversation: '#view-conversation', reading: '#view-reading', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
+const FROM_HASH = { apprendre: 'learn', reviser: 'review', parler: 'conversation', histoires: 'reading', mots: 'library', importer: 'import', grammaire: 'grammar' };
 
 /* ---------- Utilitaires ---------- */
 function esc(value) {
@@ -711,6 +713,7 @@ function render() {
   if (view === 'learn') renderHome();
   else if (view === 'review') renderReview();
   else if (view === 'conversation') renderConversation();
+  else if (view === 'reading') renderReading();
   else if (view === 'library') renderLibrary();
   else if (view === 'import') renderImport();
   updateChrome();
@@ -1482,6 +1485,7 @@ function renderHome() {
     (window.Kotoba.Motivation ? window.Kotoba.Motivation.streakPanel(state, now) : '') +
     journeyPanelHtml(stages) +
     dailyPlanPanelHtml() +
+    readingPanelHtml() +
     conversationPanelHtml() +
     accountPanelHtml() +
     phrasePanelHtml() +
@@ -1494,6 +1498,257 @@ function renderHome() {
       '<p class="muted small">' + esc(wotd.contextFr) + '</p>' + wordByWordDetails(wotd.context, 'wotd-word-by-word') + '<button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
   }
 $('#view-learn').innerHTML = body;
+}
+
+/* ---------- Histoires immersives ---------- */
+function storyRecord(id) {
+  const map = state.immersion && typeof state.immersion === 'object' ? state.immersion : {};
+  const record = map[id];
+  return record && typeof record === 'object' ? record : null;
+}
+function storyReadCount() {
+  return Object.keys(state.immersion || {}).filter(function (id) {
+    const record = storyRecord(id);
+    return !!(record && record.completedAt);
+  }).length;
+}
+function storyOfDay(now) {
+  if (!IMM || !IMM.stories.length) return null;
+  return IMM.stories[Math.floor((Number(now) || Date.now()) / 86400000) % IMM.stories.length];
+}
+function storyLineText(line) {
+  if (!line) return '';
+  return IMM ? IMM.lineJp(line) : P.stripAnnotations(line.ruby || '');
+}
+function readingPanelHtml() {
+  if (!IMM || !IMM.stories.length) return '';
+  const story = storyOfDay(Date.now());
+  if (!story) return '';
+  const record = storyRecord(story.id);
+  const done = !!(record && record.completedAt);
+  const doneToday = !!(record && record.lastRewardDay === S.todayKey());
+  return '<section class="panel reading-panel" data-testid="reading-panel">' +
+    '<div class="panel-head"><div><p class="eyebrow">Immersion</p><h2>Lis une histoire aujourd’hui</h2>' +
+    '<p>Du japonais qui raconte quelque chose, avec l’audio, la traduction et deux questions.</p></div>' +
+    '<button class="btn ghost small" data-action="go-reading" data-testid="go-reading">Toutes les histoires</button></div>' +
+    '<button class="reading-daily-card tone-' + attr(story.tone || 'mint') + '" data-action="open-story" data-id="' + attr(story.id) + '" data-testid="reading-daily-open">' +
+      '<span class="reading-daily-art" aria-hidden="true">' + esc(story.emoji) + '</span>' +
+      '<span class="reading-daily-copy"><span class="story-level">' + esc(story.level) + ' · ' + story.lines.length + ' lignes · ' + story.minutes + ' min</span>' +
+        '<strong>' + esc(story.title) + '</strong><small lang="ja">' + esc(IMM.plain(story.titleJp)) + '</small>' +
+        '<span class="reading-daily-desc">' + esc(story.description) + '</span></span>' +
+      '<span class="reading-daily-cta">' + (done ? (doneToday ? 'Lue aujourd’hui ✓' : 'Relire →') : 'Lire →') + '</span></button>' +
+    '<p class="hint">' + storyReadCount() + ' / ' + IMM.stories.length + ' histoires lues · chaque histoire terminée rapporte de l’XP.</p></section>';
+}
+function renderReading() {
+  const host = $('#view-reading');
+  if (!host) return;
+  if (!IMM) {
+    host.innerHTML = '<div class="panel"><h2>Histoires indisponibles</h2><p>Le module d’immersion n’a pas pu être chargé. Recharge la page.</p></div>';
+    return;
+  }
+  const story = immersionState ? IMM.storyById(immersionState.id) : null;
+  host.innerHTML = story ? storyReaderHtml(story) : readingListHtml();
+}
+function readingListHtml() {
+  const levels = [['all', 'Toutes'], ['N5', 'N5'], ['N5+', 'N5+'], ['N4', 'N4']];
+  const chips = levels.map(function (level) {
+    return '<button class="chip' + (ui.storyLevel === level[0] ? ' active' : '') + '" data-action="story-filter" data-level="' + attr(level[0]) + '">' + level[1] + '</button>';
+  }).join('');
+  const stories = IMM.stories.filter(function (story) { return ui.storyLevel === 'all' || story.level === ui.storyLevel; });
+  const cards = stories.map(storyCardHtml).join('');
+  return '<section class="panel reading-hero" data-testid="reading-list">' +
+    '<div class="reading-hero-copy"><p class="eyebrow">Immersion guidée</p><h2>Lis du japonais qui raconte quelque chose</h2>' +
+    '<p class="lead">Six histoires originales, du N5 au N4. Écoute chaque ligne, affiche la traduction quand tu en as besoin, puis vérifie ce que tu as compris.</p></div>' +
+    '<div class="reading-hero-stats"><b>' + IMM.stories.length + '</b><span>histoires</span><small>' + storyReadCount() + ' lue' + (storyReadCount() === 1 ? '' : 's') + '</small></div></div>' +
+    '<div class="reading-toolbar"><div class="chips">' + chips + '</div><span class="hint">Une histoire = quelques minutes de vrai japonais.</span></div>' +
+    '<div class="story-grid">' + cards + '</div>' +
+    '<section class="panel reading-how"><div class="panel-head"><div><p class="eyebrow">Comment lire</p><h2>Le bon niveau de difficulté</h2></div></div>' +
+    '<div class="reading-how-grid"><div><b>1</b><strong>Lis sans traduire</strong><span>Cherche le verbe à la fin et repère les particules.</span></div>' +
+    '<div><b>2</b><strong>Écoute et répète</strong><span>Une ligne, une voix : ralentis avec le bouton 🐢.</span></div>' +
+    '<div><b>3</b><strong>Vérifie</strong><span>Deux questions pour transformer la lecture en mémoire.</span></div></div></section>';
+}
+function storyCardHtml(story) {
+  const record = storyRecord(story.id);
+  const done = !!(record && record.completedAt);
+  const best = record && record.total ? ' · ' + record.bestScore + '/' + record.total : '';
+  return '<button class="story-card tone-' + attr(story.tone || 'mint') + (done ? ' is-read' : '') + '" data-action="open-story" data-id="' + attr(story.id) + '" data-testid="story-card-' + attr(story.id) + '">' +
+    '<span class="story-card-top"><span class="story-emoji" aria-hidden="true">' + esc(story.emoji) + '</span><span class="story-level">' + esc(story.level) + '</span></span>' +
+    '<strong>' + esc(story.title) + '</strong><span class="story-card-jp" lang="ja">' + esc(IMM.plain(story.titleJp)) + '</span>' +
+    '<span class="story-card-desc">' + esc(story.description) + '</span>' +
+    '<span class="story-card-meta"><span>' + story.lines.length + ' lignes · ' + story.minutes + ' min</span><span class="' + (done ? 'story-done' : '') + '">' + (done ? 'Lue ✓' + best : 'À découvrir') + '</span></span></button>';
+}
+function storyReaderHtml(story) {
+  if (!story) { immersionState = null; renderReading(); return ''; }
+  const shownAll = !!immersionState.showAll;
+  const lines = story.lines.map(function (line, index) {
+    const shown = shownAll || !!immersionState.translations[index];
+    return '<div class="story-line" data-testid="story-line-' + index + '">' +
+      '<div class="story-line-main"><p class="story-jp" lang="ja">' + rubyHtml(line.ruby, state.settings.furigana) + '</p>' +
+      '<div class="story-line-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(storyLineText(line)) + '" aria-label="Écouter la ligne ' + (index + 1) + '">🔊</button>' +
+      '<button class="btn ghost small" data-action="story-translation" data-index="' + index + '" data-testid="story-translation-' + index + '" aria-expanded="' + (shown ? 'true' : 'false') + '">' + (shown ? 'Masquer' : 'Traduire') + '</button></div></div>' +
+      (shown ? '<p class="story-fr" data-testid="story-fr-' + index + '">' + esc(line.fr) + '</p>' : '') + '</div>';
+  }).join('');
+  return '<section class="panel story-reader" data-testid="story-reader">' +
+    '<div class="story-reader-top"><button class="btn ghost small" data-action="close-story" data-testid="story-close">← Toutes les histoires</button><span class="story-level">' + esc(story.level) + ' · ' + story.minutes + ' min</span></div>' +
+    '<div class="story-reader-head tone-' + attr(story.tone || 'mint') + '"><span class="story-reader-emoji" aria-hidden="true">' + esc(story.emoji) + '</span><div><p class="eyebrow">Histoire ' + story.lines.length + ' lignes</p><h2>' + esc(story.title) + '</h2><p class="story-reader-jp" lang="ja">' + esc(IMM.plain(story.titleJp)) + '</p><p class="story-scene">' + esc(story.scene) + '</p></div></div>' +
+    '<div class="story-reader-actions"><button class="btn primary" data-action="story-audio-all" data-testid="story-audio-all">🔊 Écouter l’histoire</button><button class="btn ghost" data-action="story-translations-all" data-testid="story-translations-all">' + (shownAll ? 'Masquer les traductions' : 'Afficher les traductions') + '</button></div>' +
+    '<div class="story-lines">' + lines + '</div>' +
+    '<div class="story-reader-foot"><button class="btn primary" data-action="story-quiz-open" data-testid="story-quiz-start">🧠 Vérifier ma compréhension</button><span class="hint">Deux questions, sans stress : relis une ligne si besoin.</span></div>' +
+    storyQuizHtml(story) + storyFocusHtml(story) + '</section>';
+}
+function storyQuizHtml(story) {
+  if (!immersionState || (!immersionState.quizOpen && !immersionState.result)) return '';
+  const result = immersionState.result;
+  const answered = story.questions.filter(function (_, index) { return immersionState.answers[index] != null; }).length;
+  const questions = story.questions.map(function (question, qi) {
+    const options = question.options.map(function (option, oi) {
+      const chosen = Number(immersionState.answers[qi]) === oi;
+      let cls = 'story-option' + (chosen ? ' selected' : '');
+      if (result) {
+        if (oi === question.answer) cls += ' correct';
+        else if (chosen) cls += ' wrong';
+      }
+      return '<button class="' + cls + '" data-action="story-option" data-question="' + qi + '" data-option="' + oi + '" data-testid="story-option-' + qi + '-' + oi + '"' + (result ? ' disabled' : '') + ' aria-pressed="' + (chosen ? 'true' : 'false') + '">' + esc(option) + '</button>';
+    }).join('');
+    return '<div class="story-question" data-testid="story-question-' + qi + '"><p><b>' + (qi + 1) + '.</b> ' + esc(question.q) + '</p><div class="story-options">' + options + '</div>' +
+      (result ? '<p class="story-explanation ' + (result.results[qi] ? 'good' : 'bad') + '">' + (result.results[qi] ? '✓ ' : '✗ ') + esc(question.explain) + '</p>' : '') + '</div>';
+  }).join('');
+  const resultHtml = result
+    ? '<div class="story-result ' + (result.score === result.total ? 'good' : 'warn') + '" data-testid="story-result"><div class="story-result-score"><b>' + result.score + ' / ' + result.total + '</b><span>bonnes réponses</span></div><div><p>' + (result.score === result.total ? 'Tu as tout compris. Continue avec une histoire du même niveau, ou relis celle-ci à voix haute.' : 'Ce n’est pas grave : relis les lignes et réessaie. Comprendre une histoire, c’est déjà parler japonais.') + '</p>' + (result.reward ? '<span class="story-reward">+' + result.reward + ' XP</span>' : '<span class="hint">Histoire déjà récompensée aujourd’hui.</span>') + '</div><button class="btn ghost small" data-action="story-quiz-retry" data-testid="story-quiz-retry">Recommencer le quiz</button></div>'
+    : '<div class="story-quiz-actions"><button class="btn primary" data-action="story-quiz-submit" data-testid="story-quiz-submit"' + (answered === story.questions.length ? '' : ' disabled') + '>Valider mes réponses</button><span class="hint">' + answered + ' / ' + story.questions.length + ' réponse' + (story.questions.length === 1 ? '' : 's') + ' sélectionnée' + (answered === 1 ? '' : 's') + '.</span></div>';
+  return '<section class="story-quiz" id="storyQuiz" data-testid="story-quiz"><div class="story-quiz-head"><div><p class="eyebrow">Compréhension</p><h3>As-tu suivi l’histoire ?</h3></div><span class="story-quiz-count">' + answered + ' / ' + story.questions.length + '</span></div>' + questions + resultHtml + '</section>';
+}
+function storyFocusHtml(story) {
+  const focus = Array.isArray(story.focus) ? story.focus : [];
+  if (!focus.length) return '';
+  const matched = focusEntriesForStory(story);
+  const chips = focus.map(function (item) {
+    const entry = storyEntryForFocus(item);
+    return entry
+      ? '<button class="story-focus-chip" data-action="detail" data-id="' + attr(entry.id) + '">' + esc(item.jp) + '<small>' + esc(item.fr) + '</small></button>'
+      : '<span class="story-focus-chip">' + esc(item.jp) + '<small>' + esc(item.fr) + '</small></span>';
+  }).join('');
+  return '<section class="story-focus" data-testid="story-focus"><div class="story-focus-head"><div><p class="eyebrow">Vocabulaire</p><h3>Les mots de l’histoire</h3></div>' +
+    (matched.length ? '<button class="btn ghost small" data-action="story-review-words" data-id="' + attr(story.id) + '" data-testid="story-review-words">Réviser ces ' + matched.length + ' mots</button>' : '') + '</div>' +
+    '<div class="story-focus-list">' + chips + '</div><p class="hint">Les mots déjà dans ta collection ouvrent leur fiche. Ceux qui manquent restent affichés avec leur sens.</p></section>';
+}
+function storyEntryForFocus(item) {
+  if (!item || !item.jp) return null;
+  const key = normalizeGlossKey(item.jp);
+  return entries.filter(function (entry) {
+    return normalizeGlossKey(entry.jp) === key || normalizeGlossKey(entry.dictionaryForm) === key || normalizeGlossKey(entry.reading) === key;
+  })[0] || null;
+}
+function focusEntriesForStory(story) {
+  const seen = {};
+  return (story.focus || []).map(storyEntryForFocus).filter(function (entry) {
+    if (!entry || seen[entry.id]) return false;
+    seen[entry.id] = true;
+    return true;
+  });
+}
+function openStory(id) {
+  if (!IMM) return;
+  const story = IMM.storyById(id);
+  if (!story) { toast('Histoire introuvable.'); return; }
+  immersionState = { id: story.id, translations: {}, showAll: false, quizOpen: false, answers: {}, result: null };
+  try { history.replaceState(null, '', '#histoires'); } catch (e) { location.hash = 'histoires'; }
+  showView('reading');
+}
+function closeStory() {
+  immersionState = null;
+  renderReading();
+  window.scrollTo(0, 0);
+}
+function goReading() {
+  immersionState = null;
+  try { history.replaceState(null, '', '#histoires'); } catch (e) { location.hash = 'histoires'; }
+  showView('reading');
+}
+function toggleStoryTranslation(index) {
+  if (!immersionState || !IMM) return;
+  const story = IMM.storyById(immersionState.id);
+  if (!story) return;
+  const idx = Number(index);
+  if (!isFinite(idx) || idx < 0 || idx >= story.lines.length) return;
+  if (immersionState.showAll) {
+    immersionState.showAll = false;
+    story.lines.forEach(function (_, i) { immersionState.translations[i] = true; });
+  }
+  immersionState.translations[idx] = !immersionState.translations[idx];
+  renderReading();
+}
+function toggleAllStoryTranslations() {
+  if (!immersionState || !IMM) return;
+  const story = IMM.storyById(immersionState.id);
+  if (!story) return;
+  immersionState.showAll = !immersionState.showAll;
+  immersionState.translations = {};
+  if (immersionState.showAll) story.lines.forEach(function (_, i) { immersionState.translations[i] = true; });
+  renderReading();
+}
+function openStoryQuiz() {
+  if (!immersionState) return;
+  immersionState.quizOpen = true;
+  renderReading();
+  setTimeout(function () { const quiz = $('#storyQuiz'); if (quiz) quiz.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 40);
+}
+function chooseStoryOption(question, option) {
+  if (!immersionState || immersionState.result) return;
+  const qi = Number(question), oi = Number(option);
+  if (!isFinite(qi) || !isFinite(oi)) return;
+  immersionState.answers[qi] = oi;
+  renderReading();
+  setTimeout(function () { const quiz = $('#storyQuiz'); if (quiz) quiz.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 10);
+}
+function submitStoryQuiz() {
+  if (!immersionState || !IMM) return;
+  const story = IMM.storyById(immersionState.id);
+  if (!story) return;
+  const answered = story.questions.filter(function (_, index) { return immersionState.answers[index] != null; }).length;
+  if (answered !== story.questions.length) { toast('Réponds aux deux questions avant de valider.'); return; }
+  const result = IMM.scoreStory(story, immersionState.answers);
+  const now = Date.now();
+  const previous = storyRecord(story.id) || {};
+  const first = !previous.completedAt;
+  const day = S.todayKey(now);
+  const reward = first ? 20 : (previous.lastRewardDay === day ? 0 : 5);
+  if (reward) S.addXp(state, reward, now);
+  state.immersion = state.immersion && typeof state.immersion === 'object' ? state.immersion : {};
+  state.immersion[story.id] = {
+    completedAt: previous.completedAt || now,
+    lastAt: now,
+    bestScore: Math.max(Number(previous.bestScore) || 0, result.score),
+    total: result.total,
+    attempts: (Number(previous.attempts) || 0) + 1,
+    lastRewardDay: reward ? day : (previous.lastRewardDay || '')
+  };
+  immersionState.result = { score: result.score, total: result.total, results: result.results, reward: reward, first: first };
+  persist();
+  updateChrome();
+  if (reward && window.Kotoba.Motivation) window.Kotoba.Motivation.celebrate((first ? 'Première histoire terminée : +20 XP' : 'Histoire relue : +5 XP') + ' 📖');
+  renderReading();
+  setTimeout(function () { const box = $('[data-testid="story-result"]'); if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
+}
+function retryStoryQuiz() {
+  if (!immersionState) return;
+  immersionState.result = null;
+  immersionState.answers = {};
+  renderReading();
+  setTimeout(function () { const quiz = $('#storyQuiz'); if (quiz) quiz.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
+}
+function speakStory() {
+  if (!immersionState || !IMM) return;
+  const story = IMM.storyById(immersionState.id);
+  if (story) speakSequence(story.lines.map(storyLineText));
+}
+function startStoryReview(id) {
+  if (!IMM) return;
+  const story = IMM.storyById(id);
+  if (!story) return;
+  const matched = focusEntriesForStory(story).slice(0, 10);
+  if (!matched.length) { toast('Ces mots ne sont pas encore dans ta collection. Tu peux les importer depuis l’onglet Importer.'); return; }
+  openSession('story', matched.map(function (entry) { return wordTask(entry, 'recall'); }));
 }
 
 /* ---------- Réviser ---------- */
@@ -1906,6 +2161,12 @@ function weeklyReportHtml(now) {
     totalConversations += conversations;
     days.push({ key: key, label: labels[new Date(t).getDay()], full: fullDays[new Date(t).getDay()], xp: xp, reviews: reviews, conversations: conversations, today: key === S.todayKey(now) });
   }
+  let storiesRead = 0;
+  Object.keys(state.immersion || {}).forEach(function (id) {
+    const item = state.immersion[id];
+    const t = Number(item && (item.lastAt || item.completedAt)) || 0;
+    if (t >= start && t <= now) storiesRead++;
+  });
   let pronCount = 0, pronScore = 0;
   entries.forEach(function (entry) {
     pronunciations(entry).forEach(function (item) {
@@ -1946,8 +2207,8 @@ function weeklyReportHtml(now) {
       '<div class="weekly-metric" data-testid="weekly-conversations"><span aria-hidden="true">💬</span><strong>' + totalConversations + '</strong><small>réplique' + (totalConversations === 1 ? '' : 's') + ' travaillée' + (totalConversations === 1 ? '' : 's') + '</small></div>' +
       '<div class="weekly-metric" data-testid="weekly-pronunciation"><span aria-hidden="true">🎙️</span><strong>' + (pronCount ? pronAverage + ' %' : '—') + '</strong><small>' + (pronCount ? pronCount + ' son' + (pronCount === 1 ? '' : 's') + ' travaillé' + (pronCount === 1 ? '' : 's') : 'aucun son ce cycle') + '</small></div>' +
     '</div>' +
-    '<div class="weekly-insight"><p>' + esc(insight) + '</p>' + (weak ? '<p>🎯 ' + weak + ' réplique' + (weak === 1 ? '' : 's') + ' encore à revoir.</p>' : '') + '</div>' +
-    '<p class="hint">Ce bilan se met à jour après chaque révision, conversation ou séance de prononciation.</p>' +
+    '<div class="weekly-insight"><p>' + esc(insight) + '</p>' + (storiesRead ? '<p>📖 ' + storiesRead + ' histoire' + (storiesRead === 1 ? '' : 's') + ' lue' + (storiesRead === 1 ? '' : 's') + ' cette semaine.</p>' : '') + (weak ? '<p>🎯 ' + weak + ' réplique' + (weak === 1 ? '' : 's') + ' encore à revoir.</p>' : '') + '</div>' +
+    '<p class="hint">Ce bilan se met à jour après chaque révision, conversation, histoire ou séance de prononciation.</p>' +
     '</div>';
 }
 function openWeeklyReport() {
@@ -2914,6 +3175,7 @@ function applySyncedState(next) {
   state.settings = Object.assign({}, state.settings, next.settings || {});
   state.flags = Object.assign({}, state.flags, next.flags || {});
   if (next.conversationReview && typeof next.conversationReview === 'object') state.conversationReview = next.conversationReview;
+  if (next.immersion && typeof next.immersion === 'object') state.immersion = next.immersion;
   if (next.createdAt) state.createdAt = Math.min(state.createdAt || next.createdAt, next.createdAt);
   if (next.version) state.version = next.version;
   entries = buildEntries();
@@ -3198,7 +3460,7 @@ const nav = event.target.closest ? event.target.closest('[data-nav]') : null;
 if (nav) {
 event.preventDefault();
 const name = nav.getAttribute('data-nav');
-const hashes = { learn: '#apprendre', review: '#reviser', conversation: '#parler', library: '#mots', import: '#importer', grammar: '#grammaire' };
+const hashes = { learn: '#apprendre', review: '#reviser', conversation: '#parler', reading: '#histoires', library: '#mots', import: '#importer', grammar: '#grammaire' };
 const hash = hashes[name];
 if (name === 'conversation') { stopConversationVoice(); conversationState = null; }
 if (hash) { try { history.replaceState(null, '', hash); } catch (err) { location.hash = hash.slice(1); } }
@@ -3226,6 +3488,18 @@ return;
     case 'conversation-voice': startConversationVoice(); break;
     case 'random-conversation': randomConversation(); break;
     case 'close-conversation': closeConversation(); break;
+    case 'go-reading': goReading(); break;
+    case 'open-story': openStory(id); break;
+    case 'close-story': closeStory(); break;
+    case 'story-filter': ui.storyLevel = el.getAttribute('data-level') || 'all'; renderReading(); break;
+    case 'story-translation': toggleStoryTranslation(el.getAttribute('data-index')); break;
+    case 'story-translations-all': toggleAllStoryTranslations(); break;
+    case 'story-audio-all': speakStory(); break;
+    case 'story-quiz-open': openStoryQuiz(); break;
+    case 'story-option': chooseStoryOption(el.getAttribute('data-question'), el.getAttribute('data-option')); break;
+    case 'story-quiz-submit': submitStoryQuiz(); break;
+    case 'story-quiz-retry': retryStoryQuiz(); break;
+    case 'story-review-words': startStoryReview(id); break;
     case 'start-today': startDailyPlan(); break;
     case 'start-phrase': startPhraseSession(el.getAttribute('data-type')); break;
     case 'phrase-token': choosePhraseToken(el.getAttribute('data-token')); break;
@@ -3370,6 +3644,7 @@ function onInput(event) {
 function onKeydown(event) {
   primeSpeech();
   if (!session && view === 'conversation' && conversationState && event.key === 'Escape') { closeConversation(); return; }
+  if (!session && view === 'reading' && immersionState && event.key === 'Escape') { closeStory(); return; }
   const modal = $('#modal');
   if (modal && !modal.hidden && event.key === 'Escape') { closeModal(); return; }
   if (session) {
