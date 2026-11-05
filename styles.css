@@ -1254,6 +1254,9 @@ will-change: transform, opacity;
 .conversation-bubble .btn { margin-top: 12px; }
 .conversation-task { padding-top: 16px; border-top: 1px solid var(--line); }
 .conversation-task h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.conversation-task-card .conversation-bubble { margin: 12px 0 0; }
+.conversation-task-card .conversation-task { padding-top: 14px; }
+.conversation-task-card .conversation-form { margin-top: 10px; }
 .conversation-form { display: flex; align-items: stretch; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .conversation-voice-row { display: flex; flex: 1 0 100%; align-items: center; gap: 10px; flex-wrap: wrap; }
 .conversation-voice-row .btn.active { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); }

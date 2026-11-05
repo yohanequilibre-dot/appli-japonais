@@ -721,20 +721,46 @@ function route() {
 }
 
 /* ---------- Accueil ---------- */
+function dailyConversationTasks(limit) {
+  if (!CONV) return [];
+  const out = [];
+  const max = limit == null ? 2 : Math.max(0, Math.floor(Number(limit) || 0));
+  conversationReviewGroups().forEach(function (group) {
+    group.items.forEach(function (item) {
+      if (out.length >= max) return;
+      const turn = group.scenario.turns[item.turn];
+      if (!turn) return;
+      out.push({
+        entry: null,
+        mode: 'conversation',
+        conversationScenario: group.scenario,
+        conversationTurnIndex: item.turn,
+        conversationTurn: turn
+      });
+    });
+  });
+  return out;
+}
 function dailyPlanPanelHtml() {
   const c = S.counts(entries, state, Date.now());
+  const conversationCount = Math.min(2, conversationReviewCount());
+  const hasPhrases = entries.some(function (entry) { return !!(entry && entry.context); });
   const parts = [];
+  if (conversationCount) parts.push(conversationCount + ' conversation' + (conversationCount === 1 ? '' : 's'));
   if (c.due) parts.push(Math.min(8, c.due) + ' révision' + (Math.min(8, c.due) === 1 ? '' : 's'));
   if (c.new) parts.push(Math.min(3, c.new) + ' nouveau' + (Math.min(3, c.new) === 1 ? '' : 'x') + ' mot' + (Math.min(3, c.new) === 1 ? '' : 's'));
   if (c.due >= 2) parts.push('1 compréhension');
   if (c.due >= 3) parts.push('1 production');
-  parts.push('2 phrases');
-  parts.push('1 prononciation');
+  if (hasPhrases) parts.push('2 phrases');
+  if (entries.length) parts.push('1 prononciation');
+  const steps = [];
+  if (conversationCount) steps.push('Conversation');
+  steps.push('Mots', 'Compréhension', 'Production', 'Phrases', 'Bilan');
   return '<section class="panel today-panel" data-testid="today-panel">' +
     '<div class="panel-head"><div><p class="eyebrow">Parcours guidé</p><h2>Ta session du jour</h2>' +
-    '<p>Un seul parcours : révisions, compréhension, production, phrases et prononciation. ' + esc(parts.join(' · ')) + '.</p></div>' +
+    '<p>Un seul parcours : ' + esc(parts.join(' · ')) + '.</p></div>' +
     '<button class="btn primary" data-action="start-today" data-testid="start-today">Commencer</button></div>' +
-    '<div class="today-steps"><span>Mots</span><span>Compréhension</span><span>Production</span><span>Phrases</span><span>Bilan</span></div></section>';
+    '<div class="today-steps">' + steps.map(function (step) { return '<span>' + esc(step) + '</span>'; }).join('') + '</div></section>';
 }
 function phrasePanelHtml() {
   if (!entries.some(function (entry) { return !!(entry && entry.context); })) return '';
@@ -1021,6 +1047,85 @@ function conversationFeedbackHtml(turn, last) {
     (alternatives.length ? '<details class="conv-alt"><summary>Autres formulations acceptées</summary><ul><li lang="ja">' + alternatives.map(esc).join('</li><li lang="ja">') + '</li></ul></details>' : '') +
     '<div class="conversation-actions"><button class="btn primary" data-action="next-conversation" data-testid="conversation-next">' + (last ? 'Voir le bilan' : 'Suivant') + '</button>' +
     (!ok ? '<button class="btn ghost" data-action="retry-conversation" data-testid="conversation-retry">Réessayer</button>' : '') + '</div></div>';
+}
+function conversationTaskView() {
+  const task = session && session.task;
+  const scenario = task && task.conversationScenario;
+  const turn = task && task.conversationTurn;
+  if (!scenario || !turn) return '<div class="session-card conversation-task-card" data-testid="conversation-task"><p>Réplique indisponible.</p></div>';
+  if (session.phase === 'feedback') return conversationTaskFeedbackHtml(scenario, turn);
+  return '<div class="session-card conversation-task-card" data-testid="conversation-task">' +
+    '<p class="eyebrow">Conversation · ' + esc(scenario.title) + '</p>' +
+    '<p class="hint">' + esc(scenario.situation) + '</p>' +
+    '<div class="conversation-bubble" data-testid="conversation-task-partner"><div class="conv-speaker"><span aria-hidden="true">' + esc(scenario.emoji) + '</span> ' + esc(scenario.speaker) + ' <small>· ' + esc(scenario.speakerFr) + '</small></div>' +
+    '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
+    '<p class="conv-reading">' + esc(turn.partner.reading) + '</p>' +
+    '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
+    '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '">🔊 Écouter</button></div></div>' +
+    '<div class="conversation-task"><p class="eyebrow">À toi</p><h3>' + esc(turn.task) + '</h3>' +
+    '<p class="hint">Réponds en japonais poli · kana, kanji ou romaji acceptés</p>' +
+    '<form class="conversation-form" data-form="conversation-task">' +
+    '<input id="conversationTaskAnswer" name="answer" class="conversation-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris en japonais ou en romaji…" aria-label="Ta réponse en japonais" data-testid="conversation-task-answer">' +
+    '<button class="btn primary" type="submit" data-testid="conversation-task-submit">Vérifier</button></form></div></div>';
+}
+function conversationTaskAlternativesHtml(turn) {
+  const alternatives = (turn.accepted || []).map(function (item) { return Array.isArray(item) ? item[0] : item; })
+    .filter(function (jp) { return jp && jp !== turn.model.jp; }).slice(0, 3);
+  if (!alternatives.length) return '';
+  return '<details class="conv-alt"><summary>Autres formulations acceptées</summary><ul><li lang="ja">' +
+    alternatives.map(esc).join('</li><li lang="ja">') + '</li></ul></details>';
+}
+function conversationTaskFeedbackHtml(scenario, turn) {
+  const result = session.conversationResult || { good: false, answer: '' };
+  const last = !session.tasks.length;
+  return '<div class="session-card conversation-task-card" data-testid="conversation-task-feedback">' +
+    '<p class="eyebrow">Conversation · ' + esc(scenario.title) + '</p>' +
+    '<div class="conv-verdict">' + (result.good ? '✅ Bonne réponse !' : '💡 Presque !') + '</div>' +
+    '<p class="conv-attempt">Ta réponse : <b lang="ja">' + esc(result.answer) + '</b></p>' +
+    '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
+    '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
+    '<p class="conv-fr">' + esc(turn.model.fr) + '</p><div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
+    '<p class="conv-tip"><b>À retenir :</b> ' + esc(turn.tip) + '</p>' +
+    conversationTaskAlternativesHtml(turn) +
+    (!result.good ? '<p class="hint">Cette réplique reste dans « Tes phrases à revoir ».</p>' : '') +
+    '<div class="conversation-actions"><button class="btn primary" data-action="continue-session" data-testid="session-next">' + (last ? 'Voir le bilan' : 'Continuer') + ' <kbd>Entrée</kbd></button>' +
+    (!result.good ? '<button class="btn ghost" data-action="conversation-task-retry" data-testid="conversation-task-retry">Réessayer</button>' : '') + '</div></div>';
+}
+function submitConversationTask(form) {
+  if (!session || session.mode !== 'conversation' || session.phase !== 'question' || !session.task) return;
+  const input = form.querySelector('input[name="answer"]');
+  const answer = String((input && input.value) || '').trim();
+  if (!answer) { toast('Écris une réponse.'); return; }
+  const task = session.task;
+  const turn = task.conversationTurn;
+  const good = !!(CONV && CONV.checkAnswer(answer, turn.accepted, turn));
+  const xp = S.addXp(state, good ? 10 : 3, Date.now());
+  session.conversationAnswer = answer;
+  session.conversationResult = { good: good, answer: answer };
+  session.done++;
+  if (good) session.correct++;
+  session.xp += xp;
+  session.lastGrade = good ? 'good' : 'again';
+  session.lastXp = xp;
+  session.lastDue = 0;
+  recordConversationReview(task.conversationScenario.id, task.conversationTurnIndex, good);
+  session.phase = 'feedback';
+  persist();
+  flashValidation(good ? 'good' : 'again');
+  toast(good ? '✅ Bonne réponse' : '❌ Réplique à retravailler');
+  renderSession();
+  updateChrome();
+  const next = $('[data-testid="session-next"]');
+  if (next) next.focus();
+}
+function retryConversationTask() {
+  if (!session || session.mode !== 'conversation' || !session.task) return;
+  session.phase = 'question';
+  session.conversationResult = null;
+  session.conversationAnswer = '';
+  session.lastGrade = null;
+  session.lastDue = 0;
+  renderSession();
 }
 function conversationSummaryHtml() {
   const scenario = conversationState.scenario;
@@ -1529,7 +1634,8 @@ function openSession(kind, tasks) {
     kind: kind, tasks: tasks.slice(), current: null, mode: 'recall', task: null, exercise: null,
     phase: 'front', done: 0, correct: 0, xp: 0, total: tasks.length, options: [],
     lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null,
-    phraseSelection: [], phraseResult: null, productionAnswer: ''
+    phraseSelection: [], phraseResult: null, productionAnswer: '',
+    conversationAnswer: '', conversationResult: null
   };
   document.body.style.overflow = 'hidden';
   const root = $('#session');
@@ -1552,6 +1658,8 @@ function startDailyPlan() {
   const now = Date.now();
   const tasks = [];
   const used = {};
+  const conversationTasks = dailyConversationTasks(2);
+  if (conversationTasks[0]) tasks.push(conversationTasks[0]);
   const due = S.dueEntries(entries, state, now).slice(0, 8);
   const activeModes = ['recall', 'comprehension', 'production'];
   due.forEach(function (entry, index) {
@@ -1582,6 +1690,7 @@ function startDailyPlan() {
   if (pronunciationEntry) {
     tasks.push({ entry: pronunciationEntry, mode: 'pronounce', target: pronunciationEntry.context ? 'phrase' : 'word' });
   }
+  if (conversationTasks[1]) tasks.push(conversationTasks[1]);
   if (!tasks.length) { toast('Aucune carte pour la session du jour.'); return; }
   openSession('today', tasks);
 }
@@ -1649,12 +1758,23 @@ renderSession(); return;
   session.phraseSelection = [];
   session.phraseResult = null;
   session.productionAnswer = '';
+  session.conversationAnswer = '';
+  session.conversationResult = null;
   if (session.pronunciationAutoPhrase) {
     session.pronunciationTarget = 'word';
     session.pronunciationAutoPhrase = false;
   }
   if (session.mode === 'phrase') {
     if (!session.exercise) { nextCard(); return; }
+    session.phase = 'question';
+    session.options = [];
+    session.lastGrade = null;
+    session.lastChoice = null;
+    session.total = Math.max(session.total, session.done + session.tasks.length + 1);
+    renderSession();
+    return;
+  }
+  if (session.mode === 'conversation') {
     session.phase = 'question';
     session.options = [];
     session.lastGrade = null;
@@ -1696,7 +1816,7 @@ function renderSession() {
   if (!session) { root.hidden = true; return; }
   root.hidden = false;
   const pct = Math.min(100, Math.round(session.done / Math.max(1, session.total) * 100));
-  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'phrase' ? phraseView() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : (session.mode === 'production' ? productionView() : quizView()))));
+  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'conversation' ? conversationTaskView() : (session.mode === 'phrase' ? phraseView() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : (session.mode === 'production' ? productionView() : quizView())))));
   root.innerHTML = '<div class="session-shell"><div class="session-top"><button class="icon-btn" data-action="quit-session" aria-label="Quitter la session">✕</button>' +
     '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><div class="progress-fill" style="width:' + pct + '%" data-testid="progress"></div></div>' +
     '<span class="session-count">' + session.done + '/' + Math.max(session.done, session.total) + '</span></div><div class="session-body">' + body + '</div></div>';
@@ -1712,6 +1832,9 @@ function renderSession() {
   }
   if (session.mode === 'production' && session.phase === 'question') {
     setTimeout(function () { const input = $('#productionAnswer'); if (input) input.focus(); }, 30);
+  }
+  if (session.mode === 'conversation' && session.phase === 'question') {
+    setTimeout(function () { const input = $('#conversationTaskAnswer'); if (input) input.focus(); }, 30);
   }
 }
 function answerVerdictHtml(st, graded) {
@@ -2454,7 +2577,7 @@ function summaryHtml() {
   const next = S.nextDue(entries, state, Date.now());
 const dailyBonus = (session.kind === 'daily' && state.flags.daily === S.todayKey()) ? '<div class="summary-bonus" data-testid="daily-bonus">Défi du jour relevé : +20 XP bonus.</div>' : '';
   return '<div class="summary-card" data-testid="summary"><div class="summary-emoji">🎉</div><h1>Session terminée !</h1><p class="muted">' + (session.done ? 'Bien joué, continue comme ça.' : 'Rien à faire pour l\'instant.') + '</p>' +
-    '<div class="summary-stats"><div><b>' + session.done + '</b><span>cartes</span></div><div><b>' + accuracy + '%</b><span>réussite</span></div><div><b>+' + session.xp + '</b><span>XP</span></div></div>' +
+    '<div class="summary-stats"><div><b>' + session.done + '</b><span>' + (session.kind === 'today' ? 'étapes' : 'cartes') + '</span></div><div><b>' + accuracy + '%</b><span>réussite</span></div><div><b>+' + session.xp + '</b><span>XP</span></div></div>' +
     '<p class="hint">' + (next ? 'Prochaine révision : ' + S.dueLabel(next) + '.' : 'Tu es à jour.') + '</p>' + dailyBonus + '<div class="summary-actions">' +
     '<button class="btn primary" data-action="finish-session" data-testid="finish-session">Retour à l\'accueil</button>' +
     (c.due ? '<button class="btn ghost" data-action="start-again" data-testid="start-again">Réviser encore</button>' : '') + '</div></div>';
@@ -2882,6 +3005,7 @@ return;
     case 'retry-missed-conversation': retryMissedConversation(); break;
     case 'review-conversation-misses': reviewConversationMisses(id); break;
     case 'conversation-hint': toggleConversationHint(); break;
+    case 'conversation-task-retry': retryConversationTask(); break;
     case 'toggle-conversation-listen': toggleConversationListen(); break;
     case 'reveal-conversation': revealConversation(); break;
     case 'conversation-voice': startConversationVoice(); break;
@@ -2960,6 +3084,12 @@ function onSubmit(event) {
     submitConversation(conversationForm);
     return;
   }
+  const conversationTaskForm = event.target.closest ? event.target.closest('[data-form="conversation-task"]') : null;
+  if (conversationTaskForm) {
+    event.preventDefault();
+    submitConversationTask(conversationTaskForm);
+    return;
+  }
   const productionForm = event.target.closest ? event.target.closest('[data-form="production"]') : null;
   if (productionForm) {
     event.preventDefault();
@@ -3032,6 +3162,10 @@ function onKeydown(event) {
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     const onButton = event.target && event.target.closest && event.target.closest('button');
     if (onButton && (event.key === 'Enter' || event.key === ' ')) return;
+    if (session.mode === 'conversation') {
+      if (session.phase === 'feedback' && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); nextCard(); }
+      return;
+    }
     if (session.mode === 'phrase') {
       if (session.phase === 'feedback' && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); nextCard(); }
       return;

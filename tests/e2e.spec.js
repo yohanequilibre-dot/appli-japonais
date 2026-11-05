@@ -827,6 +827,38 @@ test('session du jour : lance un parcours guidé', async ({ page }) => {
   await expect(page.locator('#session [role="progressbar"]')).toHaveAttribute('aria-valuenow', '0');
 });
 
+test('session du jour : révise une réplique de conversation', async ({ page }) => {
+  await page.evaluate(function () {
+    const now = Date.now();
+    localStorage.setItem('kotoba.v3', JSON.stringify({
+      version: 3,
+      createdAt: now,
+      entries: {},
+      progress: {},
+      stats: {},
+      settings: {},
+      flags: {},
+      conversationReview: {
+        'meet:0': { scenario: 'meet', turn: 0, missedAt: now, clearedAt: 0, count: 1 }
+      }
+    }));
+  });
+  await page.reload();
+  await expect(page.getByTestId('today-panel')).toContainText('1 conversation');
+  await page.getByTestId('start-today').click();
+  await expect(page.getByTestId('conversation-task')).toBeVisible();
+  await expect(page.getByTestId('conversation-task-partner')).toContainText('お名前は何ですか');
+  await page.getByTestId('conversation-task-answer').fill('私はレアです。');
+  await page.getByTestId('conversation-task-submit').click();
+  await expect(page.getByTestId('conversation-task-feedback')).toContainText('Bonne réponse');
+  const review = await page.evaluate(function () {
+    const state = JSON.parse(localStorage.getItem('kotoba.v3'));
+    return state.conversationReview['meet:0'];
+  });
+  expect(review.clearedAt).toBeGreaterThan(0);
+  expect(review.clearedAt).toBeGreaterThanOrEqual(review.missedAt);
+});
+
 test('synchronisation : deux appareils fusionnent leurs progressions', async ({ browser }) => {
   test.setTimeout(60000);
   const email = 'e2e-sync@example.com';
