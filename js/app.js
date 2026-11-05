@@ -1321,6 +1321,9 @@ function recordConversationReview(scenarioId, turnIndex, ok) {
   if (!state.flags || typeof state.flags !== 'object') state.flags = {};
   state.flags.conversationDay = S.todayKey(now);
   S.touchDay(state, now);
+  if (!state.stats.conversation || typeof state.stats.conversation !== 'object') state.stats.conversation = {};
+  const day = S.todayKey(now);
+  state.stats.conversation[day] = (Number(state.stats.conversation[day]) || 0) + 1;
   if (ok) {
     if (previous) previous.clearedAt = Math.max(now, Number(previous.clearedAt) || 0);
   } else {
@@ -1881,6 +1884,74 @@ updateChrome();
 const goal = state.settings.goal || 50;
 const message = beforeXp < goal && todayXp() >= goal ? 'Objectif du jour atteint + défi relevé ! +20 XP' : 'Défi du jour relevé ! +20 XP';
 if (window.Kotoba.Motivation) window.Kotoba.Motivation.celebrate(message); else toast(message);
+}
+function weeklyReportHtml(now) {
+  now = Number(now) || Date.now();
+  const dayMs = 86400000;
+  const base = new Date(now);
+  base.setHours(0, 0, 0, 0);
+  const start = base.getTime() - 6 * dayMs;
+  const labels = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  const fullDays = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  const days = [];
+  let totalXp = 0, totalReviews = 0, totalConversations = 0;
+  for (let i = 0; i < 7; i++) {
+    const t = start + i * dayMs;
+    const key = S.todayKey(t);
+    const xp = Math.max(0, Number(state.stats.daily && state.stats.daily[key]) || 0);
+    const reviews = Math.max(0, Number(state.stats.history && state.stats.history[key]) || 0);
+    const conversations = Math.max(0, Number(state.stats.conversation && state.stats.conversation[key]) || 0);
+    totalXp += xp;
+    totalReviews += reviews;
+    totalConversations += conversations;
+    days.push({ key: key, label: labels[new Date(t).getDay()], full: fullDays[new Date(t).getDay()], xp: xp, reviews: reviews, conversations: conversations, today: key === S.todayKey(now) });
+  }
+  let pronCount = 0, pronScore = 0;
+  entries.forEach(function (entry) {
+    pronunciations(entry).forEach(function (item) {
+      const t = Number(item && item.t) || 0;
+      if (t < start || t > now) return;
+      pronCount++;
+      pronScore += Math.max(0, Math.min(100, Number(item && item.score) || 0));
+    });
+  });
+  const pronAverage = pronCount ? Math.round(pronScore / pronCount) : 0;
+  const maxXp = Math.max(1, days.reduce(function (max, day) { return Math.max(max, day.xp); }, 0));
+  const activeDays = days.filter(function (day) { return day.xp > 0 || day.reviews > 0 || day.conversations > 0; }).length;
+  const top = days.reduce(function (best, day) { return day.xp > best.xp ? day : best; }, days[0]);
+  let weak = 0;
+  Object.keys(state.conversationReview || {}).forEach(function (key) {
+    const item = state.conversationReview[key];
+    if (item && Number(item.missedAt) > Number(item.clearedAt)) weak++;
+  });
+  const streak = window.Kotoba.Motivation ? window.Kotoba.Motivation.currentStreak(state, now) : (Number(state.stats.streak) || 0);
+  const range = new Date(start).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' → ' + new Date(now).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const bars = days.map(function (day) {
+    const height = day.xp ? Math.max(8, Math.round(day.xp / maxXp * 100)) : 3;
+    return '<div class="weekly-bar-col' + (day.today ? ' today' : '') + '"><span class="weekly-bar-value">' + (day.xp || '') + '</span><div class="weekly-bar-track"><span class="weekly-bar" style="height:' + height + '%" title="' + esc(day.full + ' : ' + day.xp + ' XP') + '"></span></div><span class="weekly-bar-label">' + day.label + '</span></div>';
+  }).join('');
+  const activity = totalXp > 0 || totalReviews > 0 || totalConversations > 0;
+  const insight = !activity
+    ? 'Aucune activité ces sept derniers jours. Une carte suffit pour relancer la série.'
+    : top && top.xp
+      ? 'Ton jour le plus actif : ' + top.full + ' (' + top.xp + ' XP).'
+      : 'Tu as travaillé ' + activeDays + ' jour' + (activeDays === 1 ? '' : 's') + ' cette semaine. Une carte suffit pour gagner de l’XP.';
+  return '<div class="weekly-report" data-testid="weekly-report-modal">' +
+    '<div class="weekly-report-head"><div><p class="eyebrow">7 derniers jours</p><h3>Ta semaine en japonais</h3></div><span class="weekly-streak">🔥 ' + streak + ' j</span></div>' +
+    '<p class="hint">' + esc(range) + ' · ' + activeDays + ' jour' + (activeDays === 1 ? '' : 's') + ' actif' + (activeDays === 1 ? '' : 's') + '</p>' +
+    '<div class="weekly-bars" aria-label="XP par jour">' + bars + '</div>' +
+    '<div class="weekly-metrics">' +
+      '<div class="weekly-metric" data-testid="weekly-xp"><span aria-hidden="true">⚡</span><strong>' + totalXp + ' XP</strong><small>gagnés cette semaine</small></div>' +
+      '<div class="weekly-metric" data-testid="weekly-reviews"><span aria-hidden="true">📚</span><strong>' + totalReviews + '</strong><small>révision' + (totalReviews === 1 ? '' : 's') + '</small></div>' +
+      '<div class="weekly-metric" data-testid="weekly-conversations"><span aria-hidden="true">💬</span><strong>' + totalConversations + '</strong><small>réplique' + (totalConversations === 1 ? '' : 's') + ' travaillée' + (totalConversations === 1 ? '' : 's') + '</small></div>' +
+      '<div class="weekly-metric" data-testid="weekly-pronunciation"><span aria-hidden="true">🎙️</span><strong>' + (pronCount ? pronAverage + ' %' : '—') + '</strong><small>' + (pronCount ? pronCount + ' son' + (pronCount === 1 ? '' : 's') + ' travaillé' + (pronCount === 1 ? '' : 's') : 'aucun son ce cycle') + '</small></div>' +
+    '</div>' +
+    '<div class="weekly-insight"><p>' + esc(insight) + '</p>' + (weak ? '<p>🎯 ' + weak + ' réplique' + (weak === 1 ? '' : 's') + ' encore à revoir.</p>' : '') + '</div>' +
+    '<p class="hint">Ce bilan se met à jour après chaque révision, conversation ou séance de prononciation.</p>' +
+    '</div>';
+}
+function openWeeklyReport() {
+  openModal('Ma semaine', weeklyReportHtml(Date.now()));
 }
 function nextCard() {
   if (!session) return;
@@ -3172,6 +3243,7 @@ return;
     case 'finish-session': finishSession(); break;
     case 'start-again': startAgain(); break;
     case 'open-settings': openSettings(); break;
+    case 'weekly-report': openWeeklyReport(); break;
     case 'open-account': openAccount(); break;
     case 'sync-mode': setSyncMode(el.getAttribute('data-mode')); break;
     case 'sync-now': syncCloud(true); break;

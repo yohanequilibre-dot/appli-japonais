@@ -595,6 +595,16 @@ test("synchronisation : sans état distant, l'état local est conservé", functi
 
 test("conversation : l'état par défaut contient le suivi à retravailler", function () {
   assert.deepEqual(Store.defaultState().conversationReview, {});
+  assert.deepEqual(Store.defaultState().stats.conversation, {});
+});
+
+test("synchronisation : réunit les conversations quotidiennes", function () {
+  const local = { stats: { conversation: { "2026-11-04": 2, "2026-11-05": 1 } } };
+  const remote = { stats: { conversation: { "2026-11-04": 3, "2026-11-03": 1 } } };
+  const merged = Sync.mergeStates(local, remote);
+  assert.equal(merged.stats.conversation["2026-11-04"], 3);
+  assert.equal(merged.stats.conversation["2026-11-05"], 1);
+  assert.equal(merged.stats.conversation["2026-11-03"], 1);
 });
 
 test("conversation : accepte japonais, kana et romaji, puis refuse une autre réponse", function () {

@@ -988,6 +988,30 @@ margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line);
 .daily-challenge > div { min-width: 0; }
 .daily-challenge strong { display: block; font-size: .92rem; }
 .daily-challenge span { font-size: .75rem; color: var(--muted); }
+.weekly-report-link { margin-left: auto; }
+.weekly-report-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.weekly-report-head h3 { margin: 2px 0 0; font-size: 1.2rem; }
+.weekly-streak { flex: 0 0 auto; padding: 6px 9px; border-radius: 999px; background: #fff3cd; color: #8a5b00; font-size: .72rem; font-weight: 900; }
+.weekly-bars {
+  display: flex; align-items: stretch; gap: 6px; height: 180px;
+  margin: 14px 0 12px; padding: 10px 8px 0;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+}
+.weekly-bar-col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.weekly-bar-value { height: 14px; color: var(--muted); font-size: .6rem; font-weight: 800; line-height: 1; }
+.weekly-bar-track { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.weekly-bar { width: min(34px, 100%); min-height: 3px; border-radius: 7px 7px 3px 3px; background: linear-gradient(180deg, #a3e635, var(--green)); transition: height .3s ease; }
+.weekly-bar-col.today .weekly-bar { box-shadow: 0 0 0 2px var(--green); }
+.weekly-bar-label { color: var(--muted); font-size: .62rem; font-weight: 900; }
+.weekly-bar-col.today .weekly-bar-label { color: var(--green-dark); }
+.weekly-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.weekly-metric { display: flex; flex-direction: column; gap: 1px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.weekly-metric > span { font-size: 1rem; line-height: 1.1; }
+.weekly-metric strong { font-size: 1.15rem; line-height: 1.2; }
+.weekly-metric small { color: var(--muted); font-size: .68rem; }
+.weekly-insight { margin: 12px 0; padding: 10px 12px; border-radius: 12px; background: var(--green-soft); color: var(--green-dark); font-size: .82rem; font-weight: 700; }
+.weekly-insight p { margin: 0; }
+.weekly-insight p + p { margin-top: 4px; }
 .summary-bonus {
 margin: 14px 0 0; padding: 10px 12px; border-radius: 12px;
 background: #fff3cd; border: 1px solid #f0d38a;

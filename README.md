@@ -51,6 +51,7 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Audio japonais** via la synthèse vocale du navigateur, avec vitesse réglable et bouton lent.
 - **Série, XP, objectif quotidien** et prévisions des sept prochains jours.
 - **Progression longue durée** : la série compte toutes les activités — cartes, phrases, conversations et défi — et le panneau de série affiche un niveau global avec titre japonais, la progression vers le niveau suivant, une mission conversation quotidienne et les paliers 3 / 7 / 30 jours.
+- **Bilan hebdomadaire** : le bouton « Bilan » ouvre les sept derniers jours avec l’XP, les révisions, les répliques travaillées, les sons prononcés, le jour le plus actif et les répliques encore à revoir.
 - **Mes mots** : recherche en français / japonais / romaji, filtres (à réviser, nouveaux, révisés, mal prononcés, en révision, validés, ultimes, connus, importés), fiche détaillée, modification et suppression des mots importés.
 - **Suivi des révisions** : nombre de prononciations, de révisions et de réussites par mot ; filtre « Révisés », cinq derniers scores dans la fiche et panneau de progression avec moyenne récente, meilleur score et mots à retravailler.
 - **Onglet Grammaire** : ordre de la phrase, particules, formes ます / neutres, passé, négation, questions, compteurs et constructions quotidiennes.

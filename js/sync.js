@@ -192,6 +192,7 @@
     out.lastDay = String(left.lastDay || '') > String(right.lastDay || '') ? left.lastDay : right.lastDay;
     out.daily = mergeMap(left.daily, right.daily, function (a, b) { return Math.max(numeric(a), numeric(b)); });
     out.history = mergeMap(left.history, right.history, function (a, b) { return Math.max(numeric(a), numeric(b)); });
+    out.conversation = mergeMap(left.conversation, right.conversation, function (a, b) { return Math.max(numeric(a), numeric(b)); });
     return out;
   }
   function mergeStates(local, remote) {

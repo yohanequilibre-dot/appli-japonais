@@ -306,6 +306,9 @@ await expect(page.getByTestId('daily-bonus')).toContainText('+20 XP');
 await page.getByTestId('finish-session').click();
 await expect(page.getByTestId('streak-panel')).toContainText('1 jour');
 await expect(page.getByTestId('daily-done')).toBeVisible();
+await page.getByTestId('weekly-report').click();
+await expect(page.getByTestId('weekly-xp')).toContainText('50 XP');
+await expect(page.getByTestId('weekly-reviews')).toContainText('3');
 });
 test('prononciation : carte dédiée et lecture du mot', async ({ page }) => {
 await page.evaluate(() => {
@@ -713,6 +716,9 @@ test('conversation : entretient la série et valide la mission du jour', async (
   await page.goto('/#apprendre');
   await expect(page.getByTestId('streak-panel')).toContainText('1 jour');
   await expect(page.getByTestId('conversation-mission-done')).toBeVisible();
+  await page.getByTestId('weekly-report').click();
+  await expect(page.getByTestId('weekly-conversations')).toContainText('1');
+  await expect(page.getByTestId('weekly-report-modal')).not.toContainText('Aucune activité');
 });
 
 test('conversation : se débrouiller au konbini', async ({ page }) => {

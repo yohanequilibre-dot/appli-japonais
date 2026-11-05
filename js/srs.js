@@ -37,7 +37,7 @@
       progress: {},
       stats: {
         xp: 0, reviews: 0, correct: 0, phraseAttempts: 0, phraseCorrect: 0, streak: 0, bestStreak: 0,
-        lastDay: null, daily: {}, history: {}
+        lastDay: null, daily: {}, history: {}, conversation: {}
       },
       settings: { goal: 50, romaji: true, furigana: true, theme: "system", rate: 0.9 },
       flags: {},
@@ -63,6 +63,7 @@
       Object.keys(obj.stats).forEach(function (k) { s.stats[k] = obj.stats[k]; });
       s.stats.daily = (obj.stats.daily && typeof obj.stats.daily === "object") ? obj.stats.daily : {};
       s.stats.history = (obj.stats.history && typeof obj.stats.history === "object") ? obj.stats.history : {};
+      s.stats.conversation = (obj.stats.conversation && typeof obj.stats.conversation === "object") ? obj.stats.conversation : {};
     }
     ["xp", "reviews", "correct", "phraseAttempts", "phraseCorrect", "streak", "bestStreak"].forEach(function (k) {
       s.stats[k] = Number(s.stats[k]) || 0;

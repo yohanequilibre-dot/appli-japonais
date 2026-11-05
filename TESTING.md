@@ -58,6 +58,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 7. **Mobile** : ouvre les outils de développement du navigateur (F12), passe en largeur 390 px. La barre de navigation du bas doit apparaître, sans débordement horizontal.
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
 9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester, y compris après une conversation ou le défi du jour. La progression est dans le `localStorage` de ce navigateur.
+9 bis. **Bilan hebdomadaire** : clique sur « 📊 Bilan » dans le panneau de série. La modale doit afficher les sept derniers jours, l’XP, les révisions, les répliques, les sons et le jour le plus actif. Après une conversation, la ligne « répliques » doit augmenter.
 
 10. **Parcours** : sur l'accueil, « Mon parcours » montre Nouveaux, En révision, Validés (10 révisions) et Ultimes (30). Clique sur une carte pour ouvrir le filtre correspondant dans Mes mots ; la fiche d'un mot affiche sa barre de progression.
 11. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis sur le bouton d’écoute du micro. Commence par le mot : une fois le score validé, le bouton « Valider le mot et prononcer la phrase » ouvre l’étape 2 avec la phrase complète. Tu peux aussi choisir « La phrase » directement. Le niveau audio, le score, l’écart syllabique, les alertes de rythme (petit っ et voyelles longues) et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
@@ -138,6 +139,7 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - l’intégration d’une réplique de conversation à revoir au début de la session du jour, sa réponse orale avec score, et la disparition du suivi après réussite ;
 - la conversation du jour proposée même sans réplique ratée ;
 - la série entretenue par une conversation, le niveau global et la mission conversation ;
+- le bilan hebdomadaire avec l’XP et les révisions du défi ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;
 - les furigana de l’onglet Grammaire et le vocabulaire quotidien ;
 - les 1 000 mots courants, les 60 mots d’escalade et la décomposition mot à mot ;

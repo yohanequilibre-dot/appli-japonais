@@ -88,7 +88,7 @@ return '<section class="panel streak-panel" data-testid="streak-panel">' +
 '<div class="streak-goal"><div class="streak-goal-head"><span>Objectif du jour</span><b>' + xp + ' / ' + goal + ' XP</b></div><div class="mini-bar"><span style="width:' + pct + '%"></span></div>' +
 (xp >= goal ? '<span class="badge known" data-testid="goal-reached">Objectif atteint ✓</span>' : '<span class="hint">' + Math.max(0, goal - xp) + ' XP pour le valider</span>') + '</div>' +
 '<div class="daily-mission' + (spokeToday ? ' done' : '') + '" data-testid="conversation-mission"><div><strong>Mission conversation</strong><span>' + (spokeToday ? 'Une réplique travaillée aujourd’hui.' : 'Une réplique suffit pour garder le rythme.') + '</span></div>' + (spokeToday ? '<span class="badge known" data-testid="conversation-mission-done">Faite ✓</span>' : '<a class="btn ghost small" href="#parler" data-testid="conversation-mission-link">Parler</a>') + '</div>' +
-'<div class="streak-milestones" aria-label="Paliers de série">' + milestones + '</div>' +
+'<div class="streak-milestones" aria-label="Paliers de série">' + milestones + '<button class="btn ghost small weekly-report-link" data-action="weekly-report" data-testid="weekly-report">📊 Bilan</button></div>' +
 '<div class="daily-challenge"><div><strong>Défi du jour</strong><span>3 cartes · +20 XP bonus</span></div>' +
 (done ? '<span class="badge known" data-testid="daily-done">Relevé ✓</span>' : '<button class="btn primary small" data-action="start" data-kind="daily" data-mode="recall" data-testid="daily-challenge">Relever le défi</button>') + '</div></section>';
 }
