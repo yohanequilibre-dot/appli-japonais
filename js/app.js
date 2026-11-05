@@ -1066,7 +1066,111 @@ function conversationTaskView() {
     '<p class="hint">Réponds en japonais poli · kana, kanji ou romaji acceptés</p>' +
     '<form class="conversation-form" data-form="conversation-task">' +
     '<input id="conversationTaskAnswer" name="answer" class="conversation-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris en japonais ou en romaji…" aria-label="Ta réponse en japonais" data-testid="conversation-task-answer">' +
-    '<button class="btn primary" type="submit" data-testid="conversation-task-submit">Vérifier</button></form></div></div>';
+    '<button class="btn primary" type="submit" data-testid="conversation-task-submit">Vérifier</button>' +
+    '<div class="conversation-voice-row"><button class="btn ghost small" type="button" data-action="conversation-task-voice" aria-pressed="false" data-testid="conversation-task-voice">🎙️ Répondre à l’oral</button>' +
+    '<span class="conversation-voice-status" id="conversationTaskVoiceStatus" role="status" aria-live="polite" data-testid="conversation-task-voice-status">Le micro remplit le champ en japonais ; tu peux corriger avant de vérifier.</span></div></form></div></div>';
+}
+function setConversationTaskVoiceStatus(message, tone) {
+  const el = $('#conversationTaskVoiceStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.className = 'conversation-voice-status' + (tone ? ' ' + tone : '');
+}
+function setConversationTaskVoiceButton(listening) {
+  const btn = $('[data-action="conversation-task-voice"]');
+  if (!btn) return;
+  btn.textContent = listening ? '⏹️ Arrêter' : '🎙️ Répondre à l’oral';
+  btn.setAttribute('aria-pressed', listening ? 'true' : 'false');
+  btn.classList.toggle('active', !!listening);
+}
+function stopConversationTaskVoice() {
+  if (!session) return;
+  session.conversationVoiceToken = (session.conversationVoiceToken || 0) + 1;
+  if (session.conversationRecognition) {
+    try { session.conversationRecognition.abort(); } catch (e) { /* ignore */ }
+    session.conversationRecognition = null;
+  }
+  setConversationTaskVoiceButton(false);
+}
+function startConversationTaskVoice() {
+  if (!session || session.mode !== 'conversation' || session.phase !== 'question' || !session.task) return;
+  const button = $('[data-action="conversation-task-voice"]');
+  if (button && button.getAttribute('aria-pressed') === 'true') {
+    stopConversationTaskVoice();
+    setConversationTaskVoiceStatus('Micro arrêté. Tu peux réessayer ou écrire ta réponse.');
+    return;
+  }
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Ctor) {
+    setConversationTaskVoiceStatus('La reconnaissance vocale n’est pas disponible dans ce navigateur. Essaie Chrome ou Edge.', 'error');
+    toast('Réponse orale indisponible dans ce navigateur.');
+    return;
+  }
+  stopConversationTaskVoice();
+  const rec = new Ctor();
+  const token = session.conversationVoiceToken;
+  session.conversationRecognition = rec;
+  rec.lang = 'ja-JP';
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 3;
+  let heard = false;
+  let failed = false;
+  function active() { return session && session.conversationVoiceToken === token; }
+  rec.onstart = function () {
+    if (!active()) return;
+    setConversationTaskVoiceButton(true);
+    setConversationTaskVoiceStatus('🎧 J’écoute… parle en japonais.', 'listening');
+  };
+  rec.onresult = function (event) {
+    if (!active()) return;
+    const results = (event && event.results) || [];
+    let finalText = '';
+    let interimText = '';
+    for (let r = 0; r < results.length; r++) {
+      const result = results[r];
+      if (!result || !result.length) continue;
+      const text = String((result[0] && result[0].transcript) || '');
+      if (result.isFinal) finalText += text;
+      else interimText += text;
+    }
+    const transcript = (finalText || interimText).trim();
+    if (!transcript) return;
+    heard = true;
+    session.conversationVoiceUsed = true;
+    const input = $('#conversationTaskAnswer');
+    if (input) {
+      input.value = transcript;
+      input.focus();
+    }
+    if (finalText.trim()) setConversationTaskVoiceStatus('Transcription reçue. Vérifie, corrige si besoin, puis clique sur Vérifier.');
+    else setConversationTaskVoiceStatus('🎧 J’écoute… parle en japonais.', 'listening');
+  };
+  rec.onerror = function (event) {
+    if (!active()) return;
+    const code = event && event.error;
+    if (code === 'aborted') return;
+    failed = true;
+    const messages = {
+      'not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+      'service-not-allowed': 'Autorise le micro dans les réglages du navigateur, puis réessaie.',
+      'no-speech': 'Je n’ai rien entendu. Rapproche-toi du micro et réessaie.',
+      'audio-capture': 'Aucun micro détecté. Vérifie ton matériel.',
+      'network': 'La reconnaissance vocale a besoin d’une connexion réseau.'
+    };
+    setConversationTaskVoiceStatus(messages[code] || 'La reconnaissance vocale a échoué. Tu peux écrire ta réponse.', 'error');
+  };
+  rec.onend = function () {
+    if (!active()) return;
+    session.conversationRecognition = null;
+    setConversationTaskVoiceButton(false);
+    if (!heard && !failed) setConversationTaskVoiceStatus('Je n’ai rien entendu. Rapproche-toi du micro et réessaie.', 'error');
+  };
+  try { rec.start(); } catch (e) {
+    session.conversationRecognition = null;
+    setConversationTaskVoiceButton(false);
+    setConversationTaskVoiceStatus('Impossible de démarrer le micro. Tu peux écrire ta réponse.', 'error');
+  }
 }
 function conversationTaskAlternativesHtml(turn) {
   const alternatives = (turn.accepted || []).map(function (item) { return Array.isArray(item) ? item[0] : item; })
@@ -1078,10 +1182,11 @@ function conversationTaskAlternativesHtml(turn) {
 function conversationTaskFeedbackHtml(scenario, turn) {
   const result = session.conversationResult || { good: false, answer: '' };
   const last = !session.tasks.length;
-  return '<div class="session-card conversation-task-card" data-testid="conversation-task-feedback">' +
+  return '<div class="session-card conversation-task-card conversation-task-feedback ' + (result.good ? 'good' : 'bad') + '" data-testid="conversation-task-feedback">' +
     '<p class="eyebrow">Conversation · ' + esc(scenario.title) + '</p>' +
     '<div class="conv-verdict">' + (result.good ? '✅ Bonne réponse !' : '💡 Presque !') + '</div>' +
     '<p class="conv-attempt">Ta réponse : <b lang="ja">' + esc(result.answer) + '</b></p>' +
+    (result.pronunciation ? conversationPronunciationHtml(result.pronunciation) : '') +
     '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
     '<p class="conv-fr">' + esc(turn.model.fr) + '</p><div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
@@ -1098,10 +1203,17 @@ function submitConversationTask(form) {
   if (!answer) { toast('Écris une réponse.'); return; }
   const task = session.task;
   const turn = task.conversationTurn;
+  const spoke = !!session.conversationVoiceUsed;
+  stopConversationTaskVoice();
   const good = !!(CONV && CONV.checkAnswer(answer, turn.accepted, turn));
+  let pronunciation = null;
+  if (spoke && good && window.Kotoba.Pronunciation && window.Kotoba.Pronunciation.best) {
+    const result = window.Kotoba.Pronunciation.best([answer], conversationPronunciationEntry(turn));
+    if (result) pronunciation = { score: result.score, good: result.good, tip: result.tip };
+  }
   const xp = S.addXp(state, good ? 10 : 3, Date.now());
   session.conversationAnswer = answer;
-  session.conversationResult = { good: good, answer: answer };
+  session.conversationResult = { good: good, answer: answer, pronunciation: pronunciation, spoken: spoke };
   session.done++;
   if (good) session.correct++;
   session.xp += xp;
@@ -1120,9 +1232,11 @@ function submitConversationTask(form) {
 }
 function retryConversationTask() {
   if (!session || session.mode !== 'conversation' || !session.task) return;
+  stopConversationTaskVoice();
   session.phase = 'question';
   session.conversationResult = null;
   session.conversationAnswer = '';
+  session.conversationVoiceUsed = false;
   session.lastGrade = null;
   session.lastDue = 0;
   renderSession();
@@ -1635,7 +1749,8 @@ function openSession(kind, tasks) {
     phase: 'front', done: 0, correct: 0, xp: 0, total: tasks.length, options: [],
     lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null,
     phraseSelection: [], phraseResult: null, productionAnswer: '',
-    conversationAnswer: '', conversationResult: null
+    conversationAnswer: '', conversationResult: null,
+    conversationVoiceUsed: false, conversationVoiceToken: 0, conversationRecognition: null
   };
   document.body.style.overflow = 'hidden';
   const root = $('#session');
@@ -1743,6 +1858,7 @@ if (window.Kotoba.Motivation) window.Kotoba.Motivation.celebrate(message); else 
 }
 function nextCard() {
   if (!session) return;
+  stopConversationTaskVoice();
   if (!session.tasks.length) {
 session.current = null; session.phase = 'summary';
 if (session.kind === 'daily') claimDaily();
@@ -1760,6 +1876,7 @@ renderSession(); return;
   session.productionAnswer = '';
   session.conversationAnswer = '';
   session.conversationResult = null;
+  session.conversationVoiceUsed = false;
   if (session.pronunciationAutoPhrase) {
     session.pronunciationTarget = 'word';
     session.pronunciationAutoPhrase = false;
@@ -2645,9 +2762,9 @@ function quitSession() {
   if (!session) return;
   if (session.done > 0 && !window.confirm('Quitter la session ? Ta progression est déjà enregistrée.')) return;
   closeSession();
-}
-function closeSession() {
-abortPronunciation();
+}function closeSession() {
+  stopConversationTaskVoice();
+  abortPronunciation();
   session = null;
   const root = $('#session');
   if (root) { root.hidden = true; root.innerHTML = ''; }
@@ -3006,6 +3123,7 @@ return;
     case 'review-conversation-misses': reviewConversationMisses(id); break;
     case 'conversation-hint': toggleConversationHint(); break;
     case 'conversation-task-retry': retryConversationTask(); break;
+    case 'conversation-task-voice': startConversationTaskVoice(); break;
     case 'toggle-conversation-listen': toggleConversationListen(); break;
     case 'reveal-conversation': revealConversation(); break;
     case 'conversation-voice': startConversationVoice(); break;

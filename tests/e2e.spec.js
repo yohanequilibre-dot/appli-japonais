@@ -859,6 +859,53 @@ test('session du jour : révise une réplique de conversation', async ({ page })
   expect(review.clearedAt).toBeGreaterThanOrEqual(review.missedAt);
 });
 
+test('session du jour : répond à l’oral à une réplique de conversation', async ({ page }) => {
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      constructor() { this.lang = ''; this.interimResults = false; this.continuous = false; this.maxAlternatives = 1; }
+      start() {
+        const result = [{ transcript: '私はレアです。' }];
+        result.isFinal = true;
+        const results = [result];
+        setTimeout(() => {
+          if (this.onresult) this.onresult({ results });
+          if (this.onend) this.onend();
+        }, 30);
+      }
+      stop() {}
+      abort() {}
+    }
+    window.SpeechRecognition = FakeRecognition;
+    window.webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.goto('/#apprendre');
+  await page.evaluate(function () {
+    const now = Date.now();
+    localStorage.setItem('kotoba.v3', JSON.stringify({
+      version: 3,
+      createdAt: now,
+      entries: {},
+      progress: {},
+      stats: {},
+      settings: {},
+      flags: {},
+      conversationReview: {
+        'meet:0': { scenario: 'meet', turn: 0, missedAt: now, clearedAt: 0, count: 1 }
+      }
+    }));
+  });
+  await page.reload();
+  await page.getByTestId('start-today').click();
+  await expect(page.getByTestId('conversation-task')).toBeVisible();
+  await page.getByTestId('conversation-task-voice').click();
+  await expect(page.getByTestId('conversation-task-answer')).toHaveValue('私はレアです。');
+  await expect(page.getByTestId('conversation-task-voice-status')).toContainText('Transcription reçue');
+  await page.getByTestId('conversation-task-submit').click();
+  await expect(page.getByTestId('conversation-task-feedback')).toContainText('Bonne réponse');
+  await expect(page.getByTestId('conversation-pronunciation')).toBeVisible();
+  await expect(page.getByTestId('conversation-pronunciation-score')).toContainText('100');
+});
+
 test('synchronisation : deux appareils fusionnent leurs progressions', async ({ browser }) => {
   test.setTimeout(60000);
   const email = 'e2e-sync@example.com';
