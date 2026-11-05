@@ -512,7 +512,7 @@ test("synchronisation : fusionne les progrès récents sans écraser les autres"
   assert.equal(merged.progress.water.due, 900);
   assert.equal(merged.progress.water.reps, 2, "le nombre de réussites le plus élevé est conservé");
   assert.equal(merged.progress.water.lapses, 1);
-  assert.equal(merged.progress.water.level, 4);
+  assert.equal(merged.progress.water.level, 3, "le niveau suit la révision la plus récente");
   assert.equal(merged.progress.water.pronunciation.length, 2, "les historiques de prononciation sont réunis");
   assert.ok(merged.progress.fire);
   assert.equal(merged.stats.xp, 20);
@@ -521,6 +521,25 @@ test("synchronisation : fusionne les progrès récents sans écraser les autres"
   assert.equal(merged.stats.lastDay, "2026-11-02");
   assert.equal(merged.settings.theme, "dark", "les réglages locaux restent prioritaires");
   assert.equal(merged.flags.daily, "2026-11-02");
+});
+
+test("synchronisation : un échec récent n'est pas annulé par un ancien niveau", function () {
+  const local = {
+    progress: { water: { last: 100, reps: 5, lapses: 0, level: 5, due: 500, said: 3 } }
+  };
+  const remote = {
+    progress: { water: { last: 200, reps: 6, lapses: 1, level: 0, due: 1200, said: 3 } }
+  };
+  const merged = Sync.mergeStates(local, remote);
+  assert.equal(merged.progress.water.level, 0, "l'échec le plus récent remet le niveau à zéro");
+  assert.equal(merged.progress.water.due, 1200, "la prochaine révision reste celle de l'échec");
+  assert.equal(merged.progress.water.reps, 6);
+  assert.equal(merged.progress.water.lapses, 1);
+});
+
+test("sauvegarde : une sauvegarde trop volumineuse est refusée", function () {
+  const huge = '{"progress":{}}' + ' '.repeat(2 * 1024 * 1024);
+  assert.throws(function () { Store.importState(huge); }, /trop volumineuse/);
 });
 
 test("conversation : les répliques ratées sont normalisées et fusionnées", function () {

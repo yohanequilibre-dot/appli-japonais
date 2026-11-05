@@ -32,6 +32,7 @@ let tooltipTarget = null;
 let glossIndex = null;
 let glossKeys = null;
 let glossRoles = null;
+const MAX_IMPORT_CHARS = 2 * 1024 * 1024;
 
 const VIEWS = { learn: '#view-learn', review: '#view-review', conversation: '#view-conversation', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
 const FROM_HASH = { apprendre: 'learn', reviser: 'review', parler: 'conversation', mots: 'library', importer: 'import', grammaire: 'grammar' };
@@ -1374,6 +1375,7 @@ function renderPreview() {
 function previewImport() {
   const el = $('#importText');
   if (!el) return;
+  if (el.value.length > MAX_IMPORT_CHARS) { toast('Texte trop volumineux (2 Mo maximum).'); return; }
   ui.importText = el.value;
   const p = P.parseText(el.value);
   if (!p.entries.length && !p.errors.length) { toast('Colle d\'abord quelques mots.'); return; }
@@ -1401,6 +1403,7 @@ function doImport() {
 }
 function readImportFile(file) {
   if (!file) return;
+  if (Number(file.size) > MAX_IMPORT_CHARS) { toast('Fichier trop volumineux (2 Mo maximum).'); return; }
   const reader = new FileReader();
   reader.onload = function () {
     let text = String(reader.result || '');
@@ -1827,6 +1830,13 @@ function recallView() {
   }
   const answer = answerCard(e);
   if (session.phase === 'feedback') return answer + feedbackHtml();
+  const pronunciationFailed = !!(session.pronunciation && session.pronunciation.status === 'done' && !session.pronunciation.good);
+  if (pronunciationFailed) {
+    return answer + '<div class="pronunciation-retry-note" data-testid="pronunciation-retry-note" role="status"><b>🎙️ Prononciation à retravailler</b><span>Réessaie le micro avant de passer au suivant, ou choisis de continuer.</span></div>' +
+      '<div class="grade-row" data-testid="grade-row"><button class="btn primary" data-action="pronounce-front-start" data-testid="pronunciation-retry-start">🎙️ Réessayer à l’oral</button>' +
+      '<button class="btn ghost danger-text" data-action="grade" data-grade="again" data-testid="grade-again">Je ne connaissais pas ce mot <kbd>1</kbd></button>' +
+      '<button class="btn ghost" data-action="grade" data-grade="good" data-testid="grade-good">Passer quand même <kbd>2</kbd></button></div>';
+  }
   return answer + '<div class="grade-row" data-testid="grade-row"><button class="btn ghost danger-text" data-action="grade" data-grade="again" data-testid="grade-again">Je ne connaissais pas ce mot <kbd>1</kbd></button>' +
     '<button class="btn primary" data-action="grade" data-grade="good" data-testid="grade-good">Passer au suivant <kbd>2</kbd></button></div>';
 }

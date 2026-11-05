@@ -368,6 +368,9 @@ function counts(entries, state, now) {
   }
 
   function importState(text) {
+    if (typeof text !== "string" || text.length > 2 * 1024 * 1024) {
+      throw new Error("Cette sauvegarde est trop volumineuse (2 Mo maximum).");
+    }
     let obj;
     try { obj = JSON.parse(text); } catch (e) { throw new Error("Ce fichier n'est pas un JSON valide."); }
     if (!obj || typeof obj !== "object" || (!obj.progress && !obj.entries)) {

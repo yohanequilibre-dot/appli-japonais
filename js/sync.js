@@ -148,7 +148,9 @@
     merged.reps = Math.max(numeric(local && local.reps), numeric(remote && remote.reps));
     merged.lapses = Math.max(numeric(local && local.lapses), numeric(remote && remote.lapses));
     merged.said = Math.max(numeric(local && local.said), numeric(remote && remote.said));
-    merged.level = Math.max(numeric(local && local.level), numeric(remote && remote.level));
+    // Le niveau doit suivre l'état le plus récent : un échec récent ne doit pas
+    // être annulé par un ancien niveau plus élevé venu d'un autre appareil.
+    merged.level = numeric(chosen.level);
     var history = mergePronunciation(local && local.pronunciation, remote && remote.pronunciation);
     if (history.length) merged.pronunciation = history;
     return merged;

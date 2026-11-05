@@ -576,6 +576,9 @@ test('révision : une mauvaise prononciation est enregistrée', async ({ page })
   await expect(page.getByTestId('inline-pronunciation')).toContainText('Tu t’es trompé');
   await expect(page.getByTestId('answer-verdict')).toContainText('Ce n’est pas correct');
   await expect(page.getByTestId('session-card')).toHaveClass(/glow-bad/);
+  await expect(page.getByTestId('pronunciation-retry-note')).toContainText('Prononciation à retravailler');
+  await expect(page.getByTestId('pronunciation-retry-start')).toBeVisible();
+  await expect(page.getByTestId('grade-good')).toContainText('Passer quand même');
   await page.locator('[data-action="quit-session"]').click();
   await page.locator('.desktop-nav [data-nav=library]').click();
   await page.locator('.chip[data-filter="bad"]').click();

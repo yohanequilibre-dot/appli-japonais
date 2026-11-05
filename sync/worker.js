@@ -12,9 +12,14 @@ const SESSION_DAYS = 30;
 const PBKDF2_ITERATIONS = 100000; // Maximum supporté par WebCrypto sur Workers.
 const MAX_STATE_BYTES = 1500000;
 const MAX_AUTH_BYTES = 16384;
+const AUTH_LOGIN_LIMIT = 10;
+const AUTH_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_REGISTER_LIMIT = 5;
+const AUTH_REGISTER_WINDOW_MS = 60 * 60 * 1000;
 const encoder = new TextEncoder();
 
 let schemaPromise = null;
+let lastAuthCleanup = 0;
 
 function corsHeaders(origin) {
   const allowed = !origin || ORIGINS.has(origin);
@@ -108,6 +113,31 @@ function sameSecret(a, b) {
   return diff === 0;
 }
 
+function clientAddress(request) {
+  return String(request.headers.get('CF-Connecting-IP') || 'unknown').slice(0, 80);
+}
+
+function rateLimitHeaders(headers, seconds) {
+  return Object.assign({}, headers, { 'Retry-After': String(Math.max(1, Math.ceil(seconds))) });
+}
+
+async function enforceAuthLimit(request, env, scope, email, max, windowMs, headers) {
+  const now = Date.now();
+  const bucket = Math.floor(now / windowMs);
+  const key = scope + ':' + String(email || '').trim().toLowerCase().slice(0, 254) + ':' + clientAddress(request) + ':' + bucket;
+  const expiresAt = (bucket + 1) * windowMs;
+  if (now - lastAuthCleanup > 3600000) {
+    lastAuthCleanup = now;
+    try { await env.DB.prepare('DELETE FROM auth_attempts WHERE expires_at <= ?').bind(now).run(); } catch (e) { /* le nettoyage ne bloque pas la connexion */ }
+  }
+  const row = await env.DB.prepare(
+    'INSERT INTO auth_attempts (key, count, expires_at) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET count = count + 1 RETURNING count'
+  ).bind(key, expiresAt).first();
+  const count = Math.max(1, Number(row && row.count) || 1);
+  if (count <= max) return null;
+  return json({ error: 'Trop de tentatives. Réessaie dans quelques minutes.' }, 429, rateLimitHeaders(headers, (expiresAt - now) / 1000));
+}
+
 async function ensureSchema(env) {
   if (!env || !env.DB) throw new Error('Base de données indisponible.');
   if (!schemaPromise) {
@@ -116,6 +146,8 @@ async function ensureSchema(env) {
       await env.DB.prepare('CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL)').run();
       await env.DB.prepare('CREATE TABLE IF NOT EXISTS sync_state (user_id TEXT PRIMARY KEY, state TEXT NOT NULL, revision INTEGER NOT NULL, updated_at INTEGER NOT NULL)').run();
       await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)').run();
+      await env.DB.prepare('CREATE TABLE IF NOT EXISTS auth_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL)').run();
+      await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_auth_attempts_expires ON auth_attempts(expires_at)').run();
     })();
     schemaPromise = schemaPromise.catch(function (err) {
       schemaPromise = null;
@@ -160,6 +192,8 @@ async function register(request, env, headers) {
   if (password.length < 8 || password.length > 128) {
     return json({ error: 'Le mot de passe doit contenir entre 8 et 128 caractères.' }, 400, headers);
   }
+  const limited = await enforceAuthLimit(request, env, 'register', email, AUTH_REGISTER_LIMIT, AUTH_REGISTER_WINDOW_MS, headers);
+  if (limited) return limited;
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
   if (existing) return json({ error: 'Un compte existe déjà avec cet e-mail.' }, 409, headers);
   const salt = randomToken();
@@ -180,6 +214,8 @@ async function login(request, env, headers) {
   const email = validEmail(body && body.email);
   const password = String(body && body.password || '');
   if (!email || !password) return json({ error: 'E-mail et mot de passe requis.' }, 400, headers);
+  const limited = await enforceAuthLimit(request, env, 'login', email, AUTH_LOGIN_LIMIT, AUTH_LOGIN_WINDOW_MS, headers);
+  if (limited) return limited;
   const user = await env.DB.prepare('SELECT id, email, salt, password_hash FROM users WHERE email = ?').bind(email).first();
   if (!user) {
     await derivePassword(password, randomToken());

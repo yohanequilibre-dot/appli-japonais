@@ -1,5 +1,5 @@
 /* Kotoba — cache hors ligne, réseau d'abord. */
-const CACHE = 'kotoba-v6-16';
+const CACHE = 'kotoba-v6-17';
 const ASSETS = [
 './',
 './index.html',

@@ -1262,6 +1262,9 @@ will-change: transform, opacity;
 .conversation-voice-status.error { color: var(--amber); font-weight: 700; }
 .conversation-hint { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--green); border-radius: 12px; background: var(--green-soft); color: var(--text); font-size: .8rem; line-height: 1.6; }
 .conversation-hint[hidden] { display: none; }
+.grade-row { flex-wrap: wrap; }
+.pronunciation-retry-note { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; padding: 10px 12px; border: 1px solid rgba(245, 158, 11, .4); border-radius: 12px; background: rgba(245, 158, 11, .1); color: var(--text); font-size: .82rem; line-height: 1.55; }
+.pronunciation-retry-note b { color: var(--amber); }
 .conversation-hint b { color: var(--green-dark); }
 .conversation-hint p { margin: 4px 0 0; }
 .conv-hint-start { color: var(--muted); font-size: .78rem; }
