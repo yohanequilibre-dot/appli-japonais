@@ -136,13 +136,35 @@ var romaji = override != null ? String(override) : (P && P.kanaToRomaji ? P.kana
 if (!romaji) return esc(text);
 return '<ruby>' + esc(text) + '<rt><span class="rt-romaji">' + esc(romaji) + '</span></rt></ruby>';
 }
-function romajiRubyHtml(annotated) {
+var particleSegmenter = null;
+function particleOverrides(value) {
+var text = String(value || '');
+var overrides = {};
+if (!text || typeof Intl === 'undefined' || !Intl.Segmenter) return overrides;
+try {
+if (!particleSegmenter) particleSegmenter = new Intl.Segmenter('ja', { granularity: 'word' });
+Array.from(particleSegmenter.segment(text)).forEach(function (item) {
+if (item.segment === 'こんにちは' || item.segment === 'こんばんは') {
+overrides[item.index + item.segment.length - 1] = 'wa';
+return;
+}
+if (item.segment !== 'は') return;
+var next = text.charAt(item.index + 1);
+if (item.index === 0 && /[\u3040-\u30ff\u3400-\u9fff]/.test(next)) return;
+overrides[item.index] = 'wa';
+});
+} catch (e) { /* La segmentation est facultative. */ }
+return overrides;
+}
+function romajiRubyHtml(annotated, context) {
 var s = String(annotated || '');
 if (!s) return '';
 var out = '';
 var last = 0;
 var re = /([^\s\[\]]+?)\[([^\]]+)\]/g;
 var m;
+var overrides = context && context.overrides ? context.overrides : particleOverrides(strip(s));
+var cursor = context && context.offset != null ? Number(context.offset) || 0 : 0;
 function plain(value) {
 var i = 0;
 while (i < value.length) {
@@ -151,14 +173,20 @@ if (!isJapanese(ch)) {
 var j = i + 1;
 while (j < value.length && !isJapanese(value.charAt(j))) j++;
 out += esc(value.slice(i, j));
+cursor += j - i;
 i = j;
 } else if (/[\u3040-\u30ff]/.test(ch)) {
 var j2 = i + 1;
 while (j2 < value.length && /[\u3040-\u30ff]/.test(value.charAt(j2))) j2++;
-kanaUnits(value.slice(i, j2)).forEach(function (unit) { out += rubyChar(unit, unit); });
+kanaUnits(value.slice(i, j2)).forEach(function (unit) {
+var override = unit === 'は' ? overrides[cursor] : '';
+out += rubyChar(unit, unit, override || undefined);
+cursor += unit.length;
+});
 i = j2;
 } else {
 out += esc(ch);
+cursor++;
 i++;
 }
 }
@@ -167,10 +195,14 @@ function annotation(base, reading) {
 var match = String(base || '').match(/^([\u3040-\u30ff]+)([\s\S]+)$/);
 if (match && /[\u3400-\u9fff]/.test(match[2]) && String(reading || '').indexOf(match[1]) !== 0) {
 plain(match[1]);
-out += rubyChar(match[2], reading);
+var prefixOverride = match[2] === 'は' ? overrides[cursor] : '';
+out += rubyChar(match[2], reading, prefixOverride || undefined);
+cursor += String(match[2] || '').length;
 return;
 }
-out += rubyChar(base, reading);
+var directOverride = String(base || '') === 'は' ? overrides[cursor] : '';
+out += rubyChar(base, reading, directOverride || undefined);
+cursor += String(base || '').length;
 }
 while ((m = re.exec(s))) {
 plain(s.slice(last, m.index));
@@ -181,11 +213,13 @@ plain(s.slice(last));
 return out;
 }
 function rubyHtml(annotated) { return romajiRubyHtml(annotated); }
-function tokenize(text) {
+function tokenize(text, context) {
 var d = dictionary();
 var out = '';
 var i = 0;
 var plainStart = 0;
+var baseOffset = context && context.offset != null ? Number(context.offset) || 0 : 0;
+var overrides = context && context.overrides ? context.overrides : particleOverrides(text);
 function hitAt(pos) {
 for (var k = 0; k < d.keys.length; k++) {
 if (text.startsWith(d.keys[k], pos)) return d.keys[k];
@@ -195,12 +229,12 @@ return '';
 while (i < text.length) {
 var hit = hitAt(i);
 if (!hit) { i++; continue; }
-if (i > plainStart) out += romajiRubyHtml(text.slice(plainStart, i));
-out += romajiRubyHtml(d.map.get(hit));
+if (i > plainStart) out += romajiRubyHtml(text.slice(plainStart, i), { overrides: overrides, offset: baseOffset + plainStart });
+out += romajiRubyHtml(d.map.get(hit), { overrides: overrides, offset: baseOffset + i });
 i += hit.length;
 plainStart = i;
 }
-if (plainStart < text.length) out += romajiRubyHtml(text.slice(plainStart));
+if (plainStart < text.length) out += romajiRubyHtml(text.slice(plainStart), { overrides: overrides, offset: baseOffset + plainStart });
 return out;
 }
 function splitTarget(text, target) {
@@ -208,9 +242,9 @@ var out = [];
 var i = 0;
 while (i < text.length) {
 var idx = text.indexOf(target, i);
-if (idx < 0) { out.push({ text: text.slice(i), target: false }); break; }
-if (idx > i) out.push({ text: text.slice(i, idx), target: false });
-out.push({ text: target, target: true });
+if (idx < 0) { out.push({ text: text.slice(i), target: false, offset: i }); break; }
+if (idx > i) out.push({ text: text.slice(i, idx), target: false, offset: i });
+out.push({ text: target, target: true, offset: idx });
 i = idx + target.length;
 }
 return out;
@@ -221,10 +255,13 @@ if (!s) return '';
 var target = String(highlight || '').trim();
 var useFuri = showFurigana !== false;
 if (!target || s.indexOf(target) < 0) return useFuri ? tokenize(s) : esc(s);
+var overrides = particleOverrides(s);
 return splitTarget(s, target).map(function (part) {
 var inner = !useFuri
 ? esc(part.text)
-: (part.target && targetRuby ? romajiRubyHtml(targetRuby) : tokenize(part.text));
+: (part.target && targetRuby
+? romajiRubyHtml(targetRuby, { overrides: overrides, offset: part.offset })
+: tokenize(part.text, { overrides: overrides, offset: part.offset }));
 return part.target ? '<mark>' + inner + '</mark>' : inner;
 }).join('');
 }

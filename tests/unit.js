@@ -50,6 +50,29 @@ test("lecture latine : les groupes de kanji restent lisibles", function () {
   assert.deepEqual(rt, ["nihon", "go"]);
 });
 
+test("lecture latine : la particule は se lit wa", function () {
+  const readings = function (html) {
+    return Array.from(html.matchAll(/<rt><span class="rt-romaji">([^<]+)<\/span><\/rt>/g)).map(function (m) { return m[1]; });
+  };
+  const sentence = readings(Reading.romajiRubyHtml("私は学生です。"));
+  assert.ok(sentence.includes("wa"), "la particule は doit être lue wa");
+  assert.equal(sentence.includes("ha"), false, "aucun ha pour la particule");
+  const annotated = readings(Reading.annotate("私は学生です。", "私", true, "私[わたし]"));
+  assert.ok(annotated.includes("wa"), "la particule reste wa dans un contexte surligné");
+  const greeting = readings(Reading.romajiRubyHtml("こんにちは。"));
+  assert.ok(greeting.includes("wa"));
+  assert.equal(greeting.includes("ha"), false);
+  const hai = readings(Reading.romajiRubyHtml("はい。"));
+  assert.ok(hai.includes("ha"), "はい garde bien ha");
+  assert.equal(hai.includes("wa"), false);
+  const ohayou = readings(Reading.romajiRubyHtml("おはよう。"));
+  assert.ok(ohayou.includes("ha"), "おはよう garde bien ha");
+  assert.equal(ohayou.includes("wa"), false);
+  const hana = readings(Reading.romajiRubyHtml("はなです。"));
+  assert.ok(hana.includes("ha"), "はな garde bien ha");
+  assert.equal(hana.includes("wa"), false);
+});
+
 test("import « bonjour | kon-ni-chi-wa »", function () {
   const e = entryOf("bonjour | kon-ni-chi-wa");
   assert.equal(e.fr, "bonjour");

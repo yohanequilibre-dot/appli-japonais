@@ -13,7 +13,7 @@ Une carte montre d'abord le mot **français**. Tu peux le prononcer avec le micr
 1. le japonais en kanji / kana, avec le **furigana** au-dessus ;
 2. une **phrase de contexte** japonaise avec sa traduction, à droite sur grand écran et sous la carte sur mobile.
 
-Le romaji complet apparaît sous le mot, et chaque unité (kanji ou kana) porte sa lecture latine au-dessus. Aucune ligne de kana dupliquée au-dessus du mot.
+Le romaji complet apparaît sous le mot, et chaque unité (kanji ou kana) porte sa lecture latine au-dessus. La particule は est affichée **wa** (elle reste écrite は), tout comme la fin de こんにちは / こんばんは ; はい ou おはよう gardent **ha**. Aucune ligne de kana dupliquée au-dessus du mot.
 
 Tu valides ensuite avec « Je ne savais pas » ou « J'ai prononcé ». La répétition espacée décide du prochain rendez-vous.
 

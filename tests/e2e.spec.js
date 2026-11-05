@@ -940,6 +940,9 @@ test('histoires : lecture, traduction, quiz et progression persistante', async (
   await expect(page.getByTestId('story-reader')).toBeVisible();
   const firstLine = await baseText(page.getByTestId('story-line-0'));
   expect(firstLine).toContain('おはよう');
+  const firstLineReadings = await page.getByTestId('story-line-0').locator('.rt-romaji').allTextContents();
+  expect(firstLineReadings).toContain('wa');
+  expect(firstLineReadings.filter(function (reading) { return reading === 'ha'; })).toHaveLength(1);
   await page.getByTestId('story-translation-0').click();
   await expect(page.getByTestId('story-fr-0')).toContainText('Bonjour');
   await page.getByTestId('story-translations-all').click();
