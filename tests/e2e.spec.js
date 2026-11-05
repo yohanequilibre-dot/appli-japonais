@@ -293,6 +293,8 @@ expect(info.ikimasu).toBe(true);
 });
 test('série quotidienne, défi du jour et récompense', async ({ page }) => {
 await expect(page.getByTestId('streak-panel')).toContainText('0 jour');
+await expect(page.getByTestId('level-progress')).toContainText('Niv. 1');
+await expect(page.getByTestId('conversation-mission')).toContainText('Mission conversation');
 await page.getByTestId('daily-challenge').click();
 for (let i = 0; i < 3; i++) {
 await expect(page.getByTestId('reveal')).toBeVisible();
@@ -700,6 +702,17 @@ test('conversation : répond et accepte le romaji dans une situation réelle', a
   await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
   await page.getByTestId('conversation-next').click();
   await expect(page.getByTestId('conversation-summary')).toContainText('3/3');
+});
+
+test('conversation : entretient la série et valide la mission du jour', async ({ page }) => {
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-scenario-meet').click();
+  await page.getByTestId('conversation-answer').fill('私はレアです。');
+  await page.getByTestId('conversation-submit').click();
+  await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');
+  await page.goto('/#apprendre');
+  await expect(page.getByTestId('streak-panel')).toContainText('1 jour');
+  await expect(page.getByTestId('conversation-mission-done')).toBeVisible();
 });
 
 test('conversation : se débrouiller au konbini', async ({ page }) => {

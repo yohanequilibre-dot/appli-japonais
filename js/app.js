@@ -1318,9 +1318,11 @@ function recordConversationReview(scenarioId, turnIndex, ok) {
   const key = String(scenarioId) + ':' + turnIndex;
   const previous = state.conversationReview[key];
   const now = Date.now();
+  if (!state.flags || typeof state.flags !== 'object') state.flags = {};
+  state.flags.conversationDay = S.todayKey(now);
+  S.touchDay(state, now);
   if (ok) {
-    if (!previous) return;
-    previous.clearedAt = Math.max(now, Number(previous.clearedAt) || 0);
+    if (previous) previous.clearedAt = Math.max(now, Number(previous.clearedAt) || 0);
   } else {
     state.conversationReview[key] = {
       scenario: scenarioId,
@@ -1474,6 +1476,7 @@ function renderHome() {
     '<div class="stat-row"><div class="stat-card"><span class="stat-num">' + c.due + '</span><span class="stat-label">À réviser</span></div>' +
       '<div class="stat-card"><span class="stat-num">' + c.known + '</span><span class="stat-label">Mots connus</span></div>' +
       '<div class="stat-card"><span class="stat-num">' + c.new + '</span><span class="stat-label">Nouveaux</span></div></div>' +
+    (window.Kotoba.Motivation ? window.Kotoba.Motivation.streakPanel(state, now) : '') +
     journeyPanelHtml(stages) +
     dailyPlanPanelHtml() +
     conversationPanelHtml() +
@@ -1487,7 +1490,6 @@ function renderHome() {
       '<div class="muted small">' + esc(wotd.romaji) + '</div></div><div><p class="wotd-context sentence-tip" lang="ja"' + translationTipAttrs(wotd.contextFr, wotd.context) + '>' + contextHtml(wotd.context, wotd.hl, wotd) + '</p>' +
       '<p class="muted small">' + esc(wotd.contextFr) + '</p>' + wordByWordDetails(wotd.context, 'wotd-word-by-word') + '<button class="btn ghost small" data-action="detail" data-id="' + attr(wotd.id) + '">Voir la fiche</button></div></div></section>';
   }
-  if (window.Kotoba.Motivation) body += window.Kotoba.Motivation.streakPanel(state, now);
 $('#view-learn').innerHTML = body;
 }
 

@@ -256,20 +256,26 @@
     return s;
   }
 
-  function bumpStats(state, grade, now) {
+  function touchDay(state, now) {
     now = now == null ? Date.now() : now;
     const day = todayKey(now);
     const yesterday = todayKey(now - DAY);
+    if (!state.stats) state.stats = {};
     const st = state.stats;
     if (!st.daily) st.daily = {};
     if (!st.history) st.history = {};
-
     if (st.lastDay !== day) {
       st.streak = st.lastDay === yesterday ? (st.streak || 0) + 1 : 1;
       st.lastDay = day;
       st.bestStreak = Math.max(st.bestStreak || 0, st.streak);
     }
+    return st;
+  }
 
+  function bumpStats(state, grade, now) {
+    now = now == null ? Date.now() : now;
+    const day = todayKey(now);
+    const st = touchDay(state, now);
     const xp = grade === "good" ? 10 : 3;
     st.xp = (st.xp || 0) + xp;
     st.daily[day] = (st.daily[day] || 0) + xp;
@@ -284,14 +290,15 @@
   }
 
   function addXp(state, amount, now) {
-now = now == null ? Date.now() : now;
-const day = todayKey(now);
-const value = Math.max(0, Number(amount) || 0);
-if (!state.stats.daily) state.stats.daily = {};
-state.stats.xp = (state.stats.xp || 0) + value;
-state.stats.daily[day] = (state.stats.daily[day] || 0) + value;
-return value;
-}
+    now = now == null ? Date.now() : now;
+    const day = todayKey(now);
+    const value = Math.max(0, Number(amount) || 0);
+    if (!value) return 0;
+    const st = touchDay(state, now);
+    st.xp = (st.xp || 0) + value;
+    st.daily[day] = (st.daily[day] || 0) + value;
+    return value;
+  }
 function counts(entries, state, now) {
     now = now == null ? Date.now() : now;
     let due = 0, fresh = 0, known = 0, learning = 0, seen = 0;
@@ -404,6 +411,7 @@ function counts(entries, state, now) {
     stageProgress: stageProgress,
     stageCounts: stageCounts,
     schedule: schedule,
+    touchDay: touchDay,
     bumpStats: bumpStats,
 addXp: addXp,
     counts: counts,

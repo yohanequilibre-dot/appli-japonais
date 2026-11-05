@@ -250,6 +250,29 @@ test("série et XP", function () {
   assert.equal(st.stats.streak, 1);
 });
 
+test("l’XP hors vocabulaire entretient aussi la série", function () {
+  const st = Store.defaultState();
+  Store.addXp(st, 10, Date.parse("2026-11-05T10:00:00"));
+  assert.equal(st.stats.streak, 1);
+  assert.equal(st.stats.bestStreak, 1);
+  assert.equal(st.stats.lastDay, "2026-11-05");
+  Store.addXp(st, 20, Date.parse("2026-11-05T12:00:00"));
+  assert.equal(st.stats.streak, 1);
+  Store.addXp(st, 10, Date.parse("2026-11-06T09:00:00"));
+  assert.equal(st.stats.streak, 2);
+  assert.equal(st.stats.bestStreak, 2);
+});
+
+test("une conversation puis une carte le même jour ne doublent pas la série", function () {
+  const st = Store.defaultState();
+  const now = Date.parse("2026-11-05T10:00:00");
+  Store.addXp(st, 10, now);
+  Store.bumpStats(st, "good", now + 3600000);
+  assert.equal(st.stats.streak, 1);
+  assert.equal(st.stats.bestStreak, 1);
+  assert.equal(st.stats.daily["2026-11-05"], 20);
+});
+
 test("comptage des nouveaux, en cours et connus", function () {
   const entries = [{ id: "a" }, { id: "b" }, { id: "c" }];
   const state = Store.defaultState();

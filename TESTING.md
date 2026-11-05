@@ -47,7 +47,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 
 ## 3. Le parcours à vérifier en cinq minutes
 
-1. **Accueil** : la carte « Prêt à apprendre ? » et le bouton « Apprendre de nouveaux mots » s'affichent. Le compteur de cartes dues et l'objectif XP sont visibles.
+1. **Accueil** : la carte « Prêt à apprendre ? » et le bouton « Apprendre de nouveaux mots » s'affichent. Le compteur de cartes dues, la série, le niveau global et la mission conversation sont visibles.
 2. **Carte** : clique sur le bouton principal. Le français apparaît seul. Clique sur « 🎙️ Prononcer » pour faire valider ta prononciation, ou sur « Révéler la réponse » pour passer directement. Après le micro, la fiche s'affiche automatiquement avec le score et l'écart : lueur verte si c'est réussi, rouge sinon, et détail centré sous la carte. Le mot puis la phrase de contexte sont lus automatiquement, sans clic. Un verdict explicite dit « C’est correct » ou « Ce n’est pas correct ». Tu dois voir le japonais avec une lecture latine au-dessus de chaque unité (par exemple `o` au-dessus de `お`, `nega` au-dessus de `願`, puis `i`, `shi`, `ma`, `su`), sans ligne de kana dupliquée ; la phrase de contexte est annotée de la même façon. Le romaji complet est affiché sous le mot ; pour `お願いします`, `ください` (kudasai) est aussi accepté et signalé comme variante. `お願いします` est plus doux et général ; `ください` est plus direct, mais les deux sont polis. Survole une phrase de contexte (ou place le focus dessus au clavier) : une infobulle affiche sa traduction complète et un aperçu « Mot à mot ». Ouvre aussi le bloc « Mot à mot » sous la phrase pour voir chaque mot et particule avec sa traduction. Les phrases japonaises ont plus d’espace entre les caractères.
    Vérifie aussi un verbe : dans « Mes mots », cherche `働きます`, ouvre sa fiche. La section « Conjugaison polie » doit afficher `働きます`, `働きません`, `働きました`, `働きませんでした` et la question, avec la forme du dictionnaire `働く` seulement en note. La phrase `会社で働いています。` doit montrer la lecture `はたら` au-dessus de `働` et `います`, et la section « Autres exemples » doit proposer plusieurs phrases. Si la fiche ne s’ouvre pas, vérifie que le mot est bien dans le pack de 1 000 mots et que le service worker a été rechargé.
 3. **Validation** : clique sur « Passer au suivant ». La carte suivante arrive immédiatement, sans écran intermédiaire.
@@ -57,7 +57,7 @@ python3 -m http.server 8080 --bind 0.0.0.0
 6. **Réviser** : l’onglet « Réviser » propose les cartes dues, la révision rapide, tout revoir et les nouveaux mots. Clique sur la carte « Cartes dues » ou sur le bouton « Commencer » : la session doit s’ouvrir. Les prévisions sur sept jours sont affichées. Un mot importé est dû immédiatement : il apparaît dans les cartes à réviser.
 7. **Mobile** : ouvre les outils de développement du navigateur (F12), passe en largeur 390 px. La barre de navigation du bas doit apparaître, sans débordement horizontal.
 8. **Réglages** : l'engrenage ouvre l'objectif quotidien, le furigana, le romaji, le thème, la vitesse audio, l'export / import de sauvegarde et l'effacement.
-9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester. La progression est dans le `localStorage` de ce navigateur.
+9. **Persistance** : recharge la page après une validation. Le XP et la série doivent rester, y compris après une conversation ou le défi du jour. La progression est dans le `localStorage` de ce navigateur.
 
 10. **Parcours** : sur l'accueil, « Mon parcours » montre Nouveaux, En révision, Validés (10 révisions) et Ultimes (30). Clique sur une carte pour ouvrir le filtre correspondant dans Mes mots ; la fiche d'un mot affiche sa barre de progression.
 11. **Prononciation** : ouvre un mot depuis « Mes mots », clique sur « Prononcer », puis sur le bouton d’écoute du micro. Commence par le mot : une fois le score validé, le bouton « Valider le mot et prononcer la phrase » ouvre l’étape 2 avec la phrase complète. Tu peux aussi choisir « La phrase » directement. Le niveau audio, le score, l’écart syllabique, les alertes de rythme (petit っ et voyelles longues) et un conseil s’affichent, et la fiche du mot garde les derniers scores. La capture s’arrête seule après un silence. Le bouton « IA locale » active Whisper (téléchargement du modèle au premier essai) ; après un essai, « Ma voix » permet de comparer ta prise avec le modèle.
@@ -137,6 +137,7 @@ Le test démarre automatiquement un petit serveur Node sur le port 4173, ouvre C
 - les conversations : trois échanges, réponse en japonais puis en romaji, mode écoute, réponse orale simulée, correction et bilan ;
 - l’intégration d’une réplique de conversation à revoir au début de la session du jour, sa réponse orale avec score, et la disparition du suivi après réussite ;
 - la conversation du jour proposée même sans réplique ratée ;
+- la série entretenue par une conversation, le niveau global et la mission conversation ;
 - le panneau de progression et le lancement d’une session sur les mots à retravailler ;
 - les furigana de l’onglet Grammaire et le vocabulaire quotidien ;
 - les 1 000 mots courants, les 60 mots d’escalade et la décomposition mot à mot ;

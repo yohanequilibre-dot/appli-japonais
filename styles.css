@@ -900,6 +900,31 @@ background: linear-gradient(135deg, var(--surface) 0%, #2b2415 100%);
 border-color: #4a3a1b;
 }
 .streak-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.level-progress {
+display: flex; align-items: center; gap: 12px;
+margin-top: 12px; padding: 10px 12px;
+background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+}
+.level-badge {
+flex: 0 0 auto; min-width: 58px; padding: 8px 10px;
+border-radius: 12px; background: var(--green-soft); color: var(--green-dark);
+font-size: .72rem; font-weight: 900; text-align: center;
+}
+.level-copy { flex: 1 1 auto; min-width: 0; }
+.level-title { display: flex; align-items: baseline; gap: 7px; margin-bottom: 5px; }
+.level-title strong { font-family: var(--jp); font-size: .95rem; }
+.level-title span { color: var(--muted); font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.level-next { margin-top: 5px; color: var(--muted); font-size: .68rem; font-weight: 700; }
+.daily-mission {
+display: flex; align-items: center; justify-content: space-between; gap: 12px;
+margin-top: 10px; padding: 10px 12px;
+background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+}
+.daily-mission.done { background: var(--green-soft); border-color: #b9e88a; }
+.daily-mission > div { min-width: 0; }
+.daily-mission strong { display: block; font-size: .86rem; }
+.daily-mission > div span { display: block; margin-top: 2px; color: var(--muted); font-size: .72rem; }
+.daily-mission .btn, .daily-mission .badge { flex: 0 0 auto; }
 .streak-flame {
 width: 56px; height: 56px; flex: 0 0 auto;
 display: grid; place-items: center;
@@ -946,6 +971,7 @@ background: var(--surface); border: 1px dashed #e4cf9e; border-radius: 14px;
 .mini-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--green), #a3e635); transition: width .3s ease; }
 .streak-goal .badge { display: inline-block; margin-top: 7px; }
 .streak-goal .hint { display: block; margin-top: 6px; }
+[data-theme='dark'] .daily-mission.done { border-color: #3d6424; }
 .streak-milestones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .milestone {
 display: inline-flex; align-items: center; gap: 2px;

@@ -204,8 +204,12 @@
     out.progress = mergeMap(local.progress, remote.progress, mergeProgress);
     out.stats = mergeStats(local.stats, remote.stats);
     var flags = Object.assign({}, remote.flags || {}, local.flags || {});
-    if (local.flags && local.flags.daily && remote.flags && remote.flags.daily) {
-      flags.daily = String(local.flags.daily) > String(remote.flags.daily) ? local.flags.daily : remote.flags.daily;
+    if (local.flags && remote.flags) {
+      ['daily', 'conversationDay'].forEach(function (key) {
+        if (local.flags[key] && remote.flags[key]) {
+          flags[key] = String(local.flags[key]) > String(remote.flags[key]) ? local.flags[key] : remote.flags[key];
+        }
+      });
     }
     out.flags = flags;
     out.conversationReview = mergeConversationReview(local.conversationReview, remote.conversationReview);
