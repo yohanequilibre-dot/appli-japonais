@@ -675,6 +675,13 @@ test('conversation : répond et accepte le romaji dans une situation réelle', a
   await page.getByTestId('conversation-scenario-meet').click();
   await expect(page.getByTestId('conversation-session')).toBeVisible();
   await expect(page.getByTestId('conversation-partner')).toContainText('お名前は何ですか');
+  await page.getByTestId('conversation-answer').fill('私');
+  await page.getByTestId('conversation-hint').click();
+  await expect(page.getByTestId('conversation-hint-box')).toBeVisible();
+  await expect(page.getByTestId('conversation-hint-box')).toContainText('はじめまして');
+  await expect(page.getByTestId('conversation-answer')).toHaveValue('私');
+  await page.getByTestId('conversation-hint').click();
+  await expect(page.getByTestId('conversation-hint-box')).toBeHidden();
   await page.getByTestId('conversation-answer').fill('私はレアです。');
   await page.getByTestId('conversation-submit').click();
   await expect(page.getByTestId('conversation-feedback')).toContainText('Bonne réponse');

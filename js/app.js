@@ -888,7 +888,25 @@ function conversationFormHtml() {
     '<input id="conversationAnswer" name="answer" class="conversation-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris en japonais ou en romaji…" aria-label="Ta réponse en japonais" data-testid="conversation-answer">' +
     '<button class="btn primary" type="submit" data-testid="conversation-submit">Vérifier</button>' +
     '<div class="conversation-voice-row"><button class="btn ghost small" type="button" data-action="conversation-voice" aria-pressed="false" data-testid="conversation-voice">🎙️ Répondre à l’oral</button>' +
-    '<span class="conversation-voice-status" id="conversationVoiceStatus" role="status" aria-live="polite" data-testid="conversation-voice-status">Le micro remplit le champ en japonais ; tu peux corriger avant de vérifier.</span></div></form>';
+    '<button class="btn ghost small" type="button" data-action="conversation-hint" aria-expanded="false" aria-controls="conversationHint" data-testid="conversation-hint">💡 Indice</button>' +
+    '<span class="conversation-voice-status" id="conversationVoiceStatus" role="status" aria-live="polite" data-testid="conversation-voice-status">Le micro remplit le champ en japonais ; tu peux corriger avant de vérifier.</span></div>' +
+    '<div class="conversation-hint" id="conversationHint" data-testid="conversation-hint-box" role="note" hidden></div></form>';
+}
+function toggleConversationHint() {
+  if (!conversationState || conversationState.completed || conversationState.feedback) return;
+  const box = $('#conversationHint');
+  const button = $('[data-action="conversation-hint"]');
+  if (!box || !button) return;
+  const show = box.hidden;
+  if (show) {
+    const turn = conversationTurn();
+    const first = String(turn.model.romaji || '').trim().split(/\s+/)[0].replace(/[.,!?…]+$/, '');
+    box.innerHTML = '<b>💡 Indice</b><p>' + esc(turn.tip) + '</p>' +
+      (first ? '<p class="conv-hint-start">Commence par : <strong>' + esc(first) + '…</strong></p>' : '');
+  }
+  box.hidden = !show;
+  button.textContent = show ? '🙈 Masquer l’indice' : '💡 Indice';
+  button.setAttribute('aria-expanded', show ? 'true' : 'false');
 }
 function setConversationVoiceStatus(message, tone) {
   const el = $('#conversationVoiceStatus');
@@ -2853,6 +2871,7 @@ return;
     case 'retry-conversation': retryConversation(); break;
     case 'retry-missed-conversation': retryMissedConversation(); break;
     case 'review-conversation-misses': reviewConversationMisses(id); break;
+    case 'conversation-hint': toggleConversationHint(); break;
     case 'toggle-conversation-listen': toggleConversationListen(); break;
     case 'reveal-conversation': revealConversation(); break;
     case 'conversation-voice': startConversationVoice(); break;

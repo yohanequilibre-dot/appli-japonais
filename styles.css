@@ -1260,6 +1260,12 @@ will-change: transform, opacity;
 .conversation-voice-status { flex: 1; min-width: 180px; color: var(--muted); font-size: .76rem; line-height: 1.45; }
 .conversation-voice-status.listening { color: var(--green-dark); font-weight: 800; }
 .conversation-voice-status.error { color: var(--amber); font-weight: 700; }
+.conversation-hint { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--green); border-radius: 12px; background: var(--green-soft); color: var(--text); font-size: .8rem; line-height: 1.6; }
+.conversation-hint[hidden] { display: none; }
+.conversation-hint b { color: var(--green-dark); }
+.conversation-hint p { margin: 4px 0 0; }
+.conv-hint-start { color: var(--muted); font-size: .78rem; }
+.conv-hint-start strong { color: var(--text); font-family: var(--jp); }
 .conversation-input { flex: 1; min-width: 0; width: 100%; padding: 13px 14px; border: 2px solid var(--line); border-radius: 14px; background: var(--bg); color: var(--text); font-family: var(--jp); font-size: 1.05rem; }
 .conversation-input:focus { outline: none; border-color: var(--green); }
 .conversation-feedback { margin-top: 14px; padding: 14px; border: 2px solid var(--line); border-radius: 16px; background: var(--surface-2); }
