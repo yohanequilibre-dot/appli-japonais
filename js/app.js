@@ -721,6 +721,23 @@ function route() {
 }
 
 /* ---------- Accueil ---------- */
+function dailyConversationPracticeTask(now) {
+  if (!CONV || !Array.isArray(CONV.scenarios) || !CONV.scenarios.length) return null;
+  const day = Math.floor((Number(now) || Date.now()) / 86400000);
+  const scenario = CONV.scenarios[day % CONV.scenarios.length];
+  if (!scenario || !scenario.turns.length) return null;
+  const turnIndex = day % scenario.turns.length;
+  const turn = scenario.turns[turnIndex];
+  if (!turn) return null;
+  return {
+    entry: null,
+    mode: 'conversation',
+    conversationScenario: scenario,
+    conversationTurnIndex: turnIndex,
+    conversationTurn: turn,
+    conversationPractice: true
+  };
+}
 function dailyConversationTasks(limit) {
   if (!CONV) return [];
   const out = [];
@@ -739,14 +756,19 @@ function dailyConversationTasks(limit) {
       });
     });
   });
+  if (!out.length && max > 0) {
+    const practice = dailyConversationPracticeTask(Date.now());
+    if (practice) out.push(practice);
+  }
   return out;
 }
 function dailyPlanPanelHtml() {
   const c = S.counts(entries, state, Date.now());
-  const conversationCount = Math.min(2, conversationReviewCount());
+  const conversationCount = Math.min(2, dailyConversationTasks(2).length);
+  const conversationReviewTotal = Math.min(2, conversationReviewCount());
   const hasPhrases = entries.some(function (entry) { return !!(entry && entry.context); });
   const parts = [];
-  if (conversationCount) parts.push(conversationCount + ' conversation' + (conversationCount === 1 ? '' : 's'));
+  if (conversationCount) parts.push(conversationCount + ' conversation' + (conversationCount === 1 ? '' : 's') + (conversationReviewTotal ? ' à revoir' : ' du jour'));
   if (c.due) parts.push(Math.min(8, c.due) + ' révision' + (Math.min(8, c.due) === 1 ? '' : 's'));
   if (c.new) parts.push(Math.min(3, c.new) + ' nouveau' + (Math.min(3, c.new) === 1 ? '' : 'x') + ' mot' + (Math.min(3, c.new) === 1 ? '' : 's'));
   if (c.due >= 2) parts.push('1 compréhension');
@@ -1054,8 +1076,9 @@ function conversationTaskView() {
   const turn = task && task.conversationTurn;
   if (!scenario || !turn) return '<div class="session-card conversation-task-card" data-testid="conversation-task"><p>Réplique indisponible.</p></div>';
   if (session.phase === 'feedback') return conversationTaskFeedbackHtml(scenario, turn);
-  return '<div class="session-card conversation-task-card" data-testid="conversation-task">' +
-    '<p class="eyebrow">Conversation · ' + esc(scenario.title) + '</p>' +
+  const practice = !!task.conversationPractice;
+  return '<div class="session-card conversation-task-card" data-testid="conversation-task" data-practice="' + (practice ? '1' : '0') + '">' +
+    '<p class="eyebrow">' + (practice ? 'Conversation du jour' : 'Conversation · ' + esc(scenario.title)) + '</p>' +
     '<p class="hint">' + esc(scenario.situation) + '</p>' +
     '<div class="conversation-bubble" data-testid="conversation-task-partner"><div class="conv-speaker"><span aria-hidden="true">' + esc(scenario.emoji) + '</span> ' + esc(scenario.speaker) + ' <small>· ' + esc(scenario.speakerFr) + '</small></div>' +
     '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
@@ -1182,8 +1205,9 @@ function conversationTaskAlternativesHtml(turn) {
 function conversationTaskFeedbackHtml(scenario, turn) {
   const result = session.conversationResult || { good: false, answer: '' };
   const last = !session.tasks.length;
-  return '<div class="session-card conversation-task-card conversation-task-feedback ' + (result.good ? 'good' : 'bad') + '" data-testid="conversation-task-feedback">' +
-    '<p class="eyebrow">Conversation · ' + esc(scenario.title) + '</p>' +
+  const practice = !!(session.task && session.task.conversationPractice);
+  return '<div class="session-card conversation-task-card conversation-task-feedback ' + (result.good ? 'good' : 'bad') + '" data-testid="conversation-task-feedback" data-practice="' + (practice ? '1' : '0') + '">' +
+    '<p class="eyebrow">' + (practice ? 'Conversation du jour' : 'Conversation · ' + esc(scenario.title)) + '</p>' +
     '<div class="conv-verdict">' + (result.good ? '✅ Bonne réponse !' : '💡 Presque !') + '</div>' +
     '<p class="conv-attempt">Ta réponse : <b lang="ja">' + esc(result.answer) + '</b></p>' +
     (result.pronunciation ? conversationPronunciationHtml(result.pronunciation) : '') +

@@ -827,6 +827,13 @@ test('session du jour : lance un parcours guidé', async ({ page }) => {
   await expect(page.locator('#session [role="progressbar"]')).toHaveAttribute('aria-valuenow', '0');
 });
 
+test('session du jour : propose une conversation du jour sans réplique ratée', async ({ page }) => {
+  await expect(page.getByTestId('today-panel')).toContainText('1 conversation du jour');
+  await page.getByTestId('start-today').click();
+  await expect(page.getByTestId('conversation-task')).toHaveAttribute('data-practice', '1');
+  await expect(page.getByTestId('conversation-task').locator('.eyebrow').first()).toContainText('Conversation du jour');
+});
+
 test('session du jour : révise une réplique de conversation', async ({ page }) => {
   await page.evaluate(function () {
     const now = Date.now();
@@ -844,9 +851,9 @@ test('session du jour : révise une réplique de conversation', async ({ page })
     }));
   });
   await page.reload();
-  await expect(page.getByTestId('today-panel')).toContainText('1 conversation');
+  await expect(page.getByTestId('today-panel')).toContainText('1 conversation à revoir');
   await page.getByTestId('start-today').click();
-  await expect(page.getByTestId('conversation-task')).toBeVisible();
+  await expect(page.getByTestId('conversation-task')).toHaveAttribute('data-practice', '0');
   await expect(page.getByTestId('conversation-task-partner')).toContainText('お名前は何ですか');
   await page.getByTestId('conversation-task-answer').fill('私はレアです。');
   await page.getByTestId('conversation-task-submit').click();
