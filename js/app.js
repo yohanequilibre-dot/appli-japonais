@@ -954,6 +954,7 @@ function conversationSessionHtml() {
     : '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
       '<p class="conv-reading">' + esc(turn.partner.reading) + '</p>' +
       '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
+      wordByWordDetails(turn.partner.jp, 'conv-word-by-word', 'conversation-partner-word-by-word') +
       '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '" data-slow="1">🔊 Écouter</button></div>';
   return '<section class="panel conversation-session" data-testid="conversation-session">' +
     '<div class="conversation-top"><button class="btn ghost small" data-action="close-conversation" data-testid="conversation-close">← Situations</button>' +
@@ -1100,7 +1101,9 @@ function conversationFeedbackHtml(turn, last) {
     (conversationState.feedback.pronunciation ? conversationPronunciationHtml(conversationState.feedback.pronunciation) : '') +
     '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
-    '<p class="conv-fr">' + esc(turn.model.fr) + '</p><div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
+    '<p class="conv-fr">' + esc(turn.model.fr) + '</p>' +
+    wordByWordDetails(turn.model.jp, 'conv-word-by-word', 'conversation-model-word-by-word') +
+    '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
     '<p class="conv-tip"><b>À retenir :</b> ' + esc(turn.tip) + '</p>' +
     (alternatives.length ? '<details class="conv-alt"><summary>Autres formulations acceptées</summary><ul><li lang="ja">' + alternatives.map(esc).join('</li><li lang="ja">') + '</li></ul></details>' : '') +
     '<div class="conversation-actions"><button class="btn primary" data-action="next-conversation" data-testid="conversation-next">' + (last ? 'Voir le bilan' : 'Suivant') + '</button>' +
@@ -1120,6 +1123,7 @@ function conversationTaskView() {
     '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.partner.reading) + '</p>' +
     '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
+    wordByWordDetails(turn.partner.jp, 'conv-word-by-word', 'conversation-task-partner-word-by-word') +
     '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '">🔊 Écouter</button></div></div>' +
     '<div class="conversation-task"><p class="eyebrow">À toi</p><h3>' + esc(turn.task) + '</h3>' +
     '<p class="hint">Réponds en japonais poli · kana, kanji ou romaji acceptés</p>' +
@@ -1249,7 +1253,9 @@ function conversationTaskFeedbackHtml(scenario, turn) {
     (result.pronunciation ? conversationPronunciationHtml(result.pronunciation) : '') +
     '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
-    '<p class="conv-fr">' + esc(turn.model.fr) + '</p><div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
+    '<p class="conv-fr">' + esc(turn.model.fr) + '</p>' +
+    wordByWordDetails(turn.model.jp, 'conv-word-by-word', 'conversation-model-word-by-word') +
+    '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
     '<p class="conv-tip"><b>À retenir :</b> ' + esc(turn.tip) + '</p>' +
     conversationTaskAlternativesHtml(turn) +
     (!result.good ? '<p class="hint">Cette réplique reste dans « Tes phrases à revoir ».</p>' : '') +

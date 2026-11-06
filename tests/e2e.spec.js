@@ -726,6 +726,23 @@ test('conversation : répond et accepte le romaji dans une situation réelle', a
   await expect(page.getByTestId('conversation-summary')).toContainText('3/3');
 });
 
+test('conversation : mot à mot dans la réplique et la réponse modèle', async ({ page }) => {
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-scenario-cafe').click();
+  const partner = page.getByTestId('conversation-partner-word-by-word');
+  await expect(partner).toBeVisible();
+  await partner.locator('summary').click();
+  const partnerWa = partner.locator('.gloss-item').filter({ hasText: 'は' }).first();
+  await expect(partnerWa.locator('rt .rt-romaji')).toHaveText('wa');
+  await page.getByTestId('conversation-answer').fill('ホットコーヒーをください。');
+  await page.getByTestId('conversation-submit').click();
+  const model = page.getByTestId('conversation-model-word-by-word');
+  await expect(model).toBeVisible();
+  await model.locator('summary').click();
+  const modelO = model.locator('.gloss-item').filter({ hasText: 'を' }).first();
+  await expect(modelO.locator('rt .rt-romaji')).toHaveText('o');
+});
+
 test('conversation : entretient la série et valide la mission du jour', async ({ page }) => {
   await page.goto('/#parler');
   await page.getByTestId('conversation-scenario-meet').click();
@@ -870,6 +887,7 @@ test('session du jour : propose une conversation du jour sans réplique ratée',
   await page.getByTestId('start-today').click();
   await expect(page.getByTestId('conversation-task')).toHaveAttribute('data-practice', '1');
   await expect(page.getByTestId('conversation-task').locator('.eyebrow').first()).toContainText('Conversation du jour');
+  await expect(page.getByTestId('conversation-task-partner-word-by-word')).toBeVisible();
 });
 
 test('session du jour : révise une réplique de conversation', async ({ page }) => {

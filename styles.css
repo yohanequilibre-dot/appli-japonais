@@ -1306,6 +1306,8 @@ will-change: transform, opacity;
 .conv-jp { margin: 8px 0 0; overflow-wrap: anywhere; font-family: var(--jp); font-size: clamp(1.2rem, 3vw, 1.55rem); line-height: 1.9; letter-spacing: .08em; }
 .conv-reading { margin: 2px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.6; }
 .conv-fr { margin: 6px 0 0; color: var(--muted); font-size: .86rem; line-height: 1.55; }
+.conv-word-by-word { margin: 7px 0 0; }
+.conv-word-by-word summary { color: var(--green-dark); }
 .conversation-bubble .btn { margin-top: 12px; }
 .conversation-task { padding-top: 16px; border-top: 1px solid var(--line); }
 .conversation-task h3 { margin: 0 0 4px; font-size: 1.05rem; }
@@ -1350,6 +1352,7 @@ will-change: transform, opacity;
 .conv-pronunciation p { margin: 8px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .conv-model { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .conv-model .conv-jp { margin-top: 4px; font-size: 1.25rem; }
+.conv-model .conv-word-by-word { margin-top: 8px; }
 .conv-romaji { margin: 2px 0 0; color: var(--blue-dark); font-size: .8rem; font-weight: 700; }
 .conv-tip { margin: 12px 0 0; font-size: .82rem; line-height: 1.65; }
 .conv-alt { margin-top: 10px; color: var(--muted); font-size: .82rem; }
