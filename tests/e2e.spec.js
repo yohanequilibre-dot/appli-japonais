@@ -131,6 +131,13 @@ await expect(page.locator('[data-testid="answer-context"] .rt-romaji').first()).
 const contextReadings = await page.locator('[data-testid="answer-context"] .rt-romaji').allTextContents();
 expect(contextReadings).toContain('genki');
 await expect(page.locator('[data-testid="answer-context"] .rt-kana')).toHaveCount(0);
+const glossReadings = await page.locator('.answer-word-by-word .gloss-item .rt-romaji').allTextContents();
+expect(glossReadings).toContain('konnichiwa');
+expect(glossReadings).toContain('genki');
+const helloGloss = page.locator('.answer-word-by-word .gloss-item').filter({ hasText: 'こんにちは' });
+await expect(helloGloss).toContainText('bonjour');
+await expect(helloGloss).toContainText('après-midi');
+await expect(helloGloss.locator('rt .rt-romaji')).toHaveText('konnichiwa');
 await page.getByTestId('grade-good').click();
 await expect(page.getByTestId('feedback')).toHaveCount(0);
 await expect(page.getByTestId('session-card')).toBeVisible();
@@ -214,6 +221,18 @@ await page.getByTestId('grade-good').click();
 await expect(page.getByTestId('reveal')).toBeVisible();
 await page.reload();
 await expect(page.locator('#xpVal')).toHaveText('10');
+});
+test('mot à mot : lecture au-dessus de chaque mot et particule', async ({ page }) => {
+  await page.goto('/#mots');
+  await page.getByTestId('search').fill('今日');
+  await page.locator('.word-row').first().click();
+  const gloss = page.locator('.modal-panel .detail-word-by-word');
+  await expect(gloss).toBeVisible();
+  const today = gloss.locator('.gloss-item').filter({ hasText: '今日' }).first();
+  await expect(today.locator('rt .rt-romaji')).toHaveText('kyou');
+  const particle = gloss.locator('.gloss-item').filter({ hasText: 'は' }).first();
+  await expect(particle.locator('rt .rt-romaji')).toHaveText('wa');
+  await expect(particle).toContainText('thème');
 });
 test('import bonjour | kon-ni-chi-wa avec contexte', async ({ page }) => {
 await page.goto('/#importer');
@@ -609,7 +628,7 @@ test('un contexte sans kanji affiche sa prononciation au-dessus', async ({ page 
   await page.getByRole('button', { name: /^oui\b/ }).click();
   await page.locator('[data-action="review-one"]').click();
   await page.getByTestId('reveal').click();
-  const readings = await page.locator('[data-testid="answer-context"] rt').allTextContents();
+  const readings = await page.locator('[data-testid="answer-context"] .context-jp rt').allTextContents();
   expect(readings).toEqual(['ha', 'i', 'so', 'u', 'de', 'su']);
 });
 
@@ -943,6 +962,9 @@ test('histoires : lecture, traduction, quiz et progression persistante', async (
   const firstLineReadings = await page.getByTestId('story-line-0').locator('.rt-romaji').allTextContents();
   expect(firstLineReadings).toContain('wa');
   expect(firstLineReadings.filter(function (reading) { return reading === 'ha'; })).toHaveLength(1);
+  const schoolLineReadings = await page.getByTestId('story-line-3').locator('.rt-romaji').allTextContents();
+  expect(schoolLineReadings).toContain('e');
+  expect(schoolLineReadings).not.toContain('he');
   await page.getByTestId('story-translation-0').click();
   await expect(page.getByTestId('story-fr-0')).toContainText('Bonjour');
   await page.getByTestId('story-translations-all').click();

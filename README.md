@@ -13,7 +13,7 @@ Une carte montre d'abord le mot **français**. Tu peux le prononcer avec le micr
 1. le japonais en kanji / kana, avec le **furigana** au-dessus ;
 2. une **phrase de contexte** japonaise avec sa traduction, à droite sur grand écran et sous la carte sur mobile.
 
-Le romaji complet apparaît sous le mot, et chaque unité (kanji ou kana) porte sa lecture latine au-dessus. La particule は est affichée **wa** (elle reste écrite は), tout comme la fin de こんにちは / こんばんは ; はい ou おはよう gardent **ha**. Aucune ligne de kana dupliquée au-dessus du mot.
+Le romaji complet apparaît sous le mot, et chaque unité (kanji ou kana) porte sa lecture latine au-dessus. La particule は est affichée **wa**, へ est affichée **e** et を est affichée **o** (elles restent écrites は, へ, を) ; la fin de こんにちは / こんばんは suit la même prononciation. はい ou おはよう gardent **ha**. Aucune ligne de kana dupliquée au-dessus du mot.
 
 Tu valides ensuite avec « Je ne savais pas » ou « J'ai prononcé ». La répétition espacée décide du prochain rendez-vous.
 
@@ -34,7 +34,7 @@ Exemple importé avec `bonjour | kon-ni-chi-wa` :
 - **Formes polies partout** : les verbes sont présentés et pratiqués à la forme ます (働きます, 働きません, 働きました, 働きませんでした), avec la question et les formes neutres expliquées dans la fiche. Les formes conjuguées de la phrase de contexte reçoivent aussi leur lecture latine (働いています → はたら + います).
 - **Exemples variés** : en plus de la phrase principale, la fiche de chaque verbe courant montre des exemples supplémentaires (négation, passé, question) pour voir la forme en situation.
 - **Traduction au survol** : survole une phrase de contexte (ou place le focus dessus au clavier) pour afficher sa traduction dans une infobulle, sans quitter la carte.
-- **Traduction mot à mot** : ouvre « Mot à mot » sous une phrase, ou survole-la, pour voir chaque mot ou particule avec sa traduction. Les particules indiquent leur rôle ; les mots hors lexique sont signalés.
+- **Traduction mot à mot** : ouvre « Mot à mot » sous une phrase, ou survole-la, pour voir chaque mot ou particule avec sa prononciation au-dessus et sa traduction. Les particules indiquent leur rôle ; les mots hors lexique sont signalés.
 - **Nuances de registre** : la carte de rappel indique seulement le registre (« Version formelle » ou « Version familière ») ; la fiche et la réponse précisent les variantes さようなら / じゃあね.
 - **Réponse lue automatiquement** : dès que la réponse s’affiche — par révélation ou par résultat micro — le mot puis la phrase de contexte sont lus sans clic. Un verdict explicite indique si c’est correct ou non.
 - **Alternatives acceptées** : pour « s’il vous plaît », お願いします et ください (kudasai) sont acceptés. La fiche explique la nuance : お願いします est plus doux et général ; ください est plus direct et concret, mais les deux restent polis.

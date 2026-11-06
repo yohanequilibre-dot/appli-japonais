@@ -34,6 +34,7 @@ let tooltipTarget = null;
 let glossIndex = null;
 let glossKeys = null;
 let glossRoles = null;
+let glossReadings = null;
 const MAX_IMPORT_CHARS = 2 * 1024 * 1024;
 
 const VIEWS = { learn: '#view-learn', review: '#view-review', conversation: '#view-conversation', reading: '#view-reading', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
@@ -147,6 +148,7 @@ const GLOSS_EXTRA = {
   'は': 'thème', 'が': 'sujet', 'を': 'objet', 'に': 'direction / lieu / heure',
   'で': 'lieu / moyen', 'へ': 'vers', 'と': 'et / avec', 'も': 'aussi',
   'の': 'de / lien', 'か': 'question', 'ね': 'n’est-ce pas ?', 'よ': 'insistance',
+  'さん': 'suffixe poli (M./Mme)', 'ちゃん': 'suffixe affectueux', 'くん': 'suffixe pour un garçon',
   'から': 'depuis / parce que', 'まで': 'jusqu’à', 'より': 'que', 'や': 'et (liste)',
   'など': 'etc.', 'だけ': 'seulement', 'でも': 'même / mais', 'そして': 'et puis',
   'それから': 'ensuite', 'しかし': 'mais', 'だから': 'donc',
@@ -237,10 +239,18 @@ function buildGlossIndex() {
   if (glossIndex) return;
   const index = Object.create(null);
   glossRoles = Object.create(null);
+  glossReadings = Object.create(null);
   function add(key, fr, role) { addGloss(index, key, fr, role); }
+  function addReading(key, reading) {
+    const k = normalizeGlossKey(key);
+    const r = P.stripAnnotations(String(reading || ''));
+    if (!k || !r || P.hasKanji(r) || (k in glossReadings)) return;
+    glossReadings[k] = r;
+  }
   entries.forEach(function (e) {
     if (!e || !e.jp || !e.fr) return;
     add(e.jp, e.fr);
+    addReading(e.jp, e.reading);
     addVerbGlosses(add, e.jp, e.fr);
     addAdjectiveGlosses(add, e.jp, e.fr);
   });
@@ -258,6 +268,17 @@ function buildGlossIndex() {
 
 function isGlossBreak(ch) {
   return !ch || /[\s　。、！？!?.,・…「」『』（）()\[\]{}～〜]/.test(ch);
+}
+
+function glossaryPronunciation(jp) {
+  const text = P.stripAnnotations(String(jp || ''));
+  const key = normalizeGlossKey(text);
+  const special = { 'は': 'wa', 'へ': 'e', 'を': 'o', 'こんにちは': 'konnichiwa', 'こんばんは': 'konbanwa' };
+  if (special[key]) return special[key];
+  const reading = glossReadings && glossReadings[key];
+  if (reading) return P.kanaToRomaji(reading) || '';
+  const R = window.Kotoba.Reading;
+  return R && R.pronunciation ? R.pronunciation(text) : '';
 }
 
 function tokenizeJapaneseGloss(text) {
@@ -281,19 +302,27 @@ function tokenizeJapaneseGloss(text) {
         if (next) break;
         j++;
       }
-      out.push({ jp: raw.slice(i, j), fr: '', unknown: true, role: false });
+      const jp = raw.slice(i, j);
+      out.push({ jp: jp, fr: '', unknown: true, role: false, romaji: glossaryPronunciation(jp) });
       i = j;
     } else {
-      out.push({ jp: hit, fr: glossIndex[hit], unknown: false, role: !!glossRoles[hit] });
+      out.push({ jp: hit, fr: glossIndex[hit], unknown: false, role: !!glossRoles[hit], romaji: glossaryPronunciation(hit) });
       i += hit.length;
     }
   }
   return out;
 }
 
+function glossWordHtml(token) {
+  const jp = esc(token.jp);
+  const romaji = String(token.romaji || '');
+  if (!romaji) return '<b lang="ja">' + jp + '</b>';
+  return '<ruby><b lang="ja">' + jp + '</b><rt><span class="rt-romaji">' + esc(romaji) + '</span></rt></ruby>';
+}
+
 function glossItemHtml(token, className) {
   const cls = (className || 'gloss-item') + (token.role ? ' role' : '') + (token.unknown ? ' unknown' : '');
-  return '<li class="' + cls + '"><b lang="ja">' + esc(token.jp) + '</b><span>' + esc(token.fr || '—') + '</span></li>';
+  return '<li class="' + cls + '">' + glossWordHtml(token) + '<span>' + esc(token.fr || '—') + '</span></li>';
 }
 
 function wordByWordDetails(context, extraClass) {
@@ -312,7 +341,7 @@ function tooltipGlossHtml(context) {
   return '<div class="tip-gloss"><span class="tip-gloss-title">Mot à mot</span><div class="tip-gloss-list">' +
     shown.map(function (token) {
       return '<span class="tip-gloss-item' + (token.role ? ' role' : '') + (token.unknown ? ' unknown' : '') + '">' +
-        '<b lang="ja">' + esc(token.jp) + '</b><span>' + esc(token.fr || '—') + '</span></span>';
+        glossWordHtml(token) + '<span>' + esc(token.fr || '—') + '</span></span>';
     }).join('') +
     (tokens.length > shown.length ? '<span class="tip-gloss-more">+ ' + (tokens.length - shown.length) + '</span>' : '') +
     '</div></div>';
@@ -322,6 +351,9 @@ function contextNoteHtml(entry) {
   return note ? '<p class="context-note" data-testid="answer-context-note">' + esc(note) + '</p>' : '';
 }
 function kanaContextHtml(text, highlight) {
+  if (window.Kotoba.Reading && window.Kotoba.Reading.annotate) {
+    return window.Kotoba.Reading.annotate(text, highlight, true);
+  }
   const raw = String(text || '');
   const target = String(highlight || '').trim();
   const segmenter = window.Intl && window.Intl.Segmenter
@@ -683,6 +715,7 @@ function buildEntries() {
   glossIndex = null;
   glossKeys = null;
   glossRoles = null;
+  glossReadings = null;
   return list;
 }
 function unitStats(unitId, now) {

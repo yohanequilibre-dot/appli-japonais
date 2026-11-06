@@ -71,6 +71,25 @@ test("lecture latine : la particule は se lit wa", function () {
   const hana = readings(Reading.romajiRubyHtml("はなです。"));
   assert.ok(hana.includes("ha"), "はな garde bien ha");
   assert.equal(hana.includes("wa"), false);
+  const school = readings(Reading.romajiRubyHtml("学校へ行きます。"));
+  assert.ok(school.includes("e"), "la particule へ doit être lue e");
+  assert.equal(school.includes("he"), false, "aucun he pour la particule へ");
+  const water = readings(Reading.romajiRubyHtml("水を飲みます。"));
+  assert.ok(water.includes("o"), "la particule を doit être lue o");
+  assert.equal(water.includes("wo"), false, "aucun wo pour la particule を");
+  const room = readings(Reading.romajiRubyHtml("へや。"));
+  assert.ok(room.includes("he"), "へや garde bien he");
+  assert.equal(room.includes("e"), false);
+  assert.equal(Reading.pronunciation("こんにちは"), "konnichiwa");
+  assert.equal(Reading.pronunciation("こんばんは"), "konbanwa");
+  assert.equal(Reading.pronunciation("今日"), "kyou");
+  assert.equal(Reading.pronunciation("学校"), "gakkou");
+  assert.equal(Reading.pronunciation("は"), "wa");
+  assert.equal(Reading.pronunciation("へ"), "e");
+  assert.equal(Reading.pronunciation("を"), "o");
+  assert.equal(Reading.pronunciation("はい"), "hai");
+  assert.equal(Reading.pronunciation("おはよう"), "ohayou");
+  assert.equal(Reading.pronunciation("はな"), "hana");
 });
 
 test("import « bonjour | kon-ni-chi-wa »", function () {

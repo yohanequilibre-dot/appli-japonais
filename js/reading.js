@@ -148,13 +148,29 @@ if (item.segment === 'こんにちは' || item.segment === 'こんばんは') {
 overrides[item.index + item.segment.length - 1] = 'wa';
 return;
 }
-if (item.segment !== 'は') return;
+if (item.segment !== 'は' && item.segment !== 'へ' && item.segment !== 'を') return;
 var next = text.charAt(item.index + 1);
 if (item.index === 0 && /[\u3040-\u30ff\u3400-\u9fff]/.test(next)) return;
-overrides[item.index] = 'wa';
+overrides[item.index] = item.segment === 'は' ? 'wa' : (item.segment === 'へ' ? 'e' : 'o');
 });
 } catch (e) { /* La segmentation est facultative. */ }
 return overrides;
+}
+var SPECIAL_PRONUNCIATION = {
+'は': 'wa',
+'へ': 'e',
+'を': 'o',
+'こんにちは': 'konnichiwa',
+'こんばんは': 'konbanwa'
+};
+function pronunciation(value) {
+var raw = strip(value).replace(/^[\s　。、！？!?.,・…「」『』（）()]+|[\s　。、！？!?.,・…「」『』（）()]+$/g, '');
+if (!raw) return '';
+if (SPECIAL_PRONUNCIATION[raw]) return SPECIAL_PRONUNCIATION[raw];
+if (!P || !P.kanaToRomaji) return '';
+var kana = reading(raw);
+if (!kana || hasKanji(kana)) return '';
+return P.kanaToRomaji(kana) || '';
 }
 function romajiRubyHtml(annotated, context) {
 var s = String(annotated || '');
@@ -179,7 +195,7 @@ i = j;
 var j2 = i + 1;
 while (j2 < value.length && /[\u3040-\u30ff]/.test(value.charAt(j2))) j2++;
 kanaUnits(value.slice(i, j2)).forEach(function (unit) {
-var override = unit === 'は' ? overrides[cursor] : '';
+var override = (unit === 'は' || unit === 'へ' || unit === 'を') ? overrides[cursor] : '';
 out += rubyChar(unit, unit, override || undefined);
 cursor += unit.length;
 });
@@ -195,12 +211,12 @@ function annotation(base, reading) {
 var match = String(base || '').match(/^([\u3040-\u30ff]+)([\s\S]+)$/);
 if (match && /[\u3400-\u9fff]/.test(match[2]) && String(reading || '').indexOf(match[1]) !== 0) {
 plain(match[1]);
-var prefixOverride = match[2] === 'は' ? overrides[cursor] : '';
+var prefixOverride = (match[2] === 'は' || match[2] === 'へ' || match[2] === 'を') ? overrides[cursor] : '';
 out += rubyChar(match[2], reading, prefixOverride || undefined);
 cursor += String(match[2] || '').length;
 return;
 }
-var directOverride = String(base || '') === 'は' ? overrides[cursor] : '';
+var directOverride = (String(base || '') === 'は' || String(base || '') === 'へ' || String(base || '') === 'を') ? overrides[cursor] : '';
 out += rubyChar(base, reading, directOverride || undefined);
 cursor += String(base || '').length;
 }
@@ -330,6 +346,7 @@ return out;
 return {
 annotate: annotate,
 reading: reading,
+pronunciation: pronunciation,
 kanaReading: kanaReading,
 kanaUnits: kanaUnits,
 romajiRubyHtml: romajiRubyHtml,

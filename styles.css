@@ -1174,6 +1174,11 @@ will-change: transform, opacity;
 .tip-gloss-item { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.1); font-size: .68rem; line-height: 1.35; }
 .tip-gloss-item b { font-family: var(--jp); font-weight: 700; }
 .tip-gloss-item span { color: #cfe6d2; font-size: .65rem; font-weight: 500; }
+.gloss-item ruby, .tip-gloss-item ruby { font-family: var(--jp); }
+.gloss-item ruby rt, .tip-gloss-item ruby rt { font-size: .72em; line-height: 1.05; letter-spacing: 0; }
+.gloss-item ruby rt .rt-romaji, .tip-gloss-item ruby rt .rt-romaji { font-size: 1em; font-weight: 800; }
+.gloss-item ruby rt .rt-romaji { color: var(--muted); }
+.tip-gloss-item ruby rt .rt-romaji { color: #cfe6d2; }
 .tip-gloss-item.role { background: rgba(255,255,255,.05); }
 .tip-gloss-item.unknown span { color: #f5d58c; }
 .tip-gloss-more { align-self: center; padding: 2px 4px; color: #b7e98d; font-size: .68rem; font-weight: 800; }
