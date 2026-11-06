@@ -1468,6 +1468,9 @@ will-change: transform, opacity;
 .story-line-actions { display: flex; gap: 4px; flex: 0 0 auto; }
 .story-line-actions .btn { padding: 5px 8px; font-size: .67rem; }
 .story-fr { margin: 7px 0 0; padding-left: 12px; border-left: 3px solid var(--story-accent); color: var(--muted); font-size: .85rem; line-height: 1.6; }
+.story-line .word-by-word { margin: 6px 0 0; padding-top: 4px; border-top: 0; }
+.story-line .word-by-word summary { color: var(--story-accent); font-size: .68rem; }
+.story-line .word-by-word .gloss-list { margin-top: 5px; }
 .story-reader-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .story-reader-foot .hint { margin: 0; }
 .story-quiz { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--bg); }

@@ -325,10 +325,10 @@ function glossItemHtml(token, className) {
   return '<li class="' + cls + '">' + glossWordHtml(token) + '<span>' + esc(token.fr || '—') + '</span></li>';
 }
 
-function wordByWordDetails(context, extraClass) {
+function wordByWordDetails(context, extraClass, testId) {
   const tokens = tokenizeJapaneseGloss(context);
   if (!tokens.length) return '';
-  return '<details class="word-by-word ' + (extraClass || '') + '" data-testid="word-by-word">' +
+  return '<details class="word-by-word ' + (extraClass || '') + '" data-testid="' + attr(testId || 'word-by-word') + '">' +
     '<summary>Mot à mot</summary><ul class="gloss-list">' +
     tokens.map(function (token) { return glossItemHtml(token); }).join('') +
     '</ul></details>';
@@ -1619,7 +1619,8 @@ function storyReaderHtml(story) {
       '<div class="story-line-main"><p class="story-jp" lang="ja">' + rubyHtml(line.ruby, state.settings.furigana) + '</p>' +
       '<div class="story-line-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(storyLineText(line)) + '" aria-label="Écouter la ligne ' + (index + 1) + '">🔊</button>' +
       '<button class="btn ghost small" data-action="story-translation" data-index="' + index + '" data-testid="story-translation-' + index + '" aria-expanded="' + (shown ? 'true' : 'false') + '">' + (shown ? 'Masquer' : 'Traduire') + '</button></div></div>' +
-      (shown ? '<p class="story-fr" data-testid="story-fr-' + index + '">' + esc(line.fr) + '</p>' : '') + '</div>';
+      (shown ? '<p class="story-fr" data-testid="story-fr-' + index + '">' + esc(line.fr) + '</p>' : '') +
+      wordByWordDetails(storyLineText(line), 'story-word-by-word', 'story-word-by-word-' + index) + '</div>';
   }).join('');
   return '<section class="panel story-reader" data-testid="story-reader">' +
     '<div class="story-reader-top"><button class="btn ghost small" data-action="close-story" data-testid="story-close">← Toutes les histoires</button><span class="story-level">' + esc(story.level) + ' · ' + story.minutes + ' min</span></div>' +

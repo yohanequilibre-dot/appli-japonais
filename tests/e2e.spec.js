@@ -992,6 +992,20 @@ test('histoires : lecture, traduction, quiz et progression persistante', async (
   await expect(page.getByTestId('story-card-asa')).toContainText('Lue');
 });
 
+test('histoires : mot à mot sous chaque ligne avec les prononciations', async ({ page }) => {
+  await page.goto('/#histoires');
+  await page.getByTestId('story-card-asa').click();
+  const gloss = page.getByTestId('story-word-by-word-2');
+  await expect(gloss).toBeVisible();
+  await gloss.locator('summary').click();
+  const today = gloss.locator('.gloss-item').filter({ hasText: '今日' }).first();
+  await expect(today.locator('rt .rt-romaji')).toHaveText('kyou');
+  const particle = gloss.locator('.gloss-item').filter({ hasText: 'は' }).first();
+  await expect(particle.locator('rt .rt-romaji')).toHaveText('wa');
+  const object = gloss.locator('.gloss-item').filter({ hasText: 'を' }).first();
+  await expect(object.locator('rt .rt-romaji')).toHaveText('o');
+});
+
 test('synchronisation : deux appareils fusionnent leurs progressions', async ({ browser }) => {
   test.setTimeout(60000);
   const email = 'e2e-sync@example.com';
