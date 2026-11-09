@@ -11,6 +11,24 @@ clone.querySelectorAll('rt').forEach((node) => node.remove());
 return clone.textContent.replace(/\s+/g, ' ').trim();
 });
 }
+async function passDailyGrammar(page) {
+  const grammar = page.getByTestId('grammar-task');
+  if (!(await grammar.count())) return;
+  await expect(grammar).toBeVisible();
+  if (await page.getByTestId('session-grammar-option-0').count()) {
+    await page.getByTestId('session-grammar-option-0').click();
+  } else {
+    const tokens = page.locator('[data-testid^="session-grammar-token-"]');
+    const count = await tokens.count();
+    for (let i = 0; i < count; i++) {
+      const token = page.getByTestId('session-grammar-token-' + i);
+      if (await token.count()) await token.click();
+    }
+  }
+  await page.getByTestId('session-grammar-check').click();
+  await expect(page.getByTestId('session-grammar-feedback')).toBeVisible();
+  await page.getByTestId('session-grammar-next').click();
+}
 
 const SYNC_API_RE = /^https:\/\/site-8663ef28787c4307a825b86f37a2dc1c\.freebuff\.page\/api\//;
 
@@ -298,6 +316,169 @@ await expect(page.locator('#view-grammar')).toBeVisible();
 await expect(page.locator('#view-grammar')).toContainText('L’ordre de la phrase');
 await expect(page.locator('#view-grammar .grammar-jp rt').first()).toBeAttached();
 expect(await baseText(page.locator('#view-grammar .grammar-jp').first())).toContain('私は水を飲みます。');
+const prohibition = page.locator('.grammar-table td[data-grammar-jp*="ここで食べてはいけません"]');
+await expect(prohibition).toHaveCount(1);
+const prohibitionReadings = await prohibition.locator('.rt-romaji').allTextContents();
+expect(prohibitionReadings).toContain('wa');
+expect(prohibitionReadings).not.toContain('ha');
+const gloss = await page.evaluate(() => window.Kotoba.Gloss.tokenize('ここで食べてはいけません。'));
+expect(gloss.find((token) => token.jp === 'は').romaji).toBe('wa');
+expect(gloss.find((token) => token.jp === 'はい')).toBeUndefined();
+});
+test('parcours de grammaire B1 : leçon, exercice et correction', async ({ page }) => {
+await page.goto('/#grammaire');
+await expect(page.getByTestId('grammar-track')).toContainText('Grammaire B1 · B2');
+await page.getByTestId('grammar-lesson-b1-te-shimau').click();
+await expect(page.getByTestId('grammar-lesson-detail')).toContainText('Finir… ou le regretter');
+await expect(page.locator('[data-testid="grammar-lesson-detail"] .grammar-track-jp rt').first()).toBeAttached();
+await page.getByTestId('grammar-start-exercises').click();
+await expect(page.getByTestId('grammar-exercise')).toBeVisible();
+await page.getByTestId('grammar-option-0').click();
+await page.getByTestId('grammar-check').click();
+await expect(page.getByTestId('grammar-feedback')).toContainText('Bonne réponse');
+});
+test('parcours de grammaire B1 : les exercices ratés sont signalés', async ({ page }) => {
+await page.addInitScript(() => {
+if (!localStorage.getItem('kotoba.v3')) {
+localStorage.setItem('kotoba.v3', JSON.stringify({
+  grammar: { lessons: { 'b1-te-shimau': { attempts: 1, bestScore: 50, completedAt: 100, lastAt: 100, answers: { 'b1-te-shimau-e1': false, 'b1-te-shimau-e2': false } } } }
+}));
+}
+});
+await page.goto('/#grammaire');
+await page.reload();
+const card = page.getByTestId('grammar-lesson-b1-te-shimau');
+await expect(card).toContainText('2 exercices à revoir');
+await expect(page.getByTestId('grammar-review-badge-b1-te-shimau')).toHaveText('2 exercices à revoir');
+await card.click();
+const review = page.getByTestId('grammar-review-mistakes');
+await expect(review).toContainText('Réviser les 2 exercices ratés');
+await review.click();
+await expect(page.getByTestId('grammar-exercise')).toContainText('Révision ciblée · 1 / 2');
+});
+test('session du jour : la grammaire cible une leçon échouée', async ({ page }) => {
+await page.addInitScript(() => {
+if (!localStorage.getItem('kotoba.v3')) {
+localStorage.setItem('kotoba.v3', JSON.stringify({
+  grammar: { lessons: { 'b1-te-shimau': { attempts: 1, bestScore: 50, completedAt: 100, lastAt: 100, answers: { 'b1-te-shimau-e1': false } } } }
+}));
+}
+});
+await page.goto('/');
+await expect(page.getByTestId('today-panel')).toContainText('1 point de grammaire');
+await page.getByTestId('start-today').click();
+await expect(page.getByTestId('grammar-task')).toContainText('Finir… ou le regretter');
+await expect(page.getByTestId('grammar-task')).toContainText('Révision ciblée');
+await expect(page.getByTestId('session-grammar-option-0')).toBeVisible();
+await page.getByTestId('session-grammar-option-0').click();
+await page.getByTestId('session-grammar-check').click();
+await expect(page.getByTestId('session-grammar-feedback')).toContainText('Bonne réponse');
+const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('kotoba.v3')).grammar.lessons['b1-te-shimau'].answers['b1-te-shimau-e1']);
+expect(saved).toBe(true);
+await page.getByTestId('session-grammar-next').click();
+await expect(page.getByTestId('conversation-task')).toBeVisible();
+await page.goto('/#grammaire');
+await expect(page.getByTestId('grammar-history')).toContainText('Finir… ou le regretter');
+await expect(page.getByTestId('grammar-history')).toContainText('100 %');
+await page.reload();
+await expect(page.getByTestId('grammar-history')).toContainText('Finir… ou le regretter');
+});
+test('session du jour : le bilan reprend le point de grammaire', async ({ page }) => {
+test.setTimeout(60000);
+await page.addInitScript(() => {
+if (!localStorage.getItem('kotoba.v3')) {
+localStorage.setItem('kotoba.v3', JSON.stringify({
+  grammar: { lessons: { 'b1-te-shimau': { attempts: 1, bestScore: 50, completedAt: 100, lastAt: 100, answers: { 'b1-te-shimau-e1': false, 'b1-te-shimau-e2': false, 'b1-te-shimau-e3': false } } } }
+}));
+}
+class FakeRecognition {
+  start() {
+    setTimeout(() => {
+      const source = document.querySelector('[data-testid="pronounce-card"] [data-action="speak-text"]');
+      const transcript = source ? source.getAttribute('data-text') : 'こんにちは';
+      const result = [{ transcript: transcript }];
+      result.isFinal = true;
+      if (this.onresult) this.onresult({ results: [result] });
+    }, 10);
+  }
+  abort() {}
+  stop() {}
+}
+Object.defineProperty(window, 'SpeechRecognition', { configurable: true, value: FakeRecognition });
+Object.defineProperty(window, 'webkitSpeechRecognition', { configurable: true, value: FakeRecognition });
+});
+await page.goto('/');
+await page.getByTestId('start-today').click();
+await page.getByTestId('session-grammar-option-0').click();
+await page.getByTestId('session-grammar-check').click();
+await expect(page.getByTestId('session-grammar-feedback')).toContainText('Bonne réponse');
+await page.getByTestId('session-grammar-next').click();
+for (let i = 0; i < 20; i++) {
+  if (await page.getByTestId('summary').count()) break;
+  if (await page.getByTestId('conversation-task').count()) {
+    const input = page.getByTestId('conversation-task-answer');
+    if (await input.count()) { await input.fill('x'); await page.getByTestId('conversation-task-submit').click(); }
+    await page.getByTestId('session-next').click();
+    continue;
+  }
+  if (await page.getByTestId('phrase-card').count()) {
+    if (await page.getByTestId('phrase-reveal').count()) await page.getByTestId('phrase-reveal').click();
+    await page.getByTestId('phrase-next').click();
+    continue;
+  }
+  if (await page.getByTestId('pronounce-card').count()) {
+    if (await page.getByTestId('pronounce-start').count()) await page.getByTestId('pronounce-start').click();
+    await expect(page.getByTestId('pronounce-finish')).toBeVisible();
+    await page.getByTestId('pronounce-finish').click();
+    await page.getByTestId('session-next').click();
+    continue;
+  }
+  if (await page.getByTestId('reveal').count()) {
+    await page.getByTestId('reveal').click();
+    await page.getByTestId('grade-good').click();
+    continue;
+  }
+  throw new Error('Type de tâche inattendu dans la session du jour.');
+}
+await expect(page.getByTestId('summary')).toBeVisible();
+await expect(page.getByTestId('summary-grammar')).toContainText('Finir… ou le regretter');
+await expect(page.getByTestId('summary-grammar-score')).toHaveText('100 %');
+await expect(page.getByTestId('summary-grammar-next-step')).toContainText('pas encore à 100 %');
+await expect(page.getByTestId('summary-grammar-open')).toHaveText('Refaire l’exercice');
+await page.getByTestId('summary-grammar-open').click();
+await expect(page.locator('#view-grammar')).toContainText('Finir… ou le regretter');
+await expect(page.getByTestId('grammar-exercise')).toContainText('Révision ciblée');
+await page.getByTestId('grammar-option-0').click();
+await page.getByTestId('grammar-check').click();
+await expect(page.getByTestId('grammar-feedback')).toContainText('Bonne réponse');
+await expect(page.getByTestId('grammar-review-next')).toHaveText('Exercice suivant');
+await page.getByTestId('grammar-review-next').click();
+await expect(page.getByTestId('grammar-exercise')).toContainText('2 / 2');
+await page.getByTestId('grammar-option-0').click();
+await page.getByTestId('grammar-check').click();
+await page.getByTestId('grammar-review-back').click();
+await expect(page.getByTestId('grammar-exercise')).toHaveCount(0);
+await expect(page.getByTestId('grammar-lesson-detail')).toBeVisible();
+await expect(page).toHaveURL(/#grammaire$/);
+});
+test('session du jour : la grammaire peut proposer une remise en ordre', async ({ page }) => {
+await page.addInitScript(() => {
+if (!localStorage.getItem('kotoba.v3')) {
+localStorage.setItem('kotoba.v3', JSON.stringify({
+  grammar: { lessons: { 'b1-te-shimau': { attempts: 1, bestScore: 75, completedAt: 100, lastAt: 100, answers: { 'b1-te-shimau-e1': true, 'b1-te-shimau-e2': true, 'b1-te-shimau-e3': true, 'b1-te-shimau-e4': false } } } }
+}));
+}
+});
+await page.goto('/');
+await page.getByTestId('start-today').click();
+await expect(page.getByTestId('grammar-task')).toContainText('Remets la phrase dans l’ordre');
+await page.getByTestId('session-grammar-token-0').click();
+await page.getByTestId('session-grammar-token-1').click();
+await page.getByTestId('session-grammar-token-2').click();
+await page.getByTestId('session-grammar-check').click();
+await expect(page.getByTestId('session-grammar-feedback')).toContainText('Bonne réponse');
+const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('kotoba.v3')).grammar.lessons['b1-te-shimau'].answers['b1-te-shimau-e4']);
+expect(saved).toBe(true);
 });
 test('plus de 1000 mots et aller en forme polie', async ({ page }) => {
 const info = await page.evaluate(() => ({
@@ -885,6 +1066,7 @@ test('session du jour : lance un parcours guidé', async ({ page }) => {
 test('session du jour : propose une conversation du jour sans réplique ratée', async ({ page }) => {
   await expect(page.getByTestId('today-panel')).toContainText('1 conversation du jour');
   await page.getByTestId('start-today').click();
+  await passDailyGrammar(page);
   await expect(page.getByTestId('conversation-task')).toHaveAttribute('data-practice', '1');
   await expect(page.getByTestId('conversation-task').locator('.eyebrow').first()).toContainText('Conversation du jour');
   await expect(page.getByTestId('conversation-task-partner-word-by-word')).toBeVisible();
@@ -909,6 +1091,7 @@ test('session du jour : révise une réplique de conversation', async ({ page })
   await page.reload();
   await expect(page.getByTestId('today-panel')).toContainText('1 conversation à revoir');
   await page.getByTestId('start-today').click();
+  await passDailyGrammar(page);
   await expect(page.getByTestId('conversation-task')).toHaveAttribute('data-practice', '0');
   await expect(page.getByTestId('conversation-task-partner')).toContainText('お名前は何ですか');
   await page.getByTestId('conversation-task-answer').fill('私はレアです。');
@@ -959,6 +1142,7 @@ test('session du jour : répond à l’oral à une réplique de conversation', a
   });
   await page.reload();
   await page.getByTestId('start-today').click();
+  await passDailyGrammar(page);
   await expect(page.getByTestId('conversation-task')).toBeVisible();
   await page.getByTestId('conversation-task-voice').click();
   await expect(page.getByTestId('conversation-task-answer')).toHaveValue('私はレアです。');
@@ -1022,6 +1206,41 @@ test('histoires : mot à mot sous chaque ligne avec les prononciations', async (
   await expect(particle.locator('rt .rt-romaji')).toHaveText('wa');
   const object = gloss.locator('.gloss-item').filter({ hasText: 'を' }).first();
   await expect(object.locator('rt .rt-romaji')).toHaveText('o');
+});
+
+test('histoires : situations sociales et bilan de niveau', async ({ page }) => {
+  await page.goto('/#histoires');
+  await expect(page.getByTestId('level-profile')).toContainText('Niveau A1');
+  await expect(page.getByTestId('story-card-resto')).toContainText('Au restaurant');
+  await expect(page.getByTestId('story-card-resto')).toContainText('A1');
+  await expect(page.getByTestId('story-card-deeto')).toContainText('A2');
+  await page.getByTestId('story-card-resto').click();
+  await page.getByTestId('story-quiz-start').click();
+  await page.getByTestId('story-option-0-1').click();
+  await page.getByTestId('story-option-1-1').click();
+  await page.getByTestId('story-quiz-submit').click();
+  await expect(page.getByTestId('story-result')).toContainText('1 / 2');
+  await expect(page.getByTestId('story-level-feedback')).toContainText('À travailler');
+  await expect(page.getByTestId('story-level-feedback')).toContainText('Vocabulaire');
+  await page.getByTestId('story-close').click();
+  await expect(page.getByTestId('level-profile')).toContainText('1 / 3');
+});
+
+test('histoires : palier B2 conversationnel et filtre dédié', async ({ page }) => {
+  await page.goto('/#histoires');
+  await page.locator('.chip[data-level="B2"]').click();
+  await expect(page.getByTestId('story-card-entretien')).toBeVisible();
+  await expect(page.getByTestId('story-card-negociation')).toBeVisible();
+  await expect(page.getByTestId('story-card-resto')).toHaveCount(0);
+  await page.getByTestId('story-card-entretien').click();
+  await expect(page.getByTestId('story-reader')).toContainText('B2');
+  await expect(page.getByTestId('story-line-0')).toContainText('本日');
+  await page.getByTestId('story-quiz-start').click();
+  await page.getByTestId('story-option-0-0').click();
+  await page.getByTestId('story-option-1-0').click();
+  await page.getByTestId('story-quiz-submit').click();
+  await expect(page.getByTestId('story-result')).toContainText('2 / 2');
+  await expect(page.getByTestId('story-level-feedback')).toContainText('Cette histoire : B2');
 });
 
 test('synchronisation : deux appareils fusionnent leurs progressions', async ({ browser }) => {

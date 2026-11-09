@@ -14,15 +14,19 @@ const PH = window.Kotoba.Phrase;
 const SY = window.Kotoba.Sync || null;
 const CONV = window.Kotoba.Conversation || null;
 const IMM = window.Kotoba.Immersion || null;
+const MISTAKES = window.Kotoba.Mistakes || null;
+const GRAMMAR = window.Kotoba.GrammarTrack || null;
 const $ = function (sel, root) { return (root || document).querySelector(sel); };
 const $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
 const state = S.load();
 let entries = [];
+let glossSignatureValue = '';
 let view = 'learn';
 let session = null;
 let conversationState = null;
 let immersionState = null;
+const grammarUi = { level: 'B1', openId: null, session: null };
 const ui = { filter: 'all', storyLevel: 'all', search: '', importText: '', preview: null, lastFocus: null, detailId: null, validationTimer: 0 };
 let toastTimer = 0;
 let syncBusy = false;
@@ -33,6 +37,7 @@ let speechPrimed = false;
 let tooltipTarget = null;
 let glossIndex = null;
 let glossKeys = null;
+let glossBuckets = null;
 let glossRoles = null;
 let glossReadings = null;
 const MAX_IMPORT_CHARS = 2 * 1024 * 1024;
@@ -168,6 +173,291 @@ const GLOSS_CONTENT = {
   '結ぶ': 'nouer'
 };
 
+// Mots des phrases d'exemple qui ne figurent pas dans les 859 fiches :
+// forme, lecture kana, traduction. Les verbes reçoivent aussi leurs formes.
+const GLOSS_LEARN = {
+  'っ': ['っ', 'petit tsu (gémination)'],
+  '々': ['々', 'répétition du kanji'],
+  'な': ['な', 'liaison adjectivale'],
+  'し': ['し', 'radical de する'],
+  'お': ['お', 'préfixe poli'],
+  'ご': ['ご', 'préfixe poli'],
+  'すみません': ['すみません', 'excusez-moi'],
+  'ありません': ['ありません', 'il n’y a pas (poli)'],
+  'ございます': ['ございます', 'être (très poli)'],
+  'だろう': ['だろう', 'probablement'],
+  'でしょう': ['でしょう', 'probablement (poli)'],
+  'だった': ['だった', 'était (familier)'],
+  'てる': ['てる', 'forme contractée de ている'],
+  'けど': ['けど', 'mais'],
+  'たら': ['たら', 'si / quand (conditionnel)'],
+  'うち': ['うち', 'parmi / chez soi'],
+  'なく': ['なく', 'sans'],
+  'ほど': ['ほど', 'à tel point'],
+  'ついに': ['ついに', 'enfin'],
+  'なあ': ['なあ', 'particule d’émotion'],
+  '我々': ['われわれ', 'nous'],
+  '事実': ['じじつ', 'fait'],
+  '州': ['しゅう', 'État / région'],
+  '田': ['た', 'rizière (ou nom)'],
+  '杯': ['はい', 'verre / coupe (compteur)'],
+  'お寺': ['おてら', 'temple'],
+  'ラーメン': ['ラーメン', 'ramen'],
+  'ピアニスト': ['ピアニスト', 'pianiste'],
+  'ジム': ['ジム', 'salle de sport'],
+  'ホール': ['ホール', 'salle'],
+  'ジョーンズ': ['ジョーンズ', 'Jones'],
+  'ジョンソン': ['ジョンソン', 'Johnson'],
+  'ハドソン': ['ハドソン', 'Hudson'],
+  'トム': ['トム', 'Tom'],
+  'アン': ['アン', 'Anne'],
+  'テムズ': ['テムズ', 'Tamise'],
+  'カナダ': ['カナダ', 'Canada'],
+  'アメリカ': ['アメリカ', 'États-Unis'],
+  'ニューヨーク': ['ニューヨーク', 'New York'],
+  '台湾': ['たいわん', 'Taïwan'],
+  'インド': ['インド', 'Inde'],
+  'スキー': ['スキー', 'ski'],
+  'ＶＩＳＡ': ['ビザ', 'Visa (carte)'],
+  'Ａ': ['エー', 'A'],
+  'Ｂ': ['ビー', 'B'],
+  'チラシ': ['チラシ', 'prospectus'],
+  'ブタ': ['ブタ', 'cochon'],
+  'ばら': ['ばら', 'rose'],
+  'ひも': ['ひも', 'corde / lacet'],
+  '単語': ['たんご', 'mot / vocabulaire'],
+  '技術': ['ぎじゅつ', 'technique'],
+  '歴史': ['れきし', 'histoire'],
+  '給料': ['きゅうりょう', 'salaire'],
+  '要求': ['ようきゅう', 'exigence'],
+  '論': ['ろん', 'discussion / thèse'],
+  '運動': ['うんどう', 'sport'],
+  '野球': ['やきゅう', 'base-ball'],
+  '毛': ['け', 'poil / cheveu'],
+  'いじめ': ['いじめ', 'harcèlement'],
+  '丘': ['おか', 'colline'],
+  '陽光': ['ようこう', 'lumière du soleil'],
+  '邪魔': ['じゃま', 'gêne'],
+  '賞': ['しょう', 'prix / récompense'],
+  '栄誉': ['えいよ', 'honneur'],
+  '道路': ['どうろ', 'route'],
+  '相当': ['そうとう', 'correspondre à'],
+  '足手まとい': ['あしでまとい', 'gêneur'],
+  '信号': ['しんごう', 'feu de signalisation'],
+  'ほうれん草': ['ほうれんそう', 'épinard'],
+  '後悔': ['こうかい', 'regret'],
+  '鉛筆': ['えんぴつ', 'crayon'],
+  '周年': ['しゅうねん', 'anniversaire (compteur)'],
+  '夫婦': ['ふうふ', 'couple marié'],
+  '収入': ['しゅうにゅう', 'revenu'],
+  '刻々': ['こっこく', 'd’instant en instant'],
+  '地域': ['ちいき', 'région'],
+  '改善': ['かいぜん', 'amélioration'],
+  '提供': ['ていきょう', 'offrir / fournir'],
+  '主な': ['おもな', 'principal'],
+  '真': ['ま', 'vrai'],
+  '事': ['こと', 'chose / fait'],
+  '語': ['ご', 'langue'],
+  '列': ['れつ', 'rangée'],
+  '型': ['かた', 'modèle / forme'],
+  '濃い': ['こい', 'fort (goût)'],
+  '良い': ['よい', 'bon'],
+  '速い': ['はやい', 'rapide'],
+  '高い': ['たかい', 'cher / élevé'],
+  '重い': ['おもい', 'lourd'],
+  '欲しい': ['ほしい', 'vouloir'],
+  '小さな': ['ちいさな', 'petit'],
+  'つよい': ['つよい', 'fort'],
+  '昨夜': ['さくや', 'hier soir'],
+  '下さい': ['ください', 's’il vous plaît'],
+  '調子': ['ちょうし', 'état / rythme'],
+  '見る': ['みる', 'voir'],
+  '出る': ['でる', 'sortir'],
+  '眠る': ['ねむる', 'dormir'],
+  '泣く': ['なく', 'pleurer'],
+  '吹く': ['ふく', 'souffler'],
+  '似合う': ['にあう', 'convenir / aller bien'],
+  'くれる': ['くれる', 'donner (à moi)'],
+  'しれる': ['しれる', 'pouvoir savoir'],
+  '空く': ['あく', 'se vider / se libérer'],
+  '出かける': ['でかける', 'sortir'],
+  '尋ねる': ['たずねる', 'demander'],
+  '乾く': ['かわく', 'sécher'],
+  '迎える': ['むかえる', 'accueillir / aller chercher'],
+  '巻く': ['まく', 'enrouler'],
+  'ひく': ['ひく', 'attraper (une maladie)'],
+  'いらっしゃる': ['いらっしゃる', 'être / aller (honorifique)'],
+  '謝る': ['あやまる', 's’excuser'],
+  'させる': ['させる', 'faire faire'],
+  '止める': ['とめる', 'arrêter'],
+  'できる': ['できる', 'pouvoir'],
+  '折る': ['おる', 'casser'],
+  '亡くなる': ['なくなる', 'mourir'],
+  '流れる': ['ながれる', 'couler'],
+  '見える': ['みえる', 'être visible'],
+  '足りる': ['たりる', 'suffire'],
+  '掛ける': ['かける', 'appeler / suspendre'],
+  '示す': ['しめす', 'montrer'],
+  '喚く': ['わめく', 'crier'],
+  '訳す': ['やくす', 'traduire'],
+  '会える': ['あえる', 'pouvoir rencontrer'],
+  '成り立つ': ['なりたつ', 'se composer de'],
+  'くる': ['くる', 'venir'],
+  '閉じる': ['とじる', 'fermer'],
+  '脱ぐ': ['ぬぐ', 'enlever (vêtement)'],
+  'いう': ['いう', 'dire'],
+  'ノック': ['ノック', 'coup frappé (à la porte)'],
+  'しれません': ['しれません', 'peut-être'],
+  'かもしれません': ['かもしれません', 'peut-être'],
+  'いらっしゃいます': ['いらっしゃいます', 'être / aller (honorifique)'],
+  '数える': ['かぞえる', 'compter'],
+  '会う': ['あう', 'rencontrer'],
+  '健康': ['けんこう', 'santé'],
+  '勇気': ['ゆうき', 'courage'],
+  '周り': ['まわり', 'entourage / alentours'],
+  '欠席': ['けっせき', 'absence'],
+  '満足': ['まんぞく', 'satisfaction'],
+  '予報': ['よほう', 'prévision'],
+  '富士山': ['ふじさん', 'mont Fuji'],
+  '財産': ['ざいさん', 'fortune'],
+  '福引き': ['ふくびき', 'tombola'],
+  'チェス': ['チェス', 'échecs'],
+  '底': ['そこ', 'fond'],
+  'ガム': ['ガム', 'chewing-gum'],
+  'ＩＢＭ': ['アイビーエム', 'IBM'],
+  'テニス': ['テニス', 'tennis'],
+  'ホームシック': ['ホームシック', 'mal du pays'],
+  '発明': ['はつめい', 'invention'],
+  '推理': ['すいり', 'déduction'],
+  '我': ['われ', 'soi-même'],
+  '同社': ['どうしゃ', 'cette société'],
+  '食品': ['しょくひん', 'aliment'],
+  '生産': ['せいさん', 'production'],
+  '規則': ['きそく', 'règle'],
+  '当てはまる': ['あてはまる', 's’appliquer'],
+  '無駄': ['むだ', 'inutile'],
+  'すぎる': ['すぎる', 'trop'],
+  '埋める': ['うめる', 'remplir'],
+  '責任': ['せきにん', 'responsabilité'],
+  'べき': ['べき', 'devoir'],
+  '払う': ['はらう', 'payer'],
+  '変える': ['かえる', 'changer'],
+  'わけ': ['わけ', 'raison'],
+  '向け': ['むけ', 'destiné à'],
+  'たち': ['たち', 'suffixe pluriel'],
+  'しまった': ['しまった', 'zut'],
+  'きた': ['きた', 'est venu'],
+  'もむ': ['もむ', 'se tourmenter'],
+  '欲しがる': ['ほしがる', 'désirer'],
+  'かける': ['かける', 'mettre / accrocher'],
+  '上る': ['のぼる', 'monter'],
+  '減る': ['へる', 'diminuer'],
+  '別れ': ['わかれ', 'séparation'],
+  '感動': ['かんどう', 'émotion'],
+  '平らげる': ['たいらげる', 'finir (un plat)'],
+  '飽きる': ['あきる', 'se lasser'],
+  'すっぱい': ['すっぱい', 'acide'],
+  'オランダ': ['オランダ', 'Pays-Bas'],
+  'わき腹': ['わきばら', 'flanc'],
+  'ＣＤ': ['シーディー', 'CD'],
+  '棚': ['たな', 'étagère'],
+  'ジョン': ['ジョン', 'John'],
+  'とぼける': ['とぼける', 'faire l’innocent'],
+  '掃除': ['そうじ', 'nettoyage'],
+  'チクチク': ['チクチク', 'piquant'],
+  '種類': ['しゅるい', 'sorte'],
+  'ボタン': ['ボタン', 'bouton'],
+  'アルジェリア': ['アルジェリア', 'Algérie'],
+  'パキスタン': ['パキスタン', 'Pakistan'],
+  '神経質': ['しんけいしつ', 'nerveux'],
+  '極上': ['ごくじょう', 'excellent'],
+  '冒す': ['おかす', 'risquer'],
+  'コンピューター': ['コンピューター', 'ordinateur'],
+  'ー': ['ー', 'allongement de voyelle'],
+  '両国': ['りょうこく', 'les deux pays'],
+  '恥ずかしい': ['はずかしい', 'honteux'],
+  'ちらりと': ['ちらりと', 'furtivement'],
+  '煙草': ['たばこ', 'cigarette'],
+  '文字どおり': ['もじどおり', 'littéralement'],
+  '唯一': ['ゆいいつ', 'unique'],
+  'セルフサービス': ['セルフサービス', 'self-service'],
+  '百科事典': ['ひゃっかじてん', 'encyclopédie'],
+  '検索': ['けんさく', 'recherche'],
+  'いく': ['いく', 'aller'],
+  '迷子': ['まいご', 'enfant perdu'],
+  '甘さ': ['あまさ', 'douceur'],
+  'チョコレート': ['チョコレート', 'chocolat'],
+  '砕く': ['くだく', 'casser'],
+  '自己紹介': ['じこしょうかい', 'présentation'],
+  'バスルーム': ['バスルーム', 'salle de bain'],
+  '突き当たり': ['つきあたり', 'bout (du couloir)'],
+  '率いる': ['ひきいる', 'mener'],
+  '幼児': ['ようじ', 'jeune enfant'],
+  'かわいい': ['かわいい', 'mignon'],
+  '不作法': ['ぶさほう', 'impoli'],
+  '詳しい': ['くわしい', 'détaillé'],
+  'タイプライター': ['タイプライター', 'machine à écrire'],
+  '面白い': ['おもしろい', 'intéressant'],
+  'それぞれ': ['それぞれ', 'chacun'],
+  '要点': ['ようてん', 'point essentiel'],
+  '腹': ['はら', 'ventre'],
+  '詰める': ['つめる', 'boucher'],
+  '科学者': ['かがくしゃ', 'scientifique'],
+  '注射器': ['ちゅうしゃき', 'seringue'],
+  'トラック': ['トラック', 'camion'],
+  '教会': ['きょうかい', 'église'],
+  '経つ': ['たつ', 'passer (temps)'],
+  'ごめん': ['ごめん', 'pardon'],
+  'お釣り': ['おつり', 'monnaie'],
+  '無い': ['ない', 'il n’y a pas'],
+  '平ら': ['たいら', 'plat'],
+  '解決策': ['かいけつさく', 'solution'],
+  'メートル': ['メートル', 'mètre'],
+  '新記録': ['しんきろく', 'nouveau record'],
+  '信頼': ['しんらい', 'confiance'],
+  '姿': ['すがた', 'silhouette'],
+  'ベルト': ['ベルト', 'ceinture'],
+  '腰': ['こし', 'hanches'],
+  'きつい': ['きつい', 'serré'],
+  'かぶる': ['かぶる', 'mettre (chapeau)'],
+  'ポケット': ['ポケット', 'poche'],
+  '初心者': ['しょしんしゃ', 'débutant'],
+  '緊張': ['きんちょう', 'tension'],
+  '設置': ['せっち', 'installation'],
+  '挑戦': ['ちょうせん', 'défi'],
+  'パートナー': ['パートナー', 'partenaire'],
+  '交代': ['こうたい', 'relais'],
+  '握る': ['にぎる', 'saisir'],
+  'クラック': ['クラック', 'fissure'],
+  '固定': ['こてい', 'fixation'],
+  'バランス': ['バランス', 'équilibre'],
+  '初挑戦': ['はつちょうせん', 'premier essai'],
+  'テンション': ['テンション', 'tension'],
+  'みる': ['みる', 'essayer de / regarder'],
+  'それら': ['それら', 'ceux-là'],
+  'つもり': ['つもり', 'intention'],
+  '変え': ['かえ', 'changer (radical)'],
+  '暗記': ['あんき', 'mémorisation'],
+  'について': ['について', 'à propos de'],
+  'ような': ['ような', 'comme'],
+  'おきる': ['おきる', 'arriver / se lever'],
+  '結局': ['けっきょく', 'finalement'],
+  '結ぶ': ['むすぶ', 'nouer'],
+  '僕ら': ['ぼくら', 'nous (fam.)'],
+  'かつて': ['かつて', 'jadis'],
+  'すっかり': ['すっかり', 'complètement'],
+  'しばらく': ['しばらく', 'un moment'],
+  'やる': ['やる', 'faire / donner'],
+  'だったら': ['だったら', 'si (conditionnel)'],
+  'これら': ['これら', 'ceux-ci'],
+  '分かれる': ['わかれる', 'se diviser'],
+  '恥ずかし': ['はずかし', 'honteux (radical)'],
+  '岩': ['いわ', 'rocher'],
+  '焼く': ['やく', 'griller'],
+  'きます': ['きます', 'venir (poli)'],
+  'だけど': ['だけど', 'mais']
+};
+
 function normalizeGlossKey(value) {
   return P.stripAnnotations(String(value || ''))
     .replace(/[\s　]/g, '')
@@ -184,59 +474,122 @@ function addGloss(index, key, fr, role) {
   if (!(k in index)) index[k] = fr;
 }
 
-function addVerbGlosses(add, base, fr) {
+// Lecture d'une forme conjuguée : on garde la lecture du radical et on
+// remplace la fin du mot, pour que 食べましょう obtienne たべましょう.
+function formReading(base, reading, form) {
   const b = normalizeGlossKey(base);
-  if (!b) return;
-  if (b === 'する') {
-    ['し', 'します', 'した', 'して', 'しましょう', 'したい', 'しない'].forEach(function (x) { add(x, fr); });
-    return;
-  }
+  const r = String(reading || '').trim();
+  if (!b || !r || P.hasKanji(r) || b.length < 2) return '';
   if (b === '来る') {
-    ['来', '来ます', '来た', '来て', '来ましょう', '来たい', '来ない'].forEach(function (x) { add(x, fr); });
-    return;
+    return {
+      '来': 'き', '来ます': 'きます', '来た': 'きた', '来て': 'きて', '来れば': 'くれば',
+      '来ない': 'こない', '来なかった': 'こなかった', '来なく': 'こなく', '来られ': 'こられ',
+      '来られない': 'こられない', '来られる': 'こられる', '来よう': 'こよう',
+      '来ましょう': 'きましょう', '来たい': 'きたい'
+    }[form] || '';
   }
-  if (b.slice(-2) === 'する') {
-    const prefix = b.slice(0, -2);
-    ['し', 'します', 'した', 'して', 'しましょう', 'したい', 'しない'].forEach(function (x) { add(prefix + x, fr); });
-    return;
-  }
-  const last = b.slice(-1);
-  if (last === 'る') {
-    const stem = b.slice(0, -1);
-    [stem + 'ます', stem + 'ました', stem + 'ません', stem + 'ましょう', stem + 'たい'].forEach(function (x) { add(x, fr); });
-    [stem + 'ります', stem + 'りました', stem + 'りません', stem + 'りましょう', stem + 'りたい'].forEach(function (x) { add(x, fr); });
-    [stem + 'て', stem + 'た', stem + 'って', stem + 'った'].forEach(function (x) { add(x, fr); });
-    return;
-  }
-  if (b === '行く') {
-    ['行きます', '行きました', '行きません', '行きましょう', '行きたい', '行って', '行った'].forEach(function (x) { add(x, fr); });
-    return;
-  }
-  const row = { 'う': 'い', 'く': 'き', 'ぐ': 'ぎ', 'す': 'し', 'つ': 'ち', 'ぬ': 'に', 'ぶ': 'び', 'む': 'み' }[last];
-  if (!row) return;
-  const stem = b.slice(0, -1) + row;
-  ['ます', 'ました', 'ません', 'ましょう', 'たい'].forEach(function (end) { add(stem + end, fr); });
-  const teEnd = { 'う': 'って', 'つ': 'って', 'る': 'って', 'む': 'んで', 'ぶ': 'んで', 'ぬ': 'んで', 'く': 'いて', 'ぐ': 'いで', 'す': 'して' }[last];
-  if (teEnd) {
-    const te = b.slice(0, -1) + teEnd;
-    add(te, fr);
-    add(te.slice(0, -1) + (te.slice(-1) === 'て' ? 'た' : 'だ'), fr);
-  }
+  // Prefixe commun (les kanji) : on garde sa lecture et on remplace la fin.
+  let shared = 0;
+  while (shared < b.length - 1 && shared < form.length && b.charAt(shared) === form.charAt(shared)) shared++;
+  if (shared < 1) return '';
+  const baseTail = b.slice(shared);
+  const readPrefix = r.slice(0, Math.max(0, r.length - baseTail.length));
+  return readPrefix + form.slice(shared);
 }
 
-function addAdjectiveGlosses(add, base, fr) {
+// Table de conjugaison godan : chaque rang (a/i/e/o) et les formes en -te/-ta.
+const GODAN_ROWS = {
+  'う': { a: 'わ', i: 'い', e: 'え', o: 'お', te: 'って', ta: 'った' },
+  'く': { a: 'か', i: 'き', e: 'け', o: 'こ', te: 'いて', ta: 'いた' },
+  'ぐ': { a: 'が', i: 'ぎ', e: 'げ', o: 'ご', te: 'いで', ta: 'いだ' },
+  'す': { a: 'さ', i: 'し', e: 'せ', o: 'そ', te: 'して', ta: 'した' },
+  'つ': { a: 'た', i: 'ち', e: 'て', o: 'と', te: 'って', ta: 'った' },
+  'ぬ': { a: 'な', i: 'に', e: 'ね', o: 'の', te: 'んで', ta: 'んだ' },
+  'ぶ': { a: 'ば', i: 'び', e: 'べ', o: 'ぼ', te: 'んで', ta: 'んだ' },
+  'む': { a: 'ま', i: 'み', e: 'め', o: 'も', te: 'んで', ta: 'んだ' },
+  'る': { a: 'ら', i: 'り', e: 'れ', o: 'ろ', te: 'って', ta: 'った' }
+};
+
+const ICHIDAN_ENDS = [
+  'ます', 'ました', 'ません', 'ませんでした', 'ましょう', 'たい', 'たかった', 'たくない',
+  'ない', 'なかった', 'なくて', 'なければ', 'て', 'た', 'れば', 'たら', 'られる',
+  'られます', 'させる', 'させます', 'よう', 'ろ', 'ながら', 'なさい', 'そう',
+  'ている', 'ていません', 'てください', 'たくなかった', 'なかったら', 'てる', 'てた'
+];
+
+function addVerbGlosses(add, base, fr, addReading, reading) {
   const b = normalizeGlossKey(base);
-  if (!b || b.slice(-1) !== 'い') return;
-  if (b === 'いい') {
-    ['よく', 'よかった', 'よくない', 'よくなかった'].forEach(function (x) { add(x, fr); });
+  if (!b) return;
+  function reg(form) {
+    if (!form || form.length < 2) return;
+    add(form, fr);
+    if (!addReading) return;
+    const kana = formReading(b, reading, form);
+    if (kana) addReading(form, kana);
+  }
+  if (b === '来る') {
+    ['来', '来ます', '来た', '来て', '来れば', '来ない', '来なかった', '来なく', '来られ', '来られない',
+      '来られる', '来よう', '来ましょう', '来たい'].forEach(reg);
+    return;
+  }
+  if (b === 'する' || b.slice(-2) === 'する') {
+    const prefix = b === 'する' ? '' : b.slice(0, -2);
+    ['し', 'します', 'した', 'して', 'しない', 'しなかった', 'しなくて', 'しなければ', 'しよう', 'すれば',
+      'しましょう', 'したい', 'したら', 'できる', 'できます', 'しなさい', 'されて', 'させる', 'させます'].forEach(function (x) { reg(prefix + x); });
     return;
   }
   const stem = b.slice(0, -1);
-  ['く', 'かった', 'くない', 'くなかった'].forEach(function (end) { add(stem + end, fr); });
+  const row = GODAN_ROWS[b.slice(-1)];
+  if (row) {
+    const a = stem + row.a, i = stem + row.i, e = stem + row.e, o = stem + row.o;
+    [a + 'ない', a + 'なかった', a + 'なくて', a + 'なければ', a + 'れる', a + 'れます', a + 'せる', a + 'せます', a + 'ないで',
+      i + 'ます', i + 'ました', i + 'ません', i + 'ませんでした', i + 'ましょう', i + 'たい', i + 'たく', i + 'たかった', i + 'たくない',
+      i + 'ながら', i + 'なさい', i + 'そう',
+      e + 'ば', e + 'る', e + 'ます', e + 'ません', e + 'ない',
+      o + 'う',
+      stem + row.te, stem + row.ta, stem + row.te + 'いる', stem + row.te + 'る', stem + row.te + 'ください', stem + row.ta + 'ら'
+    ].forEach(reg);
+  }
+  if (b.slice(-1) === 'る') {
+    ICHIDAN_ENDS.forEach(function (end) { reg(stem + end); });
+  }
+  if (b === '行く') {
+    ['行って', '行った', '行ったら', '行けば', '行ける', '行けない', '行こう', '行きましょう'].forEach(reg);
+  }
+}
+
+function addAdjectiveGlosses(add, base, fr, addReading, reading) {
+  const b = normalizeGlossKey(base);
+  if (!b || b.slice(-1) !== 'い') return;
+  function reg(form) {
+    add(form, fr);
+    if (!addReading) return;
+    const kana = formReading(b, reading, form);
+    if (kana) addReading(form, kana);
+  }
+  if (b === 'いい') {
+    ['よく', 'よかった', 'よくない', 'よくなかった'].forEach(reg);
+    return;
+  }
+  const stem = b.slice(0, -1);
+  ['く', 'かった', 'くない', 'くなかった', 'ければ', 'そう', 'さ'].forEach(function (end) { reg(stem + end); });
+  // Radical nu : 面白 + そう, 高 + すぎる.
+  if (P.hasKanji(stem)) reg(stem);
+}
+
+function glossSignature() {
+  const Lex = window.Kotoba.Lexicon;
+  const lexCount = Lex && Lex.entries ? Lex.entries.length : 0;
+  return entries.length + '|' + lexCount;
 }
 
 function buildGlossIndex() {
-  if (glossIndex) return;
+  // L'index est construit à la première bulle « mot à mot », parfois avant que
+  // la collection et le lexique soient chargés : on le reconstruit si leur
+  // contenu a changé (chargement initial, import, édition d'un mot).
+  const signature = glossSignature();
+  if (glossIndex && glossSignatureValue === signature) return;
+  glossSignatureValue = signature;
   const index = Object.create(null);
   glossRoles = Object.create(null);
   glossReadings = Object.create(null);
@@ -247,12 +600,57 @@ function buildGlossIndex() {
     if (!k || !r || P.hasKanji(r) || (k in glossReadings)) return;
     glossReadings[k] = r;
   }
-  entries.forEach(function (e) {
+  if (IMM && IMM.glossary) {
+    Object.keys(IMM.glossary).forEach(function (key) {
+      const item = IMM.glossary[key] || {};
+      add(key, item.fr);
+      addReading(key, item.reading);
+    });
+  }
+  // Les cartes de vocabulaire affichent la forme polie : on enregistre aussi
+  // la forme du dictionnaire, sinon 知る, 思う ou 入る restent inconnus.
+  function addEntryGloss(e) {
     if (!e || !e.jp || !e.fr) return;
     add(e.jp, e.fr);
     addReading(e.jp, e.reading);
-    addVerbGlosses(add, e.jp, e.fr);
-    addAdjectiveGlosses(add, e.jp, e.fr);
+    addVerbGlosses(add, e.jp, e.fr, addReading, e.reading);
+    addAdjectiveGlosses(add, e.jp, e.fr, addReading, e.reading);
+    const base = e.dictionaryForm && e.dictionaryForm !== e.jp ? e.dictionaryForm : '';
+    if (!base) return;
+    const baseReading = e.dictionaryReading || '';
+    add(base, e.fr);
+    addReading(base, baseReading);
+    addVerbGlosses(add, base, e.fr, addReading, baseReading);
+    addAdjectiveGlosses(add, base, e.fr, addReading, baseReading);
+  }
+  entries.forEach(addEntryGloss);
+  const Lex = window.Kotoba.Lexicon;
+  if (Lex && Lex.entries) Lex.entries.forEach(addEntryGloss);
+  if (CONV && CONV.glossary) {
+    Object.keys(CONV.glossary).forEach(function (key) {
+      const item = CONV.glossary[key] || {};
+      add(key, item.fr);
+      addReading(key, item.reading);
+    });
+  }
+  if (IMM && IMM.stories) {
+    IMM.stories.forEach(function (story) {
+      (story.focus || []).forEach(function (item) {
+        if (!item || !item.jp) return;
+        add(item.jp, item.fr);
+        addReading(item.jp, (IMM.readingOf && IMM.readingOf(item.jp)) || '');
+        const kana = (IMM.readingOf && IMM.readingOf(item.jp)) || '';
+        addVerbGlosses(add, item.jp, item.fr, addReading, kana);
+        addAdjectiveGlosses(add, item.jp, item.fr, addReading, kana);
+      });
+    });
+  }
+  Object.keys(GLOSS_LEARN).forEach(function (key) {
+    const item = GLOSS_LEARN[key] || [];
+    add(key, item[1]);
+    addReading(key, item[0]);
+    addVerbGlosses(add, key, item[1], addReading, item[0]);
+    addAdjectiveGlosses(add, key, item[1], addReading, item[0]);
   });
   Object.keys(GLOSS_EXTRA).forEach(function (key) { add(key, GLOSS_EXTRA[key], true); });
   Object.keys(GLOSS_CONTENT).forEach(function (key) {
@@ -262,48 +660,217 @@ function buildGlossIndex() {
   });
   glossIndex = index;
   glossKeys = Object.keys(index)
-    .filter(function (key) { return /[\u3040-\u30ff\u3400-\u9fff]/.test(key); })
+    .filter(function (key) { return /[\u3040-\u30ff\u3400-\u9fff\u3005\uff01-\uff5eA-Za-z0-9]/.test(key); })
     .sort(function (a, b) { return b.length - a.length; });
+  // Index par premier caractère : le glossaire contient des milliers de formes
+  // conjuguées et la recherche mot à mot doit rester instantanée.
+  glossBuckets = Object.create(null);
+  glossKeys.forEach(function (key) {
+    const first = key.charAt(0);
+    if (!glossBuckets[first]) glossBuckets[first] = [];
+    glossBuckets[first].push(key);
+  });
 }
 
 function isGlossBreak(ch) {
   return !ch || /[\s　。、！？!?.,・…「」『』（）()\[\]{}～〜]/.test(ch);
 }
 
+function glossaryKana(jp) {
+  const text = P.stripAnnotations(String(jp || ''));
+  const key = normalizeGlossKey(text);
+  if (glossReadings && glossReadings[key]) return glossReadings[key];
+  if (IMM && IMM.readingOf) {
+    const reading = IMM.readingOf(text);
+    if (reading && !P.hasKanji(reading)) return reading;
+  }
+  const R = window.Kotoba.Reading;
+  const kana = R && R.reading ? R.reading(text) : '';
+  return kana && !P.hasKanji(kana) ? kana : '';
+}
 function glossaryPronunciation(jp) {
   const text = P.stripAnnotations(String(jp || ''));
   const key = normalizeGlossKey(text);
-  const special = { 'は': 'wa', 'へ': 'e', 'を': 'o', 'こんにちは': 'konnichiwa', 'こんばんは': 'konbanwa' };
+  const special = {
+    'は': 'wa', 'へ': 'e', 'を': 'o', 'こんにちは': 'konnichiwa', 'こんばんは': 'konbanwa',
+    'っ': 'tsu', '々': 'kurikaeshi'
+  };
   if (special[key]) return special[key];
   const reading = glossReadings && glossReadings[key];
   if (reading) return P.kanaToRomaji(reading) || '';
+  const kana = glossaryKana(text);
+  if (kana) return P.kanaToRomaji(kana) || '';
   const R = window.Kotoba.Reading;
   return R && R.pronunciation ? R.pronunciation(text) : '';
+}
+
+function glossKeyAt(raw, i) {
+  const bucket = glossBuckets && glossBuckets[raw.charAt(i)];
+  if (!bucket) return '';
+  for (let k = 0; k < bucket.length; k++) {
+    const key = bucket[k];
+    if (!raw.startsWith(key, i)) continue;
+    const next = raw.charAt(i + key.length);
+    // « 何ですか » se découpe 何 + です, pas 何で + す ; « はいつ » se découpe は + いつ.
+    if (key === '何で' && next === 'す') continue;
+    if (key === 'はい' && next === 'つ') continue;
+    // « これはいくら » : le は est une particule, pas le mot はい.
+    if (key === 'はい' && glossKeyAt(raw, i + 1).length >= 3) continue;
+    // « じゃありません » n'est pas じゃあ + り.
+    if (key === 'じゃあ' && (next === 'り' || next === 'る')) continue;
+    // « ことのできる » : の + できる, pas ので + きる.
+    if (key === 'ので' && glossKeyAt(raw, i + 1).length >= 3) continue;
+    // « なのです » : c'est な + の + です, pas なので + す.
+    if (key === 'なので' && next === 'す') continue;
+    // Le な adjectival ne s'emploie devant un nom (kanji), pas devant une kana.
+    // « のですが » : c'est です + が, pas ので + す.
+    if (key === 'ので' && next === 'す' &&
+      (/[がかねよなはも]/.test(raw.charAt(i + 3)) || isGlossBreak(raw.charAt(i + 3)))) continue;
+    return key;
+  }
+  return '';
+}
+
+// Un radical de verbe (知ら, 眠っ, 引け…) n'est pas un mot du glossaire :
+// on le rattache à sa forme du dictionnaire pour donner sens + lecture.
+const DEINFLECT_ENDINGS = {
+  'っ': ['う', 'つ', 'る'], 'い': ['う', 'る'], 'き': ['く'], 'ぎ': ['ぐ'],
+  'し': ['す'], 'ち': ['つ'], 'に': ['ぬ'], 'び': ['ぶ'], 'み': ['む'],
+  'り': ['る'], 'ら': ['る'], 'れ': ['る'], 'ろ': ['る'], 'か': ['く'], 'け': ['く', 'る'], 'く': ['い'],
+  'え': ['る'], 'べ': ['る'], 'せ': ['る'], 'て': ['る'], 'で': ['る'], 'ね': ['る'], 'め': ['る'],
+  'い': ['う', 'る'], 'き': ['く', 'る'], 'ぎ': ['ぐ', 'る'], 'し': ['す', 'る'],
+  'ち': ['つ', 'る'], 'に': ['ぬ', 'る'], 'び': ['ぶ', 'る'], 'み': ['む', 'る'], 'ず': ['る']
+};
+function deinflectGloss(jp) {
+  const text = String(jp || '');
+  if (!text || (text.length < 2 && !/[\u3400-\u9fff\u3005]/.test(text))) return null;
+  const last = text.slice(-1);
+  const ends = DEINFLECT_ENDINGS[last] ||
+    (/[\u3400-\u9fff\u3005]/.test(last) ? ['る', 'う', 'く', 'つ', 'す', 'む', 'ぶ', 'ぬ', 'ぐ', 'い'] : []);
+  for (let i = 0; i < ends.length; i++) {
+    // Deux formes possibles : radical + terminaison (迎え + る) ou
+    // remplacement du kana final (知ら → 知る, 買い → 買う).
+    const candidates = [text + ends[i]];
+    if (text.length > 1) candidates.push(text.slice(0, -1) + ends[i]);
+    for (let c = 0; c < candidates.length; c++) {
+      const cand = candidates[c];
+      const fr = glossIndex[cand];
+      if (!fr) continue;
+      const baseReading = glossReadings[cand] || glossaryKana(cand);
+      let reading = '';
+      if (baseReading) {
+        if (cand.startsWith(text)) {
+          reading = baseReading.slice(0, baseReading.length - (cand.length - text.length));
+        } else if (text.startsWith(cand.slice(0, -1))) {
+          reading = baseReading.slice(0, -1) + last;
+        }
+      }
+      return { fr: fr, romaji: reading ? (P.kanaToRomaji(reading) || '') : '' };
+    }
+  }
+  return null;
+}
+
+const JA_DIGITS = ['ぜろ', 'いち', 'に', 'さん', 'よん', 'ご', 'ろく', 'なな', 'はち', 'きゅう'];
+const FR_SMALL = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
+  'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize'];
+const FR_TENS = { 20: 'vingt', 30: 'trente', 40: 'quarante', 50: 'cinquante', 60: 'soixante' };
+function frNumber(n) {
+  if (n <= 16) return FR_SMALL[n];
+  if (n < 20) return 'dix-' + FR_SMALL[n - 10];
+  if (n < 70) {
+    const tens = FR_TENS[Math.floor(n / 10) * 10];
+    const unit = n % 10;
+    if (!unit) return tens;
+    if (unit === 1) return tens + ' et un';
+    return tens + '-' + FR_SMALL[unit];
+  }
+  if (n < 80) return n === 71 ? 'soixante et onze' : 'soixante-' + frNumber(n - 60);
+  if (n < 100) return n === 80 ? 'quatre-vingts' : 'quatre-vingt-' + frNumber(n - 80);
+  if (n < 1000) {
+    const h = Math.floor(n / 100), rest = n % 100;
+    const head = h === 1 ? 'cent' : FR_SMALL[h] + ' cent' + (rest ? '' : 's');
+    return head + (rest ? ' ' + frNumber(rest) : '');
+  }
+  if (n < 10000) {
+    const t = Math.floor(n / 1000), rest = n % 1000;
+    const head = t === 1 ? 'mille' : frNumber(t) + ' mille';
+    return head + (rest ? ' ' + frNumber(rest) : '');
+  }
+  return String(n);
+}
+const JA_HUNDREDS = ['', 'ひゃく', 'さんびゃく', 'よんひゃく', 'ごひゃく', 'ろっぴゃく', 'ななひゃく', 'はっぴゃく', 'きゅうひゃく'];
+const JA_THOUSANDS = ['', 'せん', 'にせん', 'さんぜん', 'よんせん', 'ごせん', 'ろくせん', 'ななせん', 'はっせん', 'きゅうせん'];
+function jaNumber(n) {
+  if (n < 10) return JA_DIGITS[n];
+  if (n < 20) return 'じゅう' + (n % 10 ? JA_DIGITS[n % 10] : '');
+  if (n < 100) return JA_DIGITS[Math.floor(n / 10)] + 'じゅう' + (n % 10 ? JA_DIGITS[n % 10] : '');
+  if (n < 1000) {
+    const rest = n % 100;
+    return JA_HUNDREDS[Math.floor(n / 100)] + (rest ? jaNumber(rest) : '');
+  }
+  if (n < 10000) {
+    const rest = n % 1000;
+    return JA_THOUSANDS[Math.floor(n / 1000)] + (rest ? jaNumber(rest) : '');
+  }
+  return '';
+}
+const JA_COUNTER_TSU = ['', 'ひとつ', 'ふたつ', 'みっつ', 'よっつ', 'いつつ', 'むっつ', 'ななつ', 'やっつ', 'ここのつ', 'とお'];
+function numberGlossToken(raw, i) {
+  const match = /^[0-9０-９]+/.exec(raw.slice(i));
+  if (!match) return null;
+  const digits = match[0];
+  let end = i + digits.length;
+  let jp = digits;
+  let kana = '';
+  const n = Number(digits.replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }));
+  if (raw.charAt(end) === 'つ' && n >= 1 && n <= 10) {
+    jp += 'つ';
+    kana = JA_COUNTER_TSU[n];
+    end += 1;
+  } else {
+    kana = jaNumber(n);
+  }
+  return {
+    token: { jp: jp, fr: frNumber(n), unknown: false, role: false, romaji: kana ? P.kanaToRomaji(kana) : '' },
+    end: end
+  };
 }
 
 function tokenizeJapaneseGloss(text) {
   buildGlossIndex();
   const raw = P.stripAnnotations(String(text || ''));
+  const R = window.Kotoba && window.Kotoba.Reading;
+  const overrides = R && R.particleOverrides ? R.particleOverrides(raw) : {};
+  const particleChars = { 'は': 'wa', 'へ': 'e', 'を': 'o' };
   const out = [];
   let i = 0;
   while (i < raw.length) {
     if (isGlossBreak(raw[i])) { i++; continue; }
-    let hit = '';
-    for (let k = 0; k < glossKeys.length; k++) {
-      if (raw.startsWith(glossKeys[k], i)) { hit = glossKeys[k]; break; }
+    const particleChar = raw.charAt(i);
+    const particleRoman = particleChars[particleChar];
+    if (particleRoman && overrides[i] === particleRoman) {
+      const role = particleChar === 'は' ? 'thème' : (particleChar === 'へ' ? 'direction' : 'objet');
+      out.push({ jp: particleChar, fr: glossIndex[particleChar] || role, unknown: false, role: true, romaji: particleRoman });
+      i += 1;
+      continue;
     }
+    const number = numberGlossToken(raw, i);
+    if (number) { out.push(number.token); i = number.end; continue; }
+    const hit = glossKeyAt(raw, i);
     if (!hit) {
       let j = i + 1;
       while (j < raw.length && !isGlossBreak(raw[j])) {
-        let next = false;
-        for (let k = 0; k < glossKeys.length; k++) {
-          if (raw.startsWith(glossKeys[k], j)) { next = true; break; }
-        }
-        if (next) break;
+        if (glossKeyAt(raw, j)) break;
         j++;
       }
       const jp = raw.slice(i, j);
-      out.push({ jp: jp, fr: '', unknown: true, role: false, romaji: glossaryPronunciation(jp) });
+      const stem = deinflectGloss(jp);
+      if (stem) {
+        out.push({ jp: jp, fr: stem.fr, unknown: false, role: false, romaji: stem.romaji || glossaryPronunciation(jp) });
+      } else {
+        out.push({ jp: jp, fr: '', unknown: true, role: false, romaji: glossaryPronunciation(jp) });
+      }
       i = j;
     } else {
       out.push({ jp: hit, fr: glossIndex[hit], unknown: false, role: !!glossRoles[hit], romaji: glossaryPronunciation(hit) });
@@ -312,6 +879,12 @@ function tokenizeJapaneseGloss(text) {
   }
   return out;
 }
+
+window.Kotoba.Gloss = {
+  tokenize: tokenizeJapaneseGloss,
+  kana: glossaryKana,
+  pronunciation: glossaryPronunciation
+};
 
 function glossWordHtml(token) {
   const jp = esc(token.jp);
@@ -749,6 +1322,7 @@ function render() {
   else if (view === 'reading') renderReading();
   else if (view === 'library') renderLibrary();
   else if (view === 'import') renderImport();
+  else if (view === 'grammar') renderGrammar();
   updateChrome();
 }
 function route() {
@@ -798,12 +1372,26 @@ function dailyConversationTasks(limit) {
   }
   return out;
 }
+function dailyGrammarTask(now) {
+  if (!GRAMMAR || typeof GRAMMAR.dailyPick !== 'function') return null;
+  const pick = GRAMMAR.dailyPick(state, now);
+  if (!pick || !pick.lesson || !pick.exercise) return null;
+  return {
+    entry: null,
+    mode: 'grammar',
+    grammarLesson: pick.lesson,
+    grammarExercise: pick.exercise,
+    grammarReason: pick.reason || 'practice'
+  };
+}
 function dailyPlanPanelHtml() {
   const c = S.counts(entries, state, Date.now());
+  const grammarTask = dailyGrammarTask(Date.now());
   const conversationCount = Math.min(2, dailyConversationTasks(2).length);
   const conversationReviewTotal = Math.min(2, conversationReviewCount());
   const hasPhrases = entries.some(function (entry) { return !!(entry && entry.context); });
   const parts = [];
+  if (grammarTask) parts.push('1 point de grammaire');
   if (conversationCount) parts.push(conversationCount + ' conversation' + (conversationCount === 1 ? '' : 's') + (conversationReviewTotal ? ' à revoir' : ' du jour'));
   if (c.due) parts.push(Math.min(8, c.due) + ' révision' + (Math.min(8, c.due) === 1 ? '' : 's'));
   if (c.new) parts.push(Math.min(3, c.new) + ' nouveau' + (Math.min(3, c.new) === 1 ? '' : 'x') + ' mot' + (Math.min(3, c.new) === 1 ? '' : 's'));
@@ -812,6 +1400,7 @@ function dailyPlanPanelHtml() {
   if (hasPhrases) parts.push('2 phrases');
   if (entries.length) parts.push('1 prononciation');
   const steps = [];
+  if (grammarTask) steps.push('Grammaire');
   if (conversationCount) steps.push('Conversation');
   steps.push('Mots', 'Compréhension', 'Production', 'Phrases', 'Bilan');
   return '<section class="panel today-panel" data-testid="today-panel">' +
@@ -953,6 +1542,7 @@ function conversationSessionHtml() {
       '<button class="btn ghost small" data-action="reveal-conversation" data-testid="conversation-reveal">Afficher le texte</button></div>'
     : '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
       '<p class="conv-reading">' + esc(turn.partner.reading) + '</p>' +
+      (turn.partner.romaji ? '<p class="conv-romaji">' + esc(turn.partner.romaji) + '</p>' : '') +
       '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
       wordByWordDetails(turn.partner.jp, 'conv-word-by-word', 'conversation-partner-word-by-word') +
       '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '" data-slow="1">🔊 Écouter</button></div>';
@@ -1122,6 +1712,7 @@ function conversationTaskView() {
     '<div class="conversation-bubble" data-testid="conversation-task-partner"><div class="conv-speaker"><span aria-hidden="true">' + esc(scenario.emoji) + '</span> ' + esc(scenario.speaker) + ' <small>· ' + esc(scenario.speakerFr) + '</small></div>' +
     '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.partner.reading) + '</p>' +
+    (turn.partner.romaji ? '<p class="conv-romaji">' + esc(turn.partner.romaji) + '</p>' : '') +
     '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
     wordByWordDetails(turn.partner.jp, 'conv-word-by-word', 'conversation-task-partner-word-by-word') +
     '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '">🔊 Écouter</button></div></div>' +
@@ -1551,6 +2142,11 @@ function storyReadCount() {
     return !!(record && record.completedAt);
   }).length;
 }
+function storyLevelLabel(story) {
+  if (!story) return '';
+  const cefr = IMM && IMM.storyCefr ? IMM.storyCefr(story) : '';
+  return cefr ? cefr + ' · ' + story.level : String(story.level || '');
+}
 function storyOfDay(now) {
   if (!IMM || !IMM.stories.length) return null;
   return IMM.stories[Math.floor((Number(now) || Date.now()) / 86400000) % IMM.stories.length];
@@ -1572,8 +2168,8 @@ function readingPanelHtml() {
     '<button class="btn ghost small" data-action="go-reading" data-testid="go-reading">Toutes les histoires</button></div>' +
     '<button class="reading-daily-card tone-' + attr(story.tone || 'mint') + '" data-action="open-story" data-id="' + attr(story.id) + '" data-testid="reading-daily-open">' +
       '<span class="reading-daily-art" aria-hidden="true">' + esc(story.emoji) + '</span>' +
-      '<span class="reading-daily-copy"><span class="story-level">' + esc(story.level) + ' · ' + story.lines.length + ' lignes · ' + story.minutes + ' min</span>' +
-        '<strong>' + esc(story.title) + '</strong><small lang="ja">' + esc(IMM.plain(story.titleJp)) + '</small>' +
+      '<span class="reading-daily-copy"><span class="story-level">' + esc(storyLevelLabel(story)) + ' · ' + story.lines.length + ' lignes · ' + story.minutes + ' min</span>' +
+        '<strong>' + esc(story.title) + '</strong><small lang="ja">' + rubyHtml(story.titleJp, state.settings.furigana) + '</small>' +
         '<span class="reading-daily-desc">' + esc(story.description) + '</span></span>' +
       '<span class="reading-daily-cta">' + (done ? (doneToday ? 'Lue aujourd’hui ✓' : 'Relire →') : 'Lire →') + '</span></button>' +
     '<p class="hint">' + storyReadCount() + ' / ' + IMM.stories.length + ' histoires lues · chaque histoire terminée rapporte de l’XP.</p></section>';
@@ -1589,16 +2185,22 @@ function renderReading() {
   host.innerHTML = story ? storyReaderHtml(story) : readingListHtml();
 }
 function readingListHtml() {
-  const levels = [['all', 'Toutes'], ['N5', 'N5'], ['N5+', 'N5+'], ['N4', 'N4']];
+  const levels = [['all', 'Toutes'], ['A1', 'A1'], ['A2', 'A2'], ['B1', 'B1'], ['B2', 'B2'], ['N5', 'N5'], ['N5+', 'N5+'], ['N4', 'N4'], ['N2', 'N2']];
   const chips = levels.map(function (level) {
     return '<button class="chip' + (ui.storyLevel === level[0] ? ' active' : '') + '" data-action="story-filter" data-level="' + attr(level[0]) + '">' + level[1] + '</button>';
   }).join('');
-  const stories = IMM.stories.filter(function (story) { return ui.storyLevel === 'all' || story.level === ui.storyLevel; });
+  const cefrOrder = { A1: 0, A2: 1, B1: 2, B2: 3 };
+  const stories = IMM.stories.slice().sort(function (a, b) {
+    const left = cefrOrder[a.cefr];
+    const right = cefrOrder[b.cefr];
+    return (left == null ? 9 : left) - (right == null ? 9 : right);
+  }).filter(function (story) { return ui.storyLevel === 'all' || story.cefr === ui.storyLevel || story.level === ui.storyLevel; });
   const cards = stories.map(storyCardHtml).join('');
   return '<section class="panel reading-hero" data-testid="reading-list">' +
     '<div class="reading-hero-copy"><p class="eyebrow">Immersion guidée</p><h2>Lis du japonais qui raconte quelque chose</h2>' +
-    '<p class="lead">Six histoires originales, du N5 au N4. Écoute chaque ligne, affiche la traduction quand tu en as besoin, puis vérifie ce que tu as compris.</p></div>' +
+    '<p class="lead">' + IMM.stories.length + ' histoires originales, du N5 au N2. Des scènes du quotidien, des situations sociales et un bilan A1 à B2 conversationnel pour savoir quoi travailler.</p></div>' +
     '<div class="reading-hero-stats"><b>' + IMM.stories.length + '</b><span>histoires</span><small>' + storyReadCount() + ' lue' + (storyReadCount() === 1 ? '' : 's') + '</small></div></div>' +
+    levelProfileHtml() +
     '<div class="reading-toolbar"><div class="chips">' + chips + '</div><span class="hint">Une histoire = quelques minutes de vrai japonais.</span></div>' +
     '<div class="story-grid">' + cards + '</div>' +
     '<section class="panel reading-how"><div class="panel-head"><div><p class="eyebrow">Comment lire</p><h2>Le bon niveau de difficulté</h2></div></div>' +
@@ -1606,13 +2208,36 @@ function readingListHtml() {
     '<div><b>2</b><strong>Écoute et répète</strong><span>Une ligne, une voix : ralentis avec le bouton 🐢.</span></div>' +
     '<div><b>3</b><strong>Vérifie</strong><span>Deux questions pour transformer la lecture en mémoire.</span></div></div></section>';
 }
+function levelProfileHtml() {
+  if (!IMM || !IMM.assessLevel) return '';
+  const profile = IMM.assessLevel(state.immersion);
+  const info = IMM.cefrLevels && IMM.cefrLevels[profile.code] ? IMM.cefrLevels[profile.code] : {};
+  const stats = profile.stats || { A1: { passed: 0, solid: 0, total: 0 }, A2: { passed: 0, solid: 0, total: 0 }, B1: { passed: 0, solid: 0, total: 0 }, B2: { passed: 0, solid: 0, total: 0 } };
+  const criteria = {
+    A1: stats.A1.passed + ' / 3 histoires A1 validées',
+    A2: stats.A2.solid + ' / 4 histoires A2 à 100 %',
+    B1: stats.B1.solid + ' / 2 histoires B1 à 100 %',
+    B2: stats.B2.solid + ' / 2 histoires B2 à 100 %'
+  };
+  const criterion = criteria[profile.code] || '';
+  const levelName = profile.code === 'B2' ? 'B2 conversationnel' : profile.code;
+  return '<section class="panel level-profile" data-testid="level-profile">' +
+    '<div class="level-profile-head"><div><p class="eyebrow">Mon niveau de lecture</p><h2>Niveau ' + esc(levelName) + ' <small>' + esc(profile.status) + '</small></h2>' +
+    '<p class="hint">' + esc(info.title || '') + ' · ' + esc(criterion) + '</p></div>' +
+    '<div class="level-profile-badge" aria-hidden="true">' + esc(profile.code) + '</div></div>' +
+    '<div class="level-profile-bar" role="progressbar" aria-label="Progression du niveau" aria-valuenow="' + profile.progress + '" aria-valuemin="0" aria-valuemax="100"><span style="width:' + profile.progress + '%"></span></div>' +
+    '<ul class="level-profile-can">' + (info.can || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('') + '</ul>' +
+    '<p class="level-profile-scale"><b>Parcours :</b> A1 dès 1 histoire · A2 à 3 A1 + 2 A2 · A2 consolidé à 4 A2 sur 7 à 100 % · B1 à +2 B1 · B2 à +2 B2 · B2 consolidé à 2 B2 sur 2 à 100 %.</p>' +
+    '<p class="hint">' + esc(profile.next) + '</p>' +
+    '<p class="level-profile-note">Estimation d’entraînement fondée sur des critères A1 à B2, pas un examen officiel.</p></section>';
+}
 function storyCardHtml(story) {
   const record = storyRecord(story.id);
   const done = !!(record && record.completedAt);
   const best = record && record.total ? ' · ' + record.bestScore + '/' + record.total : '';
   return '<button class="story-card tone-' + attr(story.tone || 'mint') + (done ? ' is-read' : '') + '" data-action="open-story" data-id="' + attr(story.id) + '" data-testid="story-card-' + attr(story.id) + '">' +
-    '<span class="story-card-top"><span class="story-emoji" aria-hidden="true">' + esc(story.emoji) + '</span><span class="story-level">' + esc(story.level) + '</span></span>' +
-    '<strong>' + esc(story.title) + '</strong><span class="story-card-jp" lang="ja">' + esc(IMM.plain(story.titleJp)) + '</span>' +
+    '<span class="story-card-top"><span class="story-emoji" aria-hidden="true">' + esc(story.emoji) + '</span><span class="story-level">' + esc(storyLevelLabel(story)) + '</span></span>' +
+    '<strong>' + esc(story.title) + '</strong><span class="story-card-jp" lang="ja">' + rubyHtml(story.titleJp, state.settings.furigana) + '</span>' +
     '<span class="story-card-desc">' + esc(story.description) + '</span>' +
     '<span class="story-card-meta"><span>' + story.lines.length + ' lignes · ' + story.minutes + ' min</span><span class="' + (done ? 'story-done' : '') + '">' + (done ? 'Lue ✓' + best : 'À découvrir') + '</span></span></button>';
 }
@@ -1629,8 +2254,8 @@ function storyReaderHtml(story) {
       wordByWordDetails(storyLineText(line), 'story-word-by-word', 'story-word-by-word-' + index) + '</div>';
   }).join('');
   return '<section class="panel story-reader" data-testid="story-reader">' +
-    '<div class="story-reader-top"><button class="btn ghost small" data-action="close-story" data-testid="story-close">← Toutes les histoires</button><span class="story-level">' + esc(story.level) + ' · ' + story.minutes + ' min</span></div>' +
-    '<div class="story-reader-head tone-' + attr(story.tone || 'mint') + '"><span class="story-reader-emoji" aria-hidden="true">' + esc(story.emoji) + '</span><div><p class="eyebrow">Histoire ' + story.lines.length + ' lignes</p><h2>' + esc(story.title) + '</h2><p class="story-reader-jp" lang="ja">' + esc(IMM.plain(story.titleJp)) + '</p><p class="story-scene">' + esc(story.scene) + '</p></div></div>' +
+    '<div class="story-reader-top"><button class="btn ghost small" data-action="close-story" data-testid="story-close">← Toutes les histoires</button><span class="story-level">' + esc(storyLevelLabel(story)) + ' · ' + story.minutes + ' min</span></div>' +
+    '<div class="story-reader-head tone-' + attr(story.tone || 'mint') + '"><span class="story-reader-emoji" aria-hidden="true">' + esc(story.emoji) + '</span><div><p class="eyebrow">Histoire ' + story.lines.length + ' lignes</p><h2>' + esc(story.title) + '</h2><p class="story-reader-jp" lang="ja">' + rubyHtml(story.titleJp, state.settings.furigana) + '</p><p class="story-scene">' + esc(story.scene) + '</p></div></div>' +
     '<div class="story-reader-actions"><button class="btn primary" data-action="story-audio-all" data-testid="story-audio-all">🔊 Écouter l’histoire</button><button class="btn ghost" data-action="story-translations-all" data-testid="story-translations-all">' + (shownAll ? 'Masquer les traductions' : 'Afficher les traductions') + '</button></div>' +
     '<div class="story-lines">' + lines + '</div>' +
     '<div class="story-reader-foot"><button class="btn primary" data-action="story-quiz-open" data-testid="story-quiz-start">🧠 Vérifier ma compréhension</button><span class="hint">Deux questions, sans stress : relis une ligne si besoin.</span></div>' +
@@ -1654,9 +2279,37 @@ function storyQuizHtml(story) {
       (result ? '<p class="story-explanation ' + (result.results[qi] ? 'good' : 'bad') + '">' + (result.results[qi] ? '✓ ' : '✗ ') + esc(question.explain) + '</p>' : '') + '</div>';
   }).join('');
   const resultHtml = result
-    ? '<div class="story-result ' + (result.score === result.total ? 'good' : 'warn') + '" data-testid="story-result"><div class="story-result-score"><b>' + result.score + ' / ' + result.total + '</b><span>bonnes réponses</span></div><div><p>' + (result.score === result.total ? 'Tu as tout compris. Continue avec une histoire du même niveau, ou relis celle-ci à voix haute.' : 'Ce n’est pas grave : relis les lignes et réessaie. Comprendre une histoire, c’est déjà parler japonais.') + '</p>' + (result.reward ? '<span class="story-reward">+' + result.reward + ' XP</span>' : '<span class="hint">Histoire déjà récompensée aujourd’hui.</span>') + '</div><button class="btn ghost small" data-action="story-quiz-retry" data-testid="story-quiz-retry">Recommencer le quiz</button></div>'
+    ? '<div class="story-result ' + (result.score === result.total ? 'good' : 'warn') + '" data-testid="story-result"><div class="story-result-score"><b>' + result.score + ' / ' + result.total + '</b><span>bonnes réponses</span></div><div><p>' + (result.score === result.total ? 'Tu as tout compris. Continue avec une histoire du même niveau, ou relis celle-ci à voix haute.' : 'Ce n’est pas grave : relis les lignes et réessaie. Comprendre une histoire, c’est déjà parler japonais.') + '</p>' + (result.reward ? '<span class="story-reward">+' + result.reward + ' XP</span>' : '<span class="hint">Histoire déjà récompensée aujourd’hui.</span>') + '</div><button class="btn ghost small" data-action="story-quiz-retry" data-testid="story-quiz-retry">Recommencer le quiz</button></div>' + storyLevelFeedbackHtml(story, result)
     : '<div class="story-quiz-actions"><button class="btn primary" data-action="story-quiz-submit" data-testid="story-quiz-submit"' + (answered === story.questions.length ? '' : ' disabled') + '>Valider mes réponses</button><span class="hint">' + answered + ' / ' + story.questions.length + ' réponse' + (story.questions.length === 1 ? '' : 's') + ' sélectionnée' + (answered === 1 ? '' : 's') + '.</span></div>';
   return '<section class="story-quiz" id="storyQuiz" data-testid="story-quiz"><div class="story-quiz-head"><div><p class="eyebrow">Compréhension</p><h3>As-tu suivi l’histoire ?</h3></div><span class="story-quiz-count">' + answered + ' / ' + story.questions.length + '</span></div>' + questions + resultHtml + '</section>';
+}
+function storyLevelFeedbackHtml(story, result) {
+  if (!IMM || !result) return '';
+  const profile = IMM.assessLevel(state.immersion);
+  const missed = [];
+  (story.questions || []).forEach(function (question, index) {
+    if (result.results[index]) return;
+    const key = question.skill || 'comprehension';
+    if (missed.indexOf(key) < 0) missed.push(key);
+  });
+  const target = IMM.storyCefr(story);
+  const passed = result.total > 0 && result.score >= Math.ceil(result.total / 2);
+  const actions = missed.map(function (key) {
+    const skill = IMM.skills && IMM.skills[key] ? IMM.skills[key] : { label: 'Compréhension', tip: 'Relis l’histoire et vérifie les informations clés.' };
+    return '<li><b>' + esc(skill.label) + '</b> — ' + esc(skill.tip) + '</li>';
+  }).join('');
+  return '<section class="story-level-feedback" data-testid="story-level-feedback">' +
+    '<div class="story-level-feedback-badge"><span>Niveau estimé</span><b>' + esc(profile.code) + '</b><small>' + esc(profile.status) + '</small></div>' +
+    '<div><p class="story-level-target"><b>Cette histoire : ' + esc(target) + '</b> · ' + (passed ? 'validée' : 'à consolider') + '</p>' +
+    (actions ? '<p class="story-level-action"><b>À travailler :</b></p><ul class="story-level-action-list">' + actions + '</ul>' : '<p class="story-level-action"><b>Prochaine étape :</b> ' + esc(profile.next) + '</p>') +
+    (actions ? '<p class="hint">' + esc(profile.next) + '</p>' : '') +
+    '</div></section>';
+}
+function storyFocusJpHtml(item) {
+  const jp = String(item && item.jp || '');
+  const kana = glossaryKana(jp);
+  const annotated = kana && P.hasKanji(jp) ? P.annotate(jp, kana) : jp;
+  return rubyHtml(annotated, state.settings.furigana);
 }
 function storyFocusHtml(story) {
   const focus = Array.isArray(story.focus) ? story.focus : [];
@@ -1665,8 +2318,8 @@ function storyFocusHtml(story) {
   const chips = focus.map(function (item) {
     const entry = storyEntryForFocus(item);
     return entry
-      ? '<button class="story-focus-chip" data-action="detail" data-id="' + attr(entry.id) + '">' + esc(item.jp) + '<small>' + esc(item.fr) + '</small></button>'
-      : '<span class="story-focus-chip">' + esc(item.jp) + '<small>' + esc(item.fr) + '</small></span>';
+      ? '<button class="story-focus-chip" data-action="detail" data-id="' + attr(entry.id) + '">' + storyFocusJpHtml(item) + '<small>' + esc(item.fr) + '</small></button>'
+      : '<span class="story-focus-chip">' + storyFocusJpHtml(item) + '<small>' + esc(item.fr) + '</small></span>';
   }).join('');
   return '<section class="story-focus" data-testid="story-focus"><div class="story-focus-head"><div><p class="eyebrow">Vocabulaire</p><h3>Les mots de l’histoire</h3></div>' +
     (matched.length ? '<button class="btn ghost small" data-action="story-review-words" data-id="' + attr(story.id) + '" data-testid="story-review-words">Réviser ces ' + matched.length + ' mots</button>' : '') + '</div>' +
@@ -1812,7 +2465,7 @@ $('#view-review').innerHTML = `
 <div><p class='eyebrow'>Ta session</p><h2>${c.due ? 'On révise un peu ?' : (c.new ? 'Prêt à découvrir ?' : 'Tout est à jour.')}</h2><p class='lead'>${primaryHint}</p></div>
 <div class='review-hero-actions'><button class='btn primary big' data-action='start' data-kind='${primaryKind}' data-mode='recall' data-testid='review-start-main'${disabled ? ' disabled' : ''}>${primaryLabel}</button></div>
 </div>
-${dailyPlanPanelHtml()}
+${dailyPlanPanelHtml()}${mistakesPanelHtml()}
 <div class='panel'><div class='panel-head'><div><h2>Réviser</h2><p>${c.due ? plural(c.due, 'carte t’attend', 'cartes t’attendent') : 'Rien n’est dû pour le moment.'}</p></div></div>
 <div class='review-grid'>
 <div class='review-card' role='button' tabindex='0' data-action='start' data-kind='due' data-mode='recall' data-testid='review-card-due'>
@@ -2069,7 +2722,7 @@ function addPhraseTask(tasks, pool, preferred, used) {
 function openSession(kind, tasks) {
   if (!tasks || !tasks.length) { toast('Aucun exercice disponible pour l\'instant.'); return; }
   session = {
-    kind: kind, tasks: tasks.slice(), current: null, mode: 'recall', task: null, exercise: null,
+    kind: kind, grammarSummary: null, tasks: tasks.slice(), current: null, mode: 'recall', task: null, exercise: null,
     phase: 'front', done: 0, correct: 0, xp: 0, total: tasks.length, options: [],
     lastGrade: null, lastDue: 0, lastXp: 0, lastChoice: null,
     phraseSelection: [], phraseResult: null, productionAnswer: '',
@@ -2093,10 +2746,80 @@ function startPhraseSession(type) {
   if (!tasks.length) { toast('Aucune phrase de contexte disponible.'); return; }
   openSession('phrases', tasks);
 }
+function mistakesPanelHtml() {
+  if (!MISTAKES) return '';
+  const sum = MISTAKES.summary(state, entries, IMM ? IMM.stories : []);
+  const wordChips = sum.wordRows.slice(0, 3).map(function (row) {
+    return '<button class="mistake-chip" data-action="detail" data-id="' + attr(row.entry.id) + '">' +
+      '<span lang="ja">' + wordRubyHtml(row.entry) + '</span>' +
+      '<small>' + esc(row.entry.fr) + (row.lastScore != null ? ' · ' + row.lastScore + ' %' : '') + '</small></button>';
+  }).join('');
+  const storyChips = sum.storyRows.slice(0, 2).map(function (row) {
+    return '<button class="mistake-chip" data-action="open-story" data-id="' + attr(row.id) + '">' +
+      '<span>' + esc(row.story ? row.story.title : row.id) + '</span>' +
+      '<small>' + row.bestScore + '/' + row.total + '</small></button>';
+  }).join('');
+  return '<section class="panel mistakes-panel" data-testid="mistakes-panel">' +
+    '<div class="panel-head"><div><p class="eyebrow">Rattrapage</p><h2>Mon carnet d’erreurs</h2>' +
+    '<p>' + (sum.total ? 'Ce qui a résisté, réuni au même endroit : une séance pour repartir dessus.' : 'Rien en attente : ton carnet est vide.') + '</p></div>' +
+    '<button class="btn primary" data-action="start-mistakes" data-testid="start-mistakes"' + (sum.total ? '' : ' disabled') + '>Séance de rattrapage</button></div>' +
+    '<div class="mistakes-grid">' +
+      '<div class="mistake-card" data-testid="mistakes-words"><b>' + sum.words + '</b><span>Mots fragiles</span><small>2 échecs ou prononciation sous 75 %</small></div>' +
+      '<div class="mistake-card" data-testid="mistakes-conversations"><b>' + sum.conversations + '</b><span>Répliques à revoir</span><small>Conversations ratées</small></div>' +
+      '<div class="mistake-card" data-testid="mistakes-stories"><b>' + sum.stories + '</b><span>Histoires à consolider</span><small>Quiz incomplet</small></div>' +
+    '</div>' +
+    (wordChips ? '<div class="mistake-chips"><span class="context-label">Tes mots fragiles</span>' + wordChips + '</div>' : '') +
+    (storyChips ? '<div class="mistake-chips"><span class="context-label">Histoires</span>' + storyChips + '</div>' : '') +
+    '</section>';
+}
+function startMistakes() {
+  if (!MISTAKES) { toast('Le carnet d’erreurs n’est pas disponible. Recharge la page.'); return; }
+  if (!entries.length) { toast('Aucun mot à travailler pour l’instant.'); return; }
+  const sum = MISTAKES.summary(state, entries, IMM ? IMM.stories : []);
+  if (!sum.total) { toast('Ton carnet est vide : rien à rattraper.'); return; }
+  const tasks = [];
+  const fragile = sum.wordRows.slice(0, 5);
+  fragile.forEach(function (row, index) {
+    tasks.push(wordTask(row.entry, index === 0 ? 'recall' : (index % 2 ? 'comprehension' : 'production'), 'word'));
+  });
+  const phraseRow = fragile.filter(function (row) { return row.entry && row.entry.context; })[0];
+  if (phraseRow) {
+    const phraseTask = makePhraseTask(phraseRow.entry, 'cloze');
+    if (phraseTask) tasks.push(phraseTask);
+  }
+  const pronRow = fragile.filter(function (row) { return row.lastScore != null && row.lastScore < MISTAKES.WEAK_PRONUNCIATION; })[0];
+  if (pronRow) tasks.push({ entry: pronRow.entry, mode: 'pronounce', target: pronRow.entry.context ? 'phrase' : 'word' });
+  if (CONV) {
+    conversationReviewGroups().slice(0, 2).forEach(function (group) {
+      const item = group.items[0];
+      const turn = item ? group.scenario.turns[item.turn] : null;
+      if (!turn) return;
+      tasks.push({
+        entry: null,
+        mode: 'conversation',
+        conversationScenario: group.scenario,
+        conversationTurnIndex: item.turn,
+        conversationTurn: turn
+      });
+    });
+  }
+  if (!tasks.length) {
+    if (sum.storyRows.length && sum.storyRows[0].story) {
+      if (session) closeSession();
+      openStory(sum.storyRows[0].id);
+      return;
+    }
+    toast('Rien à lancer pour l’instant.');
+    return;
+  }
+  openSession('mistakes', tasks.slice(0, 9));
+}
 function startDailyPlan() {
   const now = Date.now();
   const tasks = [];
   const used = {};
+  const grammarTask = dailyGrammarTask(now);
+  if (grammarTask) tasks.push(grammarTask);
   const conversationTasks = dailyConversationTasks(2);
   if (conversationTasks[0]) tasks.push(conversationTasks[0]);
   const due = S.dueEntries(entries, state, now).slice(0, 8);
@@ -2275,12 +2998,22 @@ renderSession(); return;
   session.conversationAnswer = '';
   session.conversationResult = null;
   session.conversationVoiceUsed = false;
+  session.grammarState = task.mode === 'grammar' ? { selected: null, picked: [], checked: false, correct: false, xp: 0 } : null;
   if (session.pronunciationAutoPhrase) {
     session.pronunciationTarget = 'word';
     session.pronunciationAutoPhrase = false;
   }
   if (session.mode === 'phrase') {
     if (!session.exercise) { nextCard(); return; }
+    session.phase = 'question';
+    session.options = [];
+    session.lastGrade = null;
+    session.lastChoice = null;
+    session.total = Math.max(session.total, session.done + session.tasks.length + 1);
+    renderSession();
+    return;
+  }
+  if (session.mode === 'grammar') {
     session.phase = 'question';
     session.options = [];
     session.lastGrade = null;
@@ -2331,7 +3064,7 @@ function renderSession() {
   if (!session) { root.hidden = true; return; }
   root.hidden = false;
   const pct = Math.min(100, Math.round(session.done / Math.max(1, session.total) * 100));
-  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'conversation' ? conversationTaskView() : (session.mode === 'phrase' ? phraseView() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : (session.mode === 'production' ? productionView() : quizView())))));
+  const body = session.phase === 'summary' ? summaryHtml() : (session.mode === 'grammar' ? grammarTaskView() : (session.mode === 'conversation' ? conversationTaskView() : (session.mode === 'phrase' ? phraseView() : (session.mode === 'recall' ? recallView() : (session.mode === 'pronounce' ? pronounceView() : (session.mode === 'production' ? productionView() : quizView()))))));
   root.innerHTML = '<div class="session-shell"><div class="session-top"><button class="icon-btn" data-action="quit-session" aria-label="Quitter la session">✕</button>' +
     '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><div class="progress-fill" style="width:' + pct + '%" data-testid="progress"></div></div>' +
     '<span class="session-count">' + session.done + '/' + Math.max(session.done, session.total) + '</span></div><div class="session-body">' + body + '</div></div>';
@@ -3086,16 +3819,32 @@ function feedbackHtml() {
     '<span>Prochaine révision : ' + S.dueLabel(session.lastDue) + ' · +' + session.lastXp + ' XP</span>' + (wrongChoice ? '<span>La bonne réponse est affichée ci-dessus.</span>' : '') + '</div>' +
     '<button class="btn ' + (good ? 'primary' : 'warn') + '" data-action="continue-session" data-testid="session-next">Continuer <kbd>Entrée</kbd></button></div>';
 }
+function grammarSummaryHtml() {
+  const summary = session && session.grammarSummary;
+  if (!summary || !GRAMMAR) return '';
+  const step = typeof GRAMMAR.nextStepFor === 'function' ? GRAMMAR.nextStepFor(state, summary.lessonId, summary.correct, summary.exerciseId) : null;
+  const lesson = GRAMMAR.lessonById(summary.lessonId) || {};
+  const title = summary.title || lesson.title || summary.lessonId;
+  const meta = [summary.level || lesson.level || '', grammarTaskReason(summary.reason)].filter(Boolean).join(' · ');
+  const score = Math.max(0, Math.min(100, Math.round(Number(summary.score) || 0)));
+  return '<div class="summary-grammar" data-testid="summary-grammar">' +
+    '<div class="summary-grammar-head"><div><p class="eyebrow">Grammaire du jour</p><b>' + esc(title) + '</b><small>' + esc(meta) + '</small></div><span class="grammar-history-score ' + (summary.correct ? 'good' : 'bad') + '" data-testid="summary-grammar-score">' + score + ' %</span></div>' +
+    (step ? '<p class="summary-grammar-next" data-testid="summary-grammar-next-step"><b>Prochaine étape :</b> ' + esc(step.text) + '</p>' : '') +
+    (step && step.lessonId ? '<button class="btn ghost small" data-action="grammar-summary-open" data-id="' + attr(step.lessonId) + '" data-exercise="' + attr(step.exerciseId || '') + '" data-testid="summary-grammar-open">' + esc(step.label) + '</button>' : '') +
+  '</div>';
+}
 function summaryHtml() {
   const accuracy = session.done ? Math.round(session.correct / session.done * 100) : 0;
   const c = S.counts(entries, state, Date.now());
   const next = S.nextDue(entries, state, Date.now());
+  const mistakes = MISTAKES ? MISTAKES.summary(state, entries, IMM ? IMM.stories : []) : null;
 const dailyBonus = (session.kind === 'daily' && state.flags.daily === S.todayKey()) ? '<div class="summary-bonus" data-testid="daily-bonus">Défi du jour relevé : +20 XP bonus.</div>' : '';
   return '<div class="summary-card" data-testid="summary"><div class="summary-emoji">🎉</div><h1>Session terminée !</h1><p class="muted">' + (session.done ? 'Bien joué, continue comme ça.' : 'Rien à faire pour l\'instant.') + '</p>' +
-    '<div class="summary-stats"><div><b>' + session.done + '</b><span>' + (session.kind === 'today' ? 'étapes' : 'cartes') + '</span></div><div><b>' + accuracy + '%</b><span>réussite</span></div><div><b>+' + session.xp + '</b><span>XP</span></div></div>' +
+    '<div class="summary-stats"><div><b>' + session.done + '</b><span>' + (session.kind === 'today' || session.kind === 'mistakes' ? 'étapes' : 'cartes') + '</span></div><div><b>' + accuracy + '%</b><span>réussite</span></div><div><b>+' + session.xp + '</b><span>XP</span></div></div>' +
+    grammarSummaryHtml() +
     '<p class="hint">' + (next ? 'Prochaine révision : ' + S.dueLabel(next) + '.' : 'Tu es à jour.') + '</p>' + dailyBonus + '<div class="summary-actions">' +
     '<button class="btn primary" data-action="finish-session" data-testid="finish-session">Retour à l\'accueil</button>' +
-    (c.due ? '<button class="btn ghost" data-action="start-again" data-testid="start-again">Réviser encore</button>' : '') + '</div></div>';
+    (c.due ? '<button class="btn ghost" data-action="start-again" data-testid="start-again">Réviser encore</button>' : '') + (mistakes && mistakes.total ? '<button class="btn ghost" data-action="start-mistakes" data-testid="summary-mistakes">Revoir mes erreurs · ' + mistakes.total + '</button>' : '') + '</div></div>';
 }
 function reveal() {
   if (!session || session.phase !== 'front') return;
@@ -3216,6 +3965,7 @@ function applySyncedState(next) {
   state.flags = Object.assign({}, state.flags, next.flags || {});
   if (next.conversationReview && typeof next.conversationReview === 'object') state.conversationReview = next.conversationReview;
   if (next.immersion && typeof next.immersion === 'object') state.immersion = next.immersion;
+  if (next.grammar && typeof next.grammar === 'object') state.grammar = next.grammar;
   if (next.createdAt) state.createdAt = Math.min(state.createdAt || next.createdAt, next.createdAt);
   if (next.version) state.version = next.version;
   entries = buildEntries();
@@ -3493,6 +4243,496 @@ function resetAll() {
   entries = buildEntries(); persist(); applyTheme(); closeModal(); render(); updateChrome(); toast('Tout a été effacé.');
 }
 
+/* ---------- Grammaire B1/B2 ---------- */
+function grammarTrackJp(jp, kana) {
+  if (!jp) return '';
+  if (!state.settings.furigana) return esc(jp);
+  const annotated = P.annotate(jp, kana || jp);
+  if (window.Kotoba.Reading && window.Kotoba.Reading.romajiRubyHtml) return window.Kotoba.Reading.romajiRubyHtml(annotated);
+  return esc(jp);
+}
+function grammarReadingHtml(item) {
+  return '<span class="grammar-kana">' + esc(item.kana || '') + '</span><span class="grammar-romaji">' + esc(item.romaji || '') + '</span>';
+}
+function grammarExampleHtml(example) {
+  return '<div class="grammar-example grammar-track-example">' +
+    '<div class="grammar-track-jp" lang="ja">' + grammarTrackJp(example.jp, example.kana) + '</div>' +
+    '<div class="grammar-track-reading">' + grammarReadingHtml(example) + '</div>' +
+    '<div class="grammar-fr">' + esc(example.fr) + '</div>' +
+    '<button class="btn ghost small" data-action="speak-text" data-text="' + attr(example.jp) + '">🔊 Écouter</button>' +
+  '</div>';
+}
+function grammarPatternHtml(item) {
+  return '<div class="grammar-pattern">' +
+    '<div class="grammar-pattern-jp" lang="ja">' + grammarTrackJp(item.jp, item.kana) + '</div>' +
+    '<div class="grammar-pattern-reading">' + grammarReadingHtml(item) + '</div>' +
+    '<div class="grammar-pattern-fr">' + esc(item.fr) + '</div>' +
+  '</div>';
+}
+function grammarLessonCardHtml(lesson, index) {
+  const progress = GRAMMAR.progressFor(state, lesson.id);
+  const answered = Object.keys(progress.answers).length;
+  const percent = progress.completedAt ? progress.bestScore : Math.min(100, Math.round(answered / lesson.exercises.length * 100));
+  const status = progress.completedAt
+    ? 'Terminé · ' + progress.bestScore + ' %'
+    : (answered ? 'En cours · ' + answered + '/' + lesson.exercises.length : 'À découvrir');
+  const reviewCount = typeof GRAMMAR.reviewQueueFor === 'function' ? GRAMMAR.reviewQueueFor(state, lesson.id).length : 0;
+  const reviewLabel = reviewCount ? '<span class="grammar-lesson-review" data-testid="grammar-review-badge-' + attr(lesson.id) + '">' + reviewCount + ' exercice' + (reviewCount === 1 ? '' : 's') + ' à revoir</span>' : '';
+  return '<button class="grammar-lesson-card' + (progress.completedAt ? ' is-done' : '') + '" data-action="grammar-open" data-id="' + attr(lesson.id) + '" data-testid="grammar-lesson-' + attr(lesson.id) + '">' +
+    '<span class="grammar-lesson-top"><span class="grammar-lesson-emoji" aria-hidden="true">' + esc(lesson.emoji) + '</span><span class="grammar-lesson-index">' + (index + 1) + '</span><span class="grammar-lesson-status">' + esc(status) + '</span></span>' +
+    '<strong>' + esc(lesson.title) + '</strong>' +
+    '<span class="grammar-lesson-sub">' + esc(lesson.subtitle) + '</span>' +
+    reviewLabel +
+    '<span class="grammar-lesson-bar"><span style="width:' + percent + '%"></span></span>' +
+    '<span class="grammar-lesson-open">Ouvrir la leçon <span aria-hidden="true">→</span></span>' +
+  '</button>';
+}
+function grammarTrackHtml() {
+  const level = grammarUi.level === 'B2' ? 'B2' : 'B1';
+  const info = GRAMMAR.LEVELS.filter(function (item) { return item.id === level; })[0] || GRAMMAR.LEVELS[0];
+  const lessons = GRAMMAR.lessonsByLevel(level);
+  const stats = GRAMMAR.levelStats(state, level);
+  const tabs = GRAMMAR.LEVELS.map(function (item) {
+    const count = GRAMMAR.lessonsByLevel(item.id).length;
+    return '<button class="grammar-level-tab' + (item.id === level ? ' active' : '') + '" data-action="grammar-level" data-level="' + attr(item.id) + '" data-testid="grammar-level-' + attr(item.id.toLowerCase()) + '" aria-pressed="' + (item.id === level ? 'true' : 'false') + '"><b>' + esc(item.id) + '</b><span>' + count + ' leçons</span></button>';
+  }).join('');
+  return '<section class="panel grammar-track-panel">' +
+    '<div class="panel-head grammar-track-head"><div><p class="eyebrow">Parcours avancé</p><h2>Grammaire B1 · B2</h2><p class="lead">Douze leçons pour passer de la phrase correcte à la nuance juste. Chaque point est illustré, puis vérifié par des exercices corrigés.</p></div>' +
+    '<div class="grammar-level-tabs" role="tablist" aria-label="Niveau de grammaire">' + tabs + '</div></div>' +
+    '<div class="grammar-level-summary" data-testid="grammar-level-progress"><div class="grammar-summary-stat"><b>' + stats.completed + '/' + stats.total + '</b><span>leçons terminées</span></div><div class="grammar-summary-stat"><b>' + stats.average + ' %</b><span>score moyen</span></div><div class="grammar-summary-bar"><span style="width:' + stats.percent + '%"></span></div></div>' +
+    '<div class="grammar-track-intro"><b>' + esc(info.title) + '</b><span>' + esc(info.description) + '</span></div>' +
+    '<div class="grammar-track-grid">' + lessons.map(grammarLessonCardHtml).join('') + '</div>' +
+    grammarHistoryHtml() +
+  '</section>';
+}
+function grammarHistoryDate(ts) {
+  const date = new Date(Number(ts) || 0);
+  if (!Number(ts) || !isFinite(date.getTime())) return '';
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' · ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+function grammarHistoryHtml() {
+  if (!GRAMMAR || typeof GRAMMAR.recentHistory !== 'function') return '';
+  const rows = GRAMMAR.recentHistory(state, 6);
+  if (!rows.length) return '';
+  return '<section class="grammar-history" data-testid="grammar-history">' +
+    '<div class="grammar-history-head"><div><p class="eyebrow">Session du jour</p><h3>Derniers points revus</h3></div><span class="grammar-history-count">' + rows.length + ' dernier' + (rows.length === 1 ? '' : 's') + '</span></div>' +
+    '<div class="grammar-history-list">' + rows.map(function (row) {
+      const lesson = GRAMMAR.lessonById(row.lessonId) || {};
+      const title = row.title || lesson.title || row.lessonId;
+      const meta = [row.level || lesson.level || '', grammarTaskReason(row.reason)].filter(Boolean).join(' · ');
+      return '<div class="grammar-history-row" data-testid="grammar-history-row">' +
+        '<span class="grammar-history-date">' + esc(grammarHistoryDate(row.at)) + '</span>' +
+        '<div class="grammar-history-copy"><b>' + esc(title) + '</b><small>' + esc(meta) + '</small></div>' +
+        '<span class="grammar-history-score ' + (row.correct ? 'good' : 'bad') + '" data-testid="grammar-history-score">' + Math.round(row.score) + ' %</span>' +
+      '</div>';
+    }).join('') + '</div></section>';
+}
+function grammarLessonHtml(lesson) {
+  const index = GRAMMAR.lessonsByLevel(lesson.level).findIndex(function (item) { return item.id === lesson.id; }) + 1;
+  const patterns = lesson.patterns.map(grammarPatternHtml).join('');
+  const points = lesson.points.map(function (point) {
+    return '<section class="grammar-point grammar-track-point"><h3>' + esc(point.title) + '</h3><p>' + esc(point.text) + '</p>' + point.examples.map(grammarExampleHtml).join('') + '</section>';
+  }).join('');
+  return '<article class="panel grammar-lesson-panel" data-testid="grammar-lesson-detail">' +
+    '<div class="grammar-detail-top"><button class="btn ghost small" data-action="grammar-back">← Parcours</button><span class="grammar-level-badge">' + esc(lesson.level) + ' · Leçon ' + index + '</span></div>' +
+    '<div class="grammar-detail-head"><div class="grammar-detail-emoji" aria-hidden="true">' + esc(lesson.emoji) + '</div><div><p class="eyebrow">' + esc(lesson.level) + ' · Grammaire</p><h2>' + esc(lesson.title) + '</h2><p class="lead">' + esc(lesson.subtitle) + '</p></div></div>' +
+    '<div class="grammar-goal"><b>Objectif</b><span>' + esc(lesson.goal) + '</span></div>' +
+    '<div class="grammar-patterns">' + patterns + '</div>' +
+    '<div class="grammar-track-points">' + points + '</div>' +
+    '<p class="grammar-tip">' + esc(lesson.tip) + '</p>' +
+    grammarExerciseSectionHtml(lesson) +
+  '</article>';
+}
+function renderGrammar() {
+  const mount = $('#grammar-track');
+  if (!mount || !GRAMMAR) return;
+  const lesson = grammarUi.openId ? GRAMMAR.lessonById(grammarUi.openId) : null;
+  mount.innerHTML = lesson ? grammarLessonHtml(lesson) : grammarTrackHtml();
+  if (window.Kotoba.GrammarReading) setTimeout(function () { window.Kotoba.GrammarReading.apply(); }, 0);
+}
+function grammarExerciseSectionHtml(lesson) {
+  const progress = GRAMMAR.progressFor(state, lesson.id);
+  const gs = grammarUi.session;
+  if (!gs || gs.lessonId !== lesson.id) {
+    const best = progress.completedAt ? 'Meilleur score : ' + progress.bestScore + ' %.' : lesson.exercises.length + ' questions corrigées, sans chrono.';
+    const reviewCount = typeof GRAMMAR.reviewQueueFor === 'function' ? GRAMMAR.reviewQueueFor(state, lesson.id).length : 0;
+    const review = reviewCount
+      ? '<button class="btn ghost" data-action="grammar-review-mistakes" data-id="' + attr(lesson.id) + '" data-testid="grammar-review-mistakes">Réviser ' + (reviewCount === 1 ? 'l’exercice raté' : 'les ' + reviewCount + ' exercices ratés') + '</button>'
+      : '';
+    return '<div class="grammar-exercise-launch" data-testid="grammar-exercise-launch"><div><p class="eyebrow">Pratique</p><b>Vérifie que la nuance est passée</b><span>' + esc(best) + '</span></div><div class="grammar-launch-actions"><button class="btn primary" data-action="grammar-start-exercises" data-id="' + attr(lesson.id) + '" data-testid="grammar-start-exercises">Commencer les exercices · ' + lesson.exercises.length + ' questions</button>' + review + '</div></div>';
+  }
+  if (gs.finished) return grammarResultHtml(lesson, gs);
+  return grammarQuestionHtml(lesson, gs);
+}
+function grammarQuestionHtml(lesson, gs) {
+  const ex = lesson.exercises[gs.index];
+  const reviewQueue = gs.review ? (gs.reviewQueue || []) : [];
+  const total = gs.review ? Math.max(1, reviewQueue.length) : lesson.exercises.length;
+  const reviewPos = gs.review ? Math.min((gs.reviewPos || 0) + 1, total) : 0;
+  const answered = gs.review ? Math.min(total, (gs.reviewPos || 0) + (gs.checked ? 1 : 0)) : gs.index + (gs.checked ? 1 : 0);
+  const stepLabel = gs.review ? 'Révision ciblée · ' + reviewPos + ' / ' + total : 'Exercice ' + (gs.index + 1) + ' / ' + total;
+  const canCheck = ex.type === 'choice' ? gs.selected !== null : gs.picked.length === ex.tokens.length;
+  const focus = ex.focus ? '<div class="grammar-focus">' + grammarPatternHtml(ex.focus) + '</div>' : '';
+  const sentence = ex.sentence ? '<div class="grammar-exercise-sentence"><div class="grammar-track-jp" lang="ja">' + grammarTrackJp(ex.sentence.jp, ex.sentence.kana) + '</div><div class="grammar-track-reading">' + grammarReadingHtml(ex.sentence) + '</div><div class="grammar-fr">' + esc(ex.sentence.fr) + '</div></div>' : '';
+  return '<div class="panel grammar-exercise" data-testid="grammar-exercise">' +
+    '<div class="grammar-exercise-head"><span class="grammar-exercise-step">' + esc(stepLabel) + '</span><span class="grammar-exercise-score">' + gs.score + ' bonne' + (gs.score === 1 ? '' : 's') + '</span></div>' +
+    '<div class="grammar-exercise-bar"><span style="width:' + Math.round(answered / total * 100) + '%"></span></div>' +
+    '<h3>' + esc(ex.question) + '</h3>' + focus + sentence +
+    (ex.type === 'choice' ? grammarChoiceHtml(ex, gs) : grammarOrderHtml(ex, gs)) +
+    (!gs.checked ? '<div class="grammar-exercise-actions"><button class="btn primary" data-action="grammar-check" data-testid="grammar-check"' + (canCheck ? '' : ' disabled') + '>Vérifier</button></div>' : grammarFeedbackHtml(ex, gs, total)) +
+  '</div>';
+}
+function grammarChoiceHtml(ex, gs) {
+  return '<div class="grammar-options">' + ex.options.map(function (option, index) {
+    const selected = gs.selected === index;
+    let stateClass = '';
+    if (gs.checked) {
+      if (option.correct) stateClass = ' correct';
+      else if (selected) stateClass = ' wrong';
+    }
+    return '<button class="grammar-option' + (selected ? ' selected' : '') + stateClass + '" data-action="grammar-answer" data-index="' + index + '" data-testid="grammar-option-' + index + '" aria-pressed="' + (selected ? 'true' : 'false') + '"' + (gs.checked ? ' disabled' : '') + '>' +
+      '<span class="grammar-option-jp" lang="ja">' + grammarTrackJp(option.jp, option.kana) + '</span>' +
+      '<span class="grammar-option-reading">' + grammarReadingHtml(option) + '</span>' +
+      '<span class="grammar-option-fr">' + esc(option.fr) + '</span>' +
+    '</button>';
+  }).join('') + '</div>';
+}
+function grammarOrderHtml(ex, gs) {
+  const line = gs.picked.length ? gs.picked.map(function (tokenIndex) {
+    const token = ex.tokens[tokenIndex];
+    return '<button class="grammar-token in-line" data-action="grammar-token" data-index="' + tokenIndex + '"' + (gs.checked ? ' disabled' : '') + '>' +
+      '<span class="grammar-token-jp" lang="ja">' + grammarTrackJp(token.jp, token.kana) + '</span>' +
+      '<span class="grammar-token-reading">' + grammarReadingHtml(token) + '</span>' +
+      '<span class="grammar-token-fr">' + esc(token.fr) + '</span>' +
+    '</button>';
+  }).join('') : '<span class="grammar-order-empty">Clique sur les morceaux pour construire la phrase.</span>';
+  const pool = ex.tokens.map(function (token, index) {
+    const used = gs.picked.indexOf(index) >= 0;
+    return '<button class="grammar-token' + (used ? ' used' : '') + '" data-action="grammar-token" data-index="' + index + '" data-testid="grammar-token-' + index + '" aria-pressed="' + (used ? 'true' : 'false') + '"' + (used || gs.checked ? ' disabled' : '') + '>' +
+      '<span class="grammar-token-jp" lang="ja">' + grammarTrackJp(token.jp, token.kana) + '</span>' +
+      '<span class="grammar-token-reading">' + grammarReadingHtml(token) + '</span>' +
+      '<span class="grammar-token-fr">' + esc(token.fr) + '</span>' +
+    '</button>';
+  }).join('');
+  return '<div class="grammar-order"><div class="grammar-order-line">' + line + '</div><div class="grammar-token-pool">' + pool + '</div><p class="hint">Clique sur un morceau pour l’ajouter ; reclique sur un morceau de la ligne pour le retirer.</p></div>';
+}
+function grammarFeedbackHtml(ex, gs, total) {
+  const answer = ex.type === 'choice' ? ex.options.filter(function (option) { return option.correct; })[0] : ex.answer;
+  const hasNextReview = !!gs.review && (gs.reviewPos || 0) + 1 < (gs.reviewQueue || []).length;
+  const action = gs.review ? (hasNextReview ? 'grammar-review-next' : 'grammar-review-back') : 'grammar-next';
+  const testId = gs.review ? (hasNextReview ? 'grammar-review-next' : 'grammar-review-back') : 'grammar-next';
+  const label = gs.review ? (hasNextReview ? 'Exercice suivant' : 'Retour à la leçon') : (gs.index + 1 >= total ? 'Voir le résultat' : 'Question suivante');
+  const back = hasNextReview ? '<button class="btn ghost" data-action="grammar-review-back" data-testid="grammar-review-back">Retour à la leçon</button>' : '';
+  return '<div class="grammar-feedback ' + (gs.correct ? 'good' : 'bad') + '" data-testid="grammar-feedback" role="status" aria-live="polite">' +
+    '<b>' + (gs.correct ? '✅ Bonne réponse' : '❌ Pas tout à fait') + '</b>' +
+    '<p>' + esc(ex.explanation) + '</p>' +
+    '<div class="grammar-answer"><span class="grammar-answer-label">Réponse</span><div class="grammar-answer-jp" lang="ja">' + grammarTrackJp(answer.jp, answer.kana) + '</div><div class="grammar-answer-reading">' + grammarReadingHtml(answer) + '</div><div class="grammar-answer-fr">' + esc(answer.fr) + '</div></div>' +
+    '<div class="grammar-feedback-actions"><button class="btn primary" data-action="' + action + '" data-testid="' + testId + '">' + label + '</button>' + back + '</div>' +
+  '</div>';
+}
+function grammarResultHtml(lesson, gs) {
+  const total = lesson.exercises.length;
+  const percent = Math.round(gs.score / total * 100);
+  const nextId = GRAMMAR.nextLessonId(lesson.level, lesson.id);
+  const best = GRAMMAR.progressFor(state, lesson.id).bestScore;
+  return '<div class="grammar-result" data-testid="grammar-result">' +
+    '<div class="grammar-result-score">' + gs.score + '<span>/' + total + '</span></div>' +
+    '<h3>' + (percent === 100 ? 'Sans faute !' : (percent >= 50 ? 'Bonne base' : 'À retravailler')) + '</h3>' +
+    '<p>' + percent + ' % de réussite · meilleur score : ' + best + ' %.' + (gs.xp ? ' +' + gs.xp + ' XP.' : '') + '</p>' +
+    '<div class="grammar-result-actions"><button class="btn primary" data-action="grammar-retry" data-id="' + attr(lesson.id) + '">Refaire</button><button class="btn ghost" data-action="grammar-back">Retour au parcours</button>' + (nextId ? '<button class="btn ghost" data-action="grammar-next-lesson" data-id="' + attr(nextId) + '">Leçon suivante →</button>' : '') + '</div>' +
+  '</div>';
+}
+function scrollToGrammarExercise() {
+  setTimeout(function () {
+    const target = $('[data-testid="grammar-exercise"]');
+    if (target && target.scrollIntoView) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, 40);
+}
+function openGrammarLesson(id) {
+  if (!GRAMMAR || !GRAMMAR.lessonById(id)) return;
+  grammarUi.openId = id;
+  grammarUi.session = null;
+  renderGrammar();
+  window.scrollTo(0, 0);
+}
+function startGrammarExercises(id) {
+  if (!GRAMMAR) return;
+  const lesson = GRAMMAR.lessonById(id);
+  if (!lesson) return;
+  const progress = GRAMMAR.ensureProgress(state, id);
+  progress.attempts += 1;
+  progress.lastAt = Date.now();
+  grammarUi.openId = id;
+  grammarUi.session = { lessonId: id, index: 0, selected: null, picked: [], checked: false, correct: false, score: 0, finished: false, xp: 0 };
+  persist();
+  renderGrammar();
+  scrollToGrammarExercise();
+}
+function selectGrammarAnswer(index) {
+  const gs = grammarUi.session;
+  if (!gs || gs.checked) return;
+  gs.selected = index;
+  renderGrammar();
+}
+function toggleGrammarToken(index) {
+  const gs = grammarUi.session;
+  if (!gs || gs.checked) return;
+  const at = gs.picked.indexOf(index);
+  if (at >= 0) gs.picked.splice(at, 1);
+  else gs.picked.push(index);
+  renderGrammar();
+}
+function checkGrammarAnswer() {
+  const gs = grammarUi.session;
+  if (!gs || gs.checked) return;
+  const lesson = GRAMMAR.lessonById(gs.lessonId);
+  if (!lesson) return;
+  const ex = lesson.exercises[gs.index];
+  if (!ex) return;
+  let correct = false;
+  if (ex.type === 'choice') {
+    const option = ex.options[gs.selected];
+    correct = !!option && option.correct === true;
+  } else {
+    correct = gs.picked.length === ex.tokens.length && ex.solution.every(function (value, i) { return gs.picked[i] === value; });
+  }
+  gs.checked = true;
+  gs.correct = correct;
+  if (correct) gs.score += 1;
+  const progress = GRAMMAR.ensureProgress(state, lesson.id);
+  progress.answers[ex.id] = correct;
+  progress.lastAt = Date.now();
+  persist();
+  renderGrammar();
+}
+function nextGrammarQuestion() {
+  const gs = grammarUi.session;
+  if (!gs || !gs.checked) return;
+  const lesson = GRAMMAR.lessonById(gs.lessonId);
+  if (!lesson) return;
+  if (gs.index + 1 >= lesson.exercises.length) {
+    finishGrammarSession();
+    return;
+  }
+  gs.index += 1;
+  gs.selected = null;
+  gs.picked = [];
+  gs.checked = false;
+  gs.correct = false;
+  renderGrammar();
+  scrollToGrammarExercise();
+}
+function finishGrammarSession() {
+  const gs = grammarUi.session;
+  if (!gs || gs.finished) return;
+  const lesson = GRAMMAR.lessonById(gs.lessonId);
+  if (!lesson) return;
+  const percent = Math.round(gs.score / lesson.exercises.length * 100);
+  const progress = GRAMMAR.ensureProgress(state, lesson.id);
+  const firstCompletion = !progress.completedAt;
+  progress.bestScore = Math.max(progress.bestScore, percent);
+  progress.completedAt = progress.completedAt || Date.now();
+  progress.lastAt = Date.now();
+  if (firstCompletion) gs.xp = S.addXp(state, 20, Date.now());
+  gs.finished = true;
+  persist();
+  updateChrome();
+  renderGrammar();
+}
+function closeGrammarReview() {
+  if (!grammarUi.session || !grammarUi.session.review) return;
+  grammarUi.session = null;
+  renderGrammar();
+  window.scrollTo(0, 0);
+}
+function nextGrammarReview() {
+  const gs = grammarUi.session;
+  if (!gs || !gs.review || !gs.checked) return;
+  const queue = gs.reviewQueue || [];
+  const nextPos = (gs.reviewPos || 0) + 1;
+  const lesson = GRAMMAR.lessonById(gs.lessonId);
+  if (!lesson || nextPos >= queue.length) { closeGrammarReview(); return; }
+  const index = lesson.exercises.findIndex(function (ex) { return ex.id === queue[nextPos]; });
+  if (index < 0) { closeGrammarReview(); return; }
+  gs.reviewPos = nextPos;
+  gs.index = index;
+  gs.selected = null;
+  gs.picked = [];
+  gs.checked = false;
+  gs.correct = false;
+  renderGrammar();
+  scrollToGrammarExercise();
+}
+function grammarTaskState() {
+  if (!session || session.mode !== 'grammar') return null;
+  if (!session.grammarState) session.grammarState = { selected: null, picked: [], checked: false, correct: false, xp: 0 };
+  return session.grammarState;
+}
+function grammarTaskReason(reason) {
+  if (reason === 'review') return 'Révision ciblée';
+  if (reason === 'practice') return 'À consolider';
+  return 'Découverte';
+}
+function grammarTaskChoiceHtml(ex, gs) {
+  return '<div class="grammar-options">' + ex.options.map(function (option, index) {
+    const selected = gs.selected === index;
+    let stateClass = '';
+    if (gs.checked) {
+      if (option.correct) stateClass = ' correct';
+      else if (selected) stateClass = ' wrong';
+    }
+    return '<button class="grammar-option' + (selected ? ' selected' : '') + stateClass + '" data-action="grammar-task-answer" data-index="' + index + '" data-testid="session-grammar-option-' + index + '" aria-pressed="' + (selected ? 'true' : 'false') + '"' + (gs.checked ? ' disabled' : '') + '>' +
+      '<span class="grammar-option-jp" lang="ja">' + grammarTrackJp(option.jp, option.kana) + '</span>' +
+      '<span class="grammar-option-reading">' + grammarReadingHtml(option) + '</span>' +
+      '<span class="grammar-option-fr">' + esc(option.fr) + '</span>' +
+    '</button>';
+  }).join('') + '</div>';
+}
+function grammarTaskOrderHtml(ex, gs) {
+  const line = gs.picked.length ? gs.picked.map(function (tokenIndex) {
+    const token = ex.tokens[tokenIndex];
+    return '<button class="grammar-token in-line" data-action="grammar-task-token" data-index="' + tokenIndex + '" data-testid="session-grammar-line-' + tokenIndex + '"' + (gs.checked ? ' disabled' : '') + '>' +
+      '<span class="grammar-token-jp" lang="ja">' + grammarTrackJp(token.jp, token.kana) + '</span>' +
+      '<span class="grammar-token-reading">' + grammarReadingHtml(token) + '</span>' +
+      '<span class="grammar-token-fr">' + esc(token.fr) + '</span>' +
+    '</button>';
+  }).join('') : '<span class="grammar-order-empty">Clique sur les morceaux pour construire la phrase.</span>';
+  const pool = ex.tokens.map(function (token, index) {
+    const used = gs.picked.indexOf(index) >= 0;
+    return '<button class="grammar-token' + (used ? ' used' : '') + '" data-action="grammar-task-token" data-index="' + index + '" data-testid="session-grammar-token-' + index + '" aria-pressed="' + (used ? 'true' : 'false') + '"' + (used || gs.checked ? ' disabled' : '') + '>' +
+      '<span class="grammar-token-jp" lang="ja">' + grammarTrackJp(token.jp, token.kana) + '</span>' +
+      '<span class="grammar-token-reading">' + grammarReadingHtml(token) + '</span>' +
+      '<span class="grammar-token-fr">' + esc(token.fr) + '</span>' +
+    '</button>';
+  }).join('');
+  return '<div class="grammar-order"><div class="grammar-order-line">' + line + '</div><div class="grammar-token-pool">' + pool + '</div><p class="hint">Clique sur un morceau pour l’ajouter ; reclique sur un morceau de la ligne pour le retirer.</p></div>';
+}
+function grammarTaskFeedbackHtml(ex, gs) {
+  const answer = ex.type === 'choice' ? ex.options.filter(function (option) { return option.correct; })[0] : ex.answer;
+  if (!answer) return '';
+  return '<div class="grammar-feedback ' + (gs.correct ? 'good' : 'bad') + '" data-testid="session-grammar-feedback" role="status" aria-live="polite">' +
+    '<b>' + (gs.correct ? '✅ Bonne réponse' : '❌ Pas tout à fait') + (gs.xp ? ' · +' + gs.xp + ' XP' : '') + '</b>' +
+    '<p>' + esc(ex.explanation) + '</p>' +
+    '<div class="grammar-answer"><span class="grammar-answer-label">Réponse</span><div class="grammar-answer-jp" lang="ja">' + grammarTrackJp(answer.jp, answer.kana) + '</div><div class="grammar-answer-reading">' + grammarReadingHtml(answer) + '</div><div class="grammar-answer-fr">' + esc(answer.fr) + '</div><button class="btn ghost small" data-action="speak-text" data-text="' + attr(answer.jp) + '">🔊 Écouter</button></div>' +
+    '<button class="btn primary" data-action="grammar-task-next" data-testid="session-grammar-next">Continuer</button></div>';
+}
+function grammarTaskView() {
+  const task = session && session.task;
+  const lesson = task && task.grammarLesson;
+  const ex = task && task.grammarExercise;
+  const gs = grammarTaskState();
+  if (!lesson || !ex || !gs) return '<div class="session-card" data-testid="grammar-task"><p>Exercice de grammaire indisponible.</p></div>';
+  const focus = ex.focus ? '<div class="grammar-focus">' + grammarPatternHtml(ex.focus) + '</div>' : '';
+  const sentence = ex.sentence ? '<div class="grammar-exercise-sentence"><div class="grammar-track-jp" lang="ja">' + grammarTrackJp(ex.sentence.jp, ex.sentence.kana) + '</div><div class="grammar-track-reading">' + grammarReadingHtml(ex.sentence) + '</div><div class="grammar-fr">' + esc(ex.sentence.fr) + '</div></div>' : '';
+  const canCheck = ex.type === 'choice' ? gs.selected !== null : gs.picked.length === ex.tokens.length;
+  return '<div class="session-card grammar-task-card" data-testid="grammar-task" data-grammar-reason="' + attr(task.grammarReason || '') + '" data-grammar-exercise="' + attr(ex.id) + '">' +
+    '<div class="grammar-task-top"><p class="eyebrow">Grammaire · ' + esc(lesson.level) + '</p><span class="grammar-task-badge">' + esc(grammarTaskReason(task.grammarReason)) + '</span></div>' +
+    '<h2 class="grammar-task-title">' + esc(lesson.title) + '</h2>' +
+    '<p class="hint">' + esc(lesson.goal) + '</p>' +
+    '<h3>' + esc(ex.question) + '</h3>' + focus + sentence +
+    (ex.type === 'choice' ? grammarTaskChoiceHtml(ex, gs) : grammarTaskOrderHtml(ex, gs)) +
+    (!gs.checked ? '<div class="grammar-exercise-actions"><button class="btn primary" data-action="grammar-task-check" data-testid="session-grammar-check"' + (canCheck ? '' : ' disabled') + '>Vérifier</button></div>' : grammarTaskFeedbackHtml(ex, gs)) +
+  '</div>';
+}
+function selectGrammarTaskAnswer(index) {
+  const gs = grammarTaskState();
+  if (!gs || gs.checked) return;
+  gs.selected = index;
+  renderSession();
+}
+function toggleGrammarTaskToken(index) {
+  const gs = grammarTaskState();
+  const task = session && session.task;
+  const ex = task && task.grammarExercise;
+  if (!gs || !ex || gs.checked) return;
+  const at = gs.picked.indexOf(index);
+  if (at >= 0) gs.picked.splice(at, 1);
+  else if (gs.picked.length < ex.tokens.length) gs.picked.push(index);
+  renderSession();
+}
+function checkGrammarTaskAnswer() {
+  const gs = grammarTaskState();
+  const task = session && session.task;
+  const lesson = task && task.grammarLesson;
+  const ex = task && task.grammarExercise;
+  if (!gs || !lesson || !ex || gs.checked) return;
+  if (ex.type === 'choice' && gs.selected === null) return;
+  if (ex.type === 'order' && gs.picked.length !== ex.tokens.length) return;
+  let correct = false;
+  if (ex.type === 'choice') {
+    const option = ex.options[gs.selected];
+    correct = !!option && option.correct === true;
+  } else {
+    correct = ex.solution.every(function (value, i) { return gs.picked[i] === value; });
+  }
+  const now = Date.now();
+  gs.checked = true;
+  gs.correct = correct;
+  const progress = GRAMMAR.ensureProgress(state, lesson.id);
+  progress.answers[ex.id] = correct;
+  progress.lastAt = now;
+  const grammarSummary = {
+    lessonId: lesson.id,
+    exerciseId: ex.id,
+    title: lesson.title,
+    level: lesson.level,
+    score: correct ? 100 : 0,
+    correct: correct,
+    reason: task.grammarReason
+  };
+  session.grammarSummary = grammarSummary;
+  if (typeof GRAMMAR.recordDailyReview === 'function') GRAMMAR.recordDailyReview(state, grammarSummary, now);
+  const xp = S.addXp(state, correct ? 10 : 3, now);
+  gs.xp = xp;
+  session.done += 1;
+  if (correct) session.correct += 1;
+  session.xp += xp;
+  session.lastGrade = correct ? 'good' : 'again';
+  session.lastXp = xp;
+  session.lastDue = 0;
+  session.total = Math.max(session.total, session.done + session.tasks.length);
+  persist();
+  flashValidation(correct ? 'good' : 'again');
+  toast(correct ? '✅ Bonne réponse' : '❌ À retravailler');
+  renderSession();
+  updateChrome();
+  const next = $('[data-testid="session-grammar-next"]');
+  if (next) next.focus();
+}
+function nextGrammarTask() {
+  const gs = grammarTaskState();
+  if (!gs || !gs.checked) return;
+  nextCard();
+}
+function openGrammarSummaryTarget(id, exerciseId) {
+  if (!GRAMMAR) return;
+  const lesson = GRAMMAR.lessonById(id);
+  if (!lesson) { toast('Leçon introuvable.'); return; }
+  if (session) closeSession();
+  const reviewQueue = typeof GRAMMAR.reviewQueueFor === 'function' ? GRAMMAR.reviewQueueFor(state, lesson.id, exerciseId) : (exerciseId ? [exerciseId] : []);
+  const reviewIndex = reviewQueue.length ? lesson.exercises.findIndex(function (ex) { return ex.id === reviewQueue[0]; }) : -1;
+  grammarUi.level = lesson.level;
+  grammarUi.openId = lesson.id;
+  grammarUi.session = reviewIndex >= 0 ? {
+    lessonId: lesson.id,
+    index: reviewIndex,
+    review: true,
+    reviewQueue: reviewQueue,
+    reviewPos: 0,
+    selected: null,
+    picked: [],
+    checked: false,
+    correct: false,
+    score: 0,
+    finished: false,
+    xp: 0
+  } : null;
+  try { history.replaceState(null, '', '#grammaire'); } catch (e) { location.hash = 'grammaire'; }
+  showView('grammar');
+  if (reviewIndex >= 0) scrollToGrammarExercise();
+  else window.scrollTo(0, 0);
+}
+/* ---------- Événements ---------- */
 /* ---------- Événements ---------- */
 function onClick(event) {
 primeSpeech();
@@ -3541,6 +4781,25 @@ return;
     case 'story-quiz-retry': retryStoryQuiz(); break;
     case 'story-review-words': startStoryReview(id); break;
     case 'start-today': startDailyPlan(); break;
+    case 'grammar-task-answer': selectGrammarTaskAnswer(Number(el.getAttribute('data-index'))); break;
+    case 'grammar-task-token': toggleGrammarTaskToken(Number(el.getAttribute('data-index'))); break;
+    case 'grammar-task-check': checkGrammarTaskAnswer(); break;
+    case 'grammar-task-next': nextGrammarTask(); break;
+    case 'grammar-summary-open': openGrammarSummaryTarget(id, el.getAttribute('data-exercise')); break;
+    case 'start-mistakes': startMistakes(); break;
+    case 'grammar-level': grammarUi.level = el.getAttribute('data-level') === 'B2' ? 'B2' : 'B1'; grammarUi.openId = null; grammarUi.session = null; renderGrammar(); break;
+    case 'grammar-open': openGrammarLesson(id); break;
+    case 'grammar-back': grammarUi.openId = null; grammarUi.session = null; renderGrammar(); window.scrollTo(0, 0); break;
+    case 'grammar-start-exercises': startGrammarExercises(id); break;
+    case 'grammar-review-mistakes': openGrammarSummaryTarget(id, ''); break;
+    case 'grammar-answer': selectGrammarAnswer(Number(el.getAttribute('data-index'))); break;
+    case 'grammar-token': toggleGrammarToken(Number(el.getAttribute('data-index'))); break;
+    case 'grammar-check': checkGrammarAnswer(); break;
+    case 'grammar-next': nextGrammarQuestion(); break;
+    case 'grammar-review-next': nextGrammarReview(); break;
+    case 'grammar-review-back': closeGrammarReview(); break;
+    case 'grammar-retry': startGrammarExercises(id); break;
+    case 'grammar-next-lesson': openGrammarLesson(id); break;
     case 'start-phrase': startPhraseSession(el.getAttribute('data-type')); break;
     case 'phrase-token': choosePhraseToken(el.getAttribute('data-token')); break;
     case 'phrase-check': checkPhraseOrder(); break;
@@ -3685,6 +4944,7 @@ function onKeydown(event) {
   primeSpeech();
   if (!session && view === 'conversation' && conversationState && event.key === 'Escape') { closeConversation(); return; }
   if (!session && view === 'reading' && immersionState && event.key === 'Escape') { closeStory(); return; }
+  if (!session && view === 'grammar' && grammarUi.session && event.key === 'Escape') { grammarUi.session = null; renderGrammar(); return; }
   const modal = $('#modal');
   if (modal && !modal.hidden && event.key === 'Escape') { closeModal(); return; }
   if (session) {
@@ -3699,6 +4959,12 @@ function onKeydown(event) {
     }
     if (session.mode === 'phrase') {
       if (session.phase === 'feedback' && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); nextCard(); }
+      return;
+    }
+    if (session.mode === 'grammar') {
+      const gs = grammarTaskState();
+      if (gs && gs.checked && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); nextGrammarTask(); }
+      else if (gs && !gs.checked && event.key === 'Enter') { event.preventDefault(); checkGrammarTaskAnswer(); }
       return;
     }
     if (session.phase === 'front' && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); reveal(); return; }

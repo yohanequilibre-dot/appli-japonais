@@ -42,7 +42,8 @@
       settings: { goal: 50, romaji: true, furigana: true, theme: "system", rate: 0.9 },
       flags: {},
       conversationReview: {},
-      immersion: {}
+      immersion: {},
+      grammar: { lessons: {}, history: [] }
     };
   }
 
@@ -110,6 +111,51 @@
           lastRewardDay: item.lastRewardDay ? String(item.lastRewardDay) : ""
         };
       });
+    }
+    if (obj.grammar && typeof obj.grammar === "object") {
+      const lessons = obj.grammar.lessons && typeof obj.grammar.lessons === "object" ? obj.grammar.lessons : {};
+      Object.keys(lessons).forEach(function (id) {
+        const item = lessons[id];
+        if (!item || typeof item !== "object" || !id) return;
+        const answers = {};
+        if (item.answers && typeof item.answers === "object") {
+          Object.keys(item.answers).forEach(function (key) {
+            if (typeof item.answers[key] === "boolean") answers[String(key)] = item.answers[key];
+          });
+        }
+        s.grammar.lessons[String(id)] = {
+          attempts: Math.max(0, Math.floor(Number(item.attempts) || 0)),
+          bestScore: Math.min(100, Math.max(0, Math.floor(Number(item.bestScore) || 0))),
+          completedAt: Math.max(0, Number(item.completedAt) || 0),
+          lastAt: Math.max(0, Number(item.lastAt) || 0),
+          answers: answers
+        };
+      });
+      if (Array.isArray(obj.grammar.history)) {
+        const seen = {};
+        obj.grammar.history.forEach(function (item) {
+          if (!item || typeof item !== "object") return;
+          const at = Math.max(0, Math.floor(Number(item.at) || 0));
+          const lessonId = String(item.lessonId || "").trim();
+          if (!at || !lessonId) return;
+          const exerciseId = String(item.exerciseId || "").trim();
+          const key = at + ":" + lessonId + ":" + exerciseId;
+          if (seen[key]) return;
+          seen[key] = true;
+          s.grammar.history.push({
+            at: at,
+            lessonId: lessonId,
+            exerciseId: exerciseId,
+            title: String(item.title || "").slice(0, 120),
+            level: item.level === "B2" ? "B2" : "B1",
+            score: Math.max(0, Math.min(100, Math.floor(Number(item.score) || 0))),
+            correct: item.correct === true,
+            reason: ["review", "practice", "discover"].indexOf(item.reason) >= 0 ? item.reason : "review"
+          });
+        });
+        s.grammar.history.sort(function (a, b) { return b.at - a.at; });
+        s.grammar.history = s.grammar.history.slice(0, 40);
+      }
     }
     s.version = VERSION;
     return s;

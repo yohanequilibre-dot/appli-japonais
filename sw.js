@@ -1,5 +1,5 @@
 /* Kotoba — cache hors ligne, réseau d'abord. */
-const CACHE = 'kotoba-v7-04';
+const CACHE = 'kotoba-v7-16';
 const ASSETS = [
 './',
 './index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
 './js/vocab-1000.js',
 './js/lexicon.js',
 './js/srs.js',
+'./js/mistakes.js',
 './js/parser.js',
 './js/polite.js',
 './js/reading.js',
@@ -21,6 +22,7 @@ const ASSETS = [
 './js/whisper-worker.js',
 './js/motivation.js',
 './js/sync.js',
+'./js/grammar-track.js',
 './js/app.js',
 './manifest.webmanifest',
 './icon.svg'

@@ -3,6 +3,8 @@
 const assert = require("assert");
 const Lex = require("../js/lexicon.js");
 const Store = require("../js/srs.js");
+const Mistakes = require("../js/mistakes.js");
+const GrammarTrack = require("../js/grammar-track.js");
 const Parser = require("../js/parser.js");
 const Polite = require("../js/polite.js");
 const Reading = require("../js/reading.js");
@@ -80,6 +82,15 @@ test("lecture latine : la particule は se lit wa", function () {
   const room = readings(Reading.romajiRubyHtml("へや。"));
   assert.ok(room.includes("he"), "へや garde bien he");
   assert.equal(room.includes("e"), false);
+  const prohibition = readings(Reading.romajiRubyHtml("ここで食べてはいけません。"));
+  assert.ok(prohibition.includes("wa"), "てはいけません doit lire は wa");
+  assert.equal(prohibition.includes("ha"), false, "aucun ha dans てはいけません");
+  const copula = readings(Reading.romajiRubyHtml("ではありません。"));
+  assert.ok(copula.includes("wa"), "ではありません doit lire は wa");
+  assert.equal(copula.includes("ha"), false, "aucun ha dans ではありません");
+  const yes = readings(Reading.romajiRubyHtml("杯 (はい)"));
+  assert.ok(yes.includes("ha"), "杯 (はい) garde bien ha");
+  assert.equal(yes.includes("wa"), false);
   assert.equal(Reading.pronunciation("こんにちは"), "konnichiwa");
   assert.equal(Reading.pronunciation("こんばんは"), "konbanwa");
   assert.equal(Reading.pronunciation("今日"), "kyou");
@@ -90,6 +101,9 @@ test("lecture latine : la particule は se lit wa", function () {
   assert.equal(Reading.pronunciation("はい"), "hai");
   assert.equal(Reading.pronunciation("おはよう"), "ohayou");
   assert.equal(Reading.pronunciation("はな"), "hana");
+  assert.equal(Reading.pronunciation("てはいけません"), "tewaikemasen");
+  assert.equal(Reading.pronunciation("ではありません"), "dewaarimasen");
+  assert.equal(Reading.romaji("ではありません"), "dewaarimasen");
 });
 
 test("import « bonjour | kon-ni-chi-wa »", function () {
@@ -650,14 +664,19 @@ test("synchronisation : réunit les conversations quotidiennes", function () {
   assert.equal(merged.stats.conversation["2026-11-03"], 1);
 });
 
-test("histoires : six récits gradués avec audio, traduction et quiz", function () {
-  assert.equal(Immersion.stories.length, 6, "six histoires originales");
+test("histoires : quinze récits gradués avec audio, traduction et quiz", function () {
+  assert.equal(Immersion.stories.length, 15, "quinze histoires originales");
   const ids = {};
   Immersion.stories.forEach(function (story) {
     assert.ok(story.id && !ids[story.id], "identifiant unique : " + story.id);
     ids[story.id] = true;
+    assert.ok(['A1', 'A2', 'B1', 'B2'].indexOf(story.cefr) >= 0, "niveau CECRL : " + story.id);
+    assert.equal(story.cefr, Immersion.storyCefr(story), "niveau CECRL cohérent : " + story.id);
     assert.ok(story.lines.length >= 6, "histoire assez longue : " + story.id);
     assert.equal(story.questions.length, 2, "deux questions : " + story.id);
+    story.questions.forEach(function (question) {
+      assert.ok(Immersion.skills[question.skill], "compétence connue : " + story.id);
+    });
     assert.ok(story.focus.length >= 6, "vocabulaire : " + story.id);
     story.lines.forEach(function (line) {
       assert.ok(Immersion.lineJp(line).length > 0);
@@ -665,12 +684,47 @@ test("histoires : six récits gradués avec audio, traduction et quiz", function
       assert.ok(line.fr.length > 0);
     });
   });
+  ['resto', 'jikoshoukai', 'groupe', 'deeto', 'passions', 'shifuto', 'desaccord', 'entretien', 'negociation'].forEach(function (id) {
+    assert.ok(Immersion.storyById(id), "histoire sociale présente : " + id);
+  });
   const story = Immersion.storyById("asa");
   const result = Immersion.scoreStory(story, { 0: 1, 1: 2 });
   assert.equal(result.score, 2);
   assert.equal(result.total, 2);
   assert.equal(result.all, true);
   assert.equal(Immersion.scoreStory(story, { 0: 0 }).score, 0);
+});
+
+test("histoires : bilan A1 à B2 fondé sur les résultats", function () {
+  const empty = Immersion.assessLevel({});
+  assert.equal(empty.code, "A1");
+  assert.equal(empty.status, "à établir");
+  assert.equal(empty.stats.A1.total, 4);
+  assert.equal(empty.stats.A2.total, 7);
+  assert.equal(empty.stats.B1.total, 2);
+  assert.equal(empty.stats.B2.total, 2);
+  const a1 = Immersion.stories.filter(function (story) { return Immersion.storyCefr(story) === "A1"; });
+  const a2 = Immersion.stories.filter(function (story) { return Immersion.storyCefr(story) === "A2"; });
+  const b1 = Immersion.stories.filter(function (story) { return Immersion.storyCefr(story) === "B1"; });
+  const b2 = Immersion.stories.filter(function (story) { return Immersion.storyCefr(story) === "B2"; });
+  const records = {};
+  a1.slice(0, 3).forEach(function (story) { records[story.id] = { completedAt: 1, total: 2, bestScore: 2 }; });
+  a2.slice(0, 2).forEach(function (story) { records[story.id] = { completedAt: 1, total: 2, bestScore: 1 }; });
+  const profile = Immersion.assessLevel(records);
+  assert.equal(profile.code, "A2");
+  assert.equal(profile.status, "en cours");
+  assert.equal(profile.stats.A1.passed, 3);
+  assert.equal(profile.stats.A2.passed, 2);
+  a2.slice(0, 4).forEach(function (story) { records[story.id] = { completedAt: 1, total: 2, bestScore: 2 }; });
+  assert.equal(Immersion.assessLevel(records).status, "consolidé");
+  b1.forEach(function (story) { records[story.id] = { completedAt: 1, total: 2, bestScore: 1 }; });
+  assert.equal(Immersion.assessLevel(records).code, "B1");
+  b2.forEach(function (story) { records[story.id] = { completedAt: 1, total: 2, bestScore: 1 }; });
+  const b2Profile = Immersion.assessLevel(records);
+  assert.equal(b2Profile.code, "B2");
+  assert.equal(b2Profile.status, "en cours");
+  b2.forEach(function (story) { records[story.id] = { completedAt: 1, total: 2, bestScore: 2 }; });
+  assert.equal(Immersion.assessLevel(records).status, "consolidé");
 });
 
 test("histoires : l'état par défaut et la synchronisation conservent les lectures", function () {
@@ -715,6 +769,162 @@ test("conversation : accepte japonais, kana et romaji, puis refuse une autre ré
   assert.equal(Conversation.checkAnswer("レアで予約しています。", Conversation.scenarioById("hotel").turns[0].accepted), true);
   assert.equal(Conversation.checkAnswer("一日に何回飲みますか。", Conversation.scenarioById("pharmacy").turns[2].accepted), true);
   assert.equal(Conversation.checkAnswer("カードでお願いします。", Conversation.scenarioById("taxi").turns[2].accepted), true);
+});
+
+test("carnet d'erreurs : mots fragiles, répliques et histoires", function () {
+  const entries = [{ id: "a", fr: "aller" }, { id: "b", fr: "boire" }, { id: "c", fr: "voir" }, { id: "d", fr: "dormir" }];
+  const state = {
+    progress: {
+      a: { last: 10, lapses: 2 },
+      b: { last: 10, lapses: 0, pronunciation: [{ score: 55 }] },
+      c: { last: 10, lapses: 0, pronunciation: [{ score: 92 }] },
+      d: { last: 0, lapses: 0 }
+    },
+    conversationReview: {
+      "cafe:1": { scenario: "cafe", turn: 1, missedAt: 200, clearedAt: 100 },
+      "meet:0": { scenario: "meet", turn: 0, missedAt: 100, clearedAt: 200 },
+      "help:2": { scenario: "help", turn: 2, missedAt: 50 }
+    },
+    immersion: {
+      asa: { attempts: 1, bestScore: 1, total: 2 },
+      yama: { attempts: 1, bestScore: 2, total: 2 },
+      umi: { attempts: 0, bestScore: 0, total: 2 }
+    }
+  };
+  const fragile = Mistakes.fragileWords(entries, state);
+  assert.deepEqual(fragile.map(function (row) { return row.entry.id; }), ["a", "b"]);
+  assert.equal(fragile[0].lastScore, null);
+  assert.equal(fragile[1].lastScore, 55);
+  assert.deepEqual(Mistakes.conversationMisses(state).map(function (row) { return row.key; }), ["cafe:1", "help:2"]);
+  const stories = Mistakes.storiesToConsolidate(state, [{ id: "asa", title: "Asa" }, { id: "yama", title: "Yama" }]);
+  assert.deepEqual(stories.map(function (row) { return row.id; }), ["asa"]);
+  assert.equal(stories[0].story.title, "Asa");
+  const total = Mistakes.summary(state, entries, [{ id: "asa", title: "Asa" }]);
+  assert.equal(total.words, 2);
+  assert.equal(total.conversations, 2);
+  assert.equal(total.stories, 1);
+  assert.equal(total.total, 5);
+});
+
+test("grammaire B1/B2 : douze leçons, quarante-huit exercices et lectures complètes", function () {
+  const errors = GrammarTrack.validateContent();
+  assert.deepEqual(errors, [], "le contenu doit être valide : " + errors.join(" | "));
+  assert.equal(GrammarTrack.lessons.length, 12);
+  assert.equal(GrammarTrack.lessonsByLevel("B1").length, 6);
+  assert.equal(GrammarTrack.lessonsByLevel("B2").length, 6);
+  assert.equal(GrammarTrack.lessons.reduce(function (sum, lesson) { return sum + lesson.exercises.length; }, 0), 48);
+  const lesson = GrammarTrack.lessonById("b1-te-shimau");
+  assert.ok(lesson);
+  assert.equal(lesson.exercises[0].options.filter(function (option) { return option.correct; }).length, 1);
+  assert.equal(Parser.annotate(lesson.points[0].examples[1].jp, lesson.points[0].examples[1].kana).indexOf("[") >= 0, true);
+});
+
+test("grammaire : progression normalisée et fusionnée entre appareils", function () {
+  assert.deepEqual(Store.defaultState().grammar, { lessons: {}, history: [] });
+  const normalized = Store.normalizeState({
+    grammar: { lessons: { "b1-te-shimau": { attempts: "2", bestScore: "150", completedAt: "100", lastAt: "200", answers: { a: true, b: "non" } } } }
+  });
+  assert.equal(normalized.grammar.lessons["b1-te-shimau"].attempts, 2);
+  assert.equal(normalized.grammar.lessons["b1-te-shimau"].bestScore, 100);
+  assert.equal(normalized.grammar.lessons["b1-te-shimau"].answers.a, true);
+  assert.equal(normalized.grammar.lessons["b1-te-shimau"].answers.b, undefined);
+  assert.equal(GrammarTrack.levelStats(normalized, "B1").completed, 1);
+  assert.equal(GrammarTrack.nextLessonId("B1", "b1-te-shimau"), "b1-te-oku");
+  const merged = Sync.mergeStates(
+    { grammar: { lessons: { "b1-te-shimau": { attempts: 1, bestScore: 50, completedAt: 100, lastAt: 200, answers: { a: true, b: false } } } } },
+    { grammar: { lessons: { "b1-te-shimau": { attempts: 2, bestScore: 75, completedAt: 150, lastAt: 300, answers: { b: true, c: false } } } } }
+  );
+  assert.equal(merged.grammar.lessons["b1-te-shimau"].attempts, 2);
+  assert.equal(merged.grammar.lessons["b1-te-shimau"].bestScore, 75);
+  assert.equal(merged.grammar.lessons["b1-te-shimau"].completedAt, 100);
+  assert.equal(merged.grammar.lessons["b1-te-shimau"].lastAt, 300);
+  assert.equal(merged.grammar.lessons["b1-te-shimau"].answers.a, true);
+  assert.equal(merged.grammar.lessons["b1-te-shimau"].answers.b, true);
+});
+
+test("grammaire : la session du jour cible une leçon échouée", function () {
+  const now = Date.UTC(2026, 10, 7, 12);
+  const good = GrammarTrack.lessonById("b1-te-shimau");
+  const weak = GrammarTrack.lessonById("b1-te-oku");
+  const state = { grammar: { lessons: {} } };
+  state.grammar.lessons[good.id] = { attempts: 1, bestScore: 100, completedAt: 100, lastAt: 100, answers: {} };
+  state.grammar.lessons[weak.id] = { attempts: 1, bestScore: 40, completedAt: 200, lastAt: 50, answers: {} };
+  state.grammar.lessons[weak.id].answers[weak.exercises[1].id] = false;
+  const pick = GrammarTrack.dailyPick(state, now);
+  assert.equal(pick.lesson.id, weak.id);
+  assert.equal(pick.exercise.id, weak.exercises[1].id);
+  assert.equal(pick.reason, "review");
+
+  const clean = { grammar: { lessons: {} } };
+  clean.grammar.lessons[good.id] = { attempts: 1, bestScore: 100, completedAt: 100, lastAt: 100, answers: {} };
+  const next = GrammarTrack.dailyPick(clean, now);
+  assert.equal(next.lesson.id, "b1-te-oku");
+  assert.equal(next.reason, "discover");
+
+  const partial = { grammar: { lessons: {} } };
+  partial.grammar.lessons[good.id] = { attempts: 1, bestScore: 100, completedAt: 100, lastAt: 100, answers: {} };
+  partial.grammar.lessons[weak.id] = { attempts: 1, bestScore: 0, answers: {} };
+  partial.grammar.lessons[weak.id].answers[weak.exercises[0].id] = true;
+  assert.equal(GrammarTrack.dailyPick(partial, now).reason, "practice");
+  assert.equal(GrammarTrack.dailyPick(partial, now).lesson.id, weak.id);
+});
+
+test("grammaire : historique des points revus et fusion", function () {
+  const state = Store.defaultState();
+  const lesson = GrammarTrack.lessonById("b1-te-shimau");
+  const record = GrammarTrack.recordDailyReview(state, {
+    lessonId: lesson.id,
+    exerciseId: lesson.exercises[0].id,
+    title: lesson.title,
+    level: lesson.level,
+    score: 100,
+    correct: true,
+    reason: "review"
+  }, 1000);
+  assert.equal(record.score, 100);
+  assert.equal(state.grammar.history.length, 1);
+  assert.equal(GrammarTrack.recentHistory(state, 1)[0].lessonId, lesson.id);
+
+  const normalized = Store.normalizeState({ grammar: { history: [
+    { at: 200, lessonId: "b1-te-shimau", exerciseId: "e2", title: "Titre", level: "B2", score: "120", correct: true, reason: "review" },
+    { at: 100, lessonId: "b1-te-oku", exerciseId: "e1", score: 0, correct: false, reason: "practice" },
+    { at: 200, lessonId: "b1-te-shimau", exerciseId: "e2", score: 10 }
+  ] } });
+  assert.equal(normalized.grammar.history.length, 2);
+  assert.equal(normalized.grammar.history[0].score, 100);
+  assert.equal(normalized.grammar.history[0].level, "B2");
+
+  const merged = Sync.mergeStates(
+    { grammar: { history: [{ at: 300, lessonId: "a", exerciseId: "x", title: "A", level: "B1", score: 100, correct: true, reason: "review" }] } },
+    { grammar: { history: [
+      { at: 300, lessonId: "a", exerciseId: "x", title: "A", level: "B1", score: 100, correct: true, reason: "review" },
+      { at: 400, lessonId: "b", exerciseId: "y", title: "B", level: "B2", score: 0, correct: false, reason: "practice" }
+    ] } }
+  );
+  assert.equal(merged.grammar.history.length, 2);
+  assert.equal(merged.grammar.history[0].lessonId, "b");
+});
+
+test("grammaire : prochaine étape conseillée après le point du jour", function () {
+  const lesson = GrammarTrack.lessonById("b1-te-shimau");
+  const state = Store.defaultState();
+  const currentWrong = GrammarTrack.nextStepFor(state, lesson.id, false, "b1-te-shimau-e2");
+  assert.equal(currentWrong.kind, "review");
+  assert.equal(currentWrong.exerciseId, "b1-te-shimau-e2");
+  assert.equal(currentWrong.label, "Refaire l’exercice");
+  assert.equal(GrammarTrack.nextStepFor(state, lesson.id, true).kind, "finish");
+  state.grammar.lessons[lesson.id] = { attempts: 1, bestScore: 50, completedAt: 100, lastAt: 100, answers: {} };
+  assert.equal(GrammarTrack.nextStepFor(state, lesson.id, true).kind, "review");
+  state.grammar.lessons[lesson.id].answers = { "b1-te-shimau-e1": true, "b1-te-shimau-e2": false, "b1-te-shimau-e3": false };
+  const targeted = GrammarTrack.nextStepFor(state, lesson.id, true, "b1-te-shimau-e1");
+  assert.equal(targeted.exerciseId, "b1-te-shimau-e2");
+  assert.deepEqual(GrammarTrack.reviewQueueFor(state, lesson.id, "b1-te-shimau-e1"), ["b1-te-shimau-e2", "b1-te-shimau-e3"]);
+  state.grammar.lessons[lesson.id].bestScore = 100;
+  const next = GrammarTrack.nextStepFor(state, lesson.id, true);
+  assert.equal(next.kind, "next");
+  assert.equal(next.lessonId, "b1-te-oku");
+  const last = GrammarTrack.lessons[GrammarTrack.lessons.length - 1];
+  assert.equal(GrammarTrack.nextStepFor({ grammar: { lessons: { [last.id]: { bestScore: 100, completedAt: 1, answers: {} } } } }, last.id, true).kind, "done");
 });
 
 if (failed) {

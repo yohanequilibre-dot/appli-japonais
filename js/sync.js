@@ -206,6 +206,59 @@
     });
     return out;
   }
+  function mergeGrammarHistory(local, remote) {
+    var byKey = {};
+    [local, remote].forEach(function (list) {
+      (Array.isArray(list) ? list : []).forEach(function (item) {
+        if (!item || typeof item !== 'object') return;
+        var at = numeric(item.at);
+        var lessonId = String(item.lessonId || '').trim();
+        if (!at || !lessonId) return;
+        var exerciseId = String(item.exerciseId || '').trim();
+        var key = at + ':' + lessonId + ':' + exerciseId;
+        if (byKey[key]) return;
+        byKey[key] = {
+          at: at,
+          lessonId: lessonId,
+          exerciseId: exerciseId,
+          title: String(item.title || '').slice(0, 120),
+          level: item.level === 'B2' ? 'B2' : 'B1',
+          score: Math.max(0, Math.min(100, Math.floor(numeric(item.score)))),
+          correct: item.correct === true,
+          reason: ['review', 'practice', 'discover'].indexOf(item.reason) >= 0 ? item.reason : 'review'
+        };
+      });
+    });
+    return Object.keys(byKey).map(function (key) { return byKey[key]; })
+      .sort(function (a, b) { return b.at - a.at; })
+      .slice(0, 40);
+  }
+  function mergeGrammar(local, remote) {
+    var out = {};
+    var keys = {};
+    [local, remote].forEach(function (map) {
+      Object.keys(map && map.lessons || {}).forEach(function (key) { keys[key] = true; });
+    });
+    Object.keys(keys).forEach(function (key) {
+      var left = local && local.lessons && local.lessons[key] || {};
+      var right = remote && remote.lessons && remote.lessons[key] || {};
+      var answers = Object.assign({}, right.answers || {}, left.answers || {});
+      Object.keys(answers).forEach(function (answerKey) {
+        if (left.answers && left.answers[answerKey] === true) answers[answerKey] = true;
+        else if (right.answers && right.answers[answerKey] === true) answers[answerKey] = true;
+        else answers[answerKey] = false;
+      });
+      var completed = [numeric(left.completedAt), numeric(right.completedAt)].filter(function (n) { return n > 0; });
+      out[key] = {
+        attempts: Math.max(numeric(left.attempts), numeric(right.attempts)),
+        bestScore: Math.max(numeric(left.bestScore), numeric(right.bestScore)),
+        completedAt: completed.length ? Math.min.apply(Math, completed) : 0,
+        lastAt: Math.max(numeric(left.lastAt), numeric(right.lastAt)),
+        answers: answers
+      };
+    });
+    return { lessons: out, history: mergeGrammarHistory(local && local.history, remote && remote.history) };
+  }
   function mergeStats(local, remote) {
     var left = local || {};
     var right = remote || {};
@@ -239,6 +292,7 @@
     out.flags = flags;
     out.conversationReview = mergeConversationReview(local.conversationReview, remote.conversationReview);
     out.immersion = mergeImmersion(local.immersion, remote.immersion);
+    out.grammar = mergeGrammar(local.grammar, remote.grammar);
     out.settings = Object.assign({}, remote.settings || {}, local.settings || {});
     out.version = local.version || remote.version;
     return out;

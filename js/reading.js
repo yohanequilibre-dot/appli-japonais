@@ -137,24 +137,100 @@ if (!romaji) return esc(text);
 return '<ruby>' + esc(text) + '<rt><span class="rt-romaji">' + esc(romaji) + '</span></rt></ruby>';
 }
 var particleSegmenter = null;
+var PARTICLE_STEMS = {
+'で': 1, 'に': 1, 'と': 1, 'の': 1, 'から': 1, 'まで': 1, 'より': 1,
+'ほど': 1, 'くらい': 1, 'だけ': 1, 'こそ': 1, 'さえ': 1, 'へ': 1, 'を': 1,
+'て': 1, 'って': 1
+};
+var TE_HA_NEGATIVE = /^(いけ|なら|だめ|おけ|いられ)/;
+function markParticle(overrides, index, char) {
+if (char === 'は') overrides[index] = 'wa';
+else if (char === 'へ') overrides[index] = 'e';
+else if (char === 'を') overrides[index] = 'o';
+}
+function compoundParticleIndex(segment) {
+if (segment === 'こんにちは' || segment === 'こんばんは') return segment.length - 1;
+if (segment.length < 2 || segment.charAt(segment.length - 1) !== 'は') return -1;
+return PARTICLE_STEMS[segment.slice(0, -1)] ? segment.length - 1 : -1;
+}
+function teHaNegative(text, index) {
+var before = text.charAt(index - 1);
+if (before !== 'て' && before !== 'で') return false;
+return TE_HA_NEGATIVE.test(text.slice(index + 1));
+}
+function hasParticleStemBefore(text, index) {
+return Object.keys(PARTICLE_STEMS).some(function (stem) {
+return stem.length <= index && text.slice(index - stem.length, index) === stem;
+});
+}
+// Repli sans Intl.Segmenter : on évite les mots lexicaux connus (はい, はな,
+// おはよう…) et on marque les particules de thème et les structures ては.
+function insideDictionaryWord(text, index) {
+var d = dictionary();
+var max = 16;
+for (var start = Math.max(0, index - max + 1); start <= index; start++) {
+for (var end = index + 1; end <= Math.min(text.length, start + max); end++) {
+if (end - start > 1 && d.map.has(text.slice(start, end))) return true;
+}
+}
+return false;
+}
+function fallbackParticleOverrides(text) {
+var overrides = {};
+for (var i = 1; i < text.length; i++) {
+if (text.charAt(i) !== 'は') continue;
+var prefix = text.slice(0, i + 1);
+if (prefix.slice(-5) === 'こんにちは' || prefix.slice(-5) === 'こんばんは') {
+overrides[i] = 'wa';
+continue;
+}
+if (teHaNegative(text, i) || hasParticleStemBefore(text, i)) {
+overrides[i] = 'wa';
+continue;
+}
+if (!isJapanese(text.charAt(i - 1))) continue;
+if (insideDictionaryWord(text, i)) continue;
+overrides[i] = 'wa';
+}
+return overrides;
+}
 function particleOverrides(value) {
 var text = String(value || '');
 var overrides = {};
-if (!text || typeof Intl === 'undefined' || !Intl.Segmenter) return overrides;
+if (!text) return overrides;
+if (typeof Intl === 'undefined' || !Intl.Segmenter) return fallbackParticleOverrides(text);
 try {
 if (!particleSegmenter) particleSegmenter = new Intl.Segmenter('ja', { granularity: 'word' });
 Array.from(particleSegmenter.segment(text)).forEach(function (item) {
-if (item.segment === 'こんにちは' || item.segment === 'こんばんは') {
-overrides[item.index + item.segment.length - 1] = 'wa';
+var compound = compoundParticleIndex(item.segment);
+if (compound >= 0) {
+overrides[item.index + compound] = 'wa';
+return;
+}
+if (item.segment === 'はい' && teHaNegative(text, item.index)) {
+overrides[item.index] = 'wa';
 return;
 }
 if (item.segment !== 'は' && item.segment !== 'へ' && item.segment !== 'を') return;
 var next = text.charAt(item.index + 1);
-if (item.index === 0 && /[\u3040-\u30ff\u3400-\u9fff]/.test(next)) return;
-overrides[item.index] = item.segment === 'は' ? 'wa' : (item.segment === 'へ' ? 'e' : 'o');
+if (item.index === 0 && isJapanese(next)) return;
+markParticle(overrides, item.index, item.segment);
 });
-} catch (e) { /* La segmentation est facultative. */ }
+} catch (e) { return fallbackParticleOverrides(text); }
 return overrides;
+}
+function particleKana(value) {
+var text = String(value || '');
+var chars = text.split('');
+var overrides = particleOverrides(text);
+Object.keys(overrides).forEach(function (key) {
+var index = Number(key);
+if (!isFinite(index) || index < 0 || index >= chars.length) return;
+if (chars[index] === 'は' && overrides[key] === 'wa') chars[index] = 'わ';
+else if (chars[index] === 'へ' && overrides[key] === 'e') chars[index] = 'え';
+else if (chars[index] === 'を' && overrides[key] === 'o') chars[index] = 'お';
+});
+return chars.join('');
 }
 var SPECIAL_PRONUNCIATION = {
 'は': 'wa',
@@ -163,14 +239,17 @@ var SPECIAL_PRONUNCIATION = {
 'こんにちは': 'konnichiwa',
 'こんばんは': 'konbanwa'
 };
+function romaji(value) {
+if (!P || !P.kanaToRomaji) return '';
+var kana = reading(String(value || ''));
+if (!kana || hasKanji(kana)) return '';
+return P.kanaToRomaji(particleKana(kana)) || '';
+}
 function pronunciation(value) {
 var raw = strip(value).replace(/^[\s　。、！？!?.,・…「」『』（）()]+|[\s　。、！？!?.,・…「」『』（）()]+$/g, '');
 if (!raw) return '';
 if (SPECIAL_PRONUNCIATION[raw]) return SPECIAL_PRONUNCIATION[raw];
-if (!P || !P.kanaToRomaji) return '';
-var kana = reading(raw);
-if (!kana || hasKanji(kana)) return '';
-return P.kanaToRomaji(kana) || '';
+return romaji(raw);
 }
 function romajiRubyHtml(annotated, context) {
 var s = String(annotated || '');
@@ -346,7 +425,9 @@ return out;
 return {
 annotate: annotate,
 reading: reading,
+romaji: romaji,
 pronunciation: pronunciation,
+particleOverrides: particleOverrides,
 kanaReading: kanaReading,
 kanaUnits: kanaUnits,
 romajiRubyHtml: romajiRubyHtml,
