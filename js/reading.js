@@ -106,14 +106,26 @@ if (Lex && Lex.entries) Lex.entries.forEach(addEntry);
 function dictionary() {
 if (cache) return cache;
 var map = new Map();
+var haStarts = Object.create(null);
 var Lex = root.Kotoba && root.Kotoba.Lexicon;
 if (Lex && Lex.entries) {
-Lex.entries.forEach(function (e) { add(map, e.jp, e.ruby, e.reading); });
+Lex.entries.forEach(function (e) {
+add(map, e.jp, e.ruby, e.reading);
+var rd = strip(e.reading || '');
+if (rd.length > 1 && rd.charAt(0) === 'は' && !hasKanji(rd) && rd.indexOf('[') < 0) haStarts[rd] = true;
+});
 }
 (root.UNITS_DATA || []).forEach(function (unit) {
 (unit.words || []).forEach(function (word) {
-if (Array.isArray(word)) add(map, word[0], word[1], word[1]);
-else if (word && word.jp) add(map, word.jp, word.ruby, word.reading);
+if (Array.isArray(word)) {
+add(map, word[0], word[1], word[1]);
+var rdArray = strip(word[1] || '');
+if (rdArray.length > 1 && rdArray.charAt(0) === 'は' && !hasKanji(rdArray) && rdArray.indexOf('[') < 0) haStarts[rdArray] = true;
+} else if (word && word.jp) {
+add(map, word.jp, word.ruby, word.reading);
+var rdObject = strip(word.reading || '');
+if (rdObject.length > 1 && rdObject.charAt(0) === 'は' && !hasKanji(rdObject) && rdObject.indexOf('[') < 0) haStarts[rdObject] = true;
+}
 });
 });
 EXTRA.forEach(function (pair) {
@@ -122,7 +134,8 @@ if (!map.has(pair[0])) map.set(pair[0], pair[1]);
 addPoliteForms(map);
 cache = {
 map: map,
-keys: Array.from(map.keys()).sort(function (a, b) { return b.length - a.length; })
+keys: Array.from(map.keys()).sort(function (a, b) { return b.length - a.length; }),
+haStarts: haStarts
 };
 return cache;
 }
@@ -147,6 +160,30 @@ function markParticle(overrides, index, char) {
 if (char === 'は') overrides[index] = 'wa';
 else if (char === 'へ') overrides[index] = 'e';
 else if (char === 'を') overrides[index] = 'o';
+}
+var LEXICAL_HA_SEGMENTS = { 'はは': 1, 'このは': 1 };
+function finalHaIndex(segment) {
+if (!segment || segment.length < 2 || segment.charAt(segment.length - 1) !== 'は') return -1;
+if (LEXICAL_HA_SEGMENTS[segment]) return -1;
+return segment.length - 1;
+}
+function lexicalHaAt(text, index) {
+if (index === 1 && text.slice(0, 2) === 'はは') return true;
+if (index >= 2 && text.slice(index - 2, index + 1) === 'このは') return true;
+if (index > 0 && text.charAt(index - 1) === 'は' && text.slice(index, index + 2) === 'はな') return true;
+return false;
+}
+function haStartIndex(text, item) {
+var segment = item.segment || '';
+if (segment.length < 2 || segment.charAt(0) !== 'は' || item.index === 0) return -1;
+var prev = text.charAt(item.index - 1);
+if (!isJapanese(prev)) return -1;
+var d = dictionary();
+if (d.haStarts && d.haStarts[segment]) return -1;
+if (/[がをにでともへ]/.test(prev)) return 0;
+var before = text.slice(Math.max(0, item.index - 8), item.index);
+if (/(わたし|ぼく|かれ|かのじょ|あなた|みんな|だれ|これ|それ|あれ|ここ|そこ|あそこ|きょう|あした|きのう|おなまえ|なまえ)$/.test(before)) return 0;
+return -1;
 }
 function compoundParticleIndex(segment) {
 if (segment === 'こんにちは' || segment === 'こんばんは') return segment.length - 1;
@@ -207,6 +244,16 @@ if (compound >= 0) {
 overrides[item.index + compound] = 'wa';
 return;
 }
+var finalHa = finalHaIndex(item.segment);
+if (finalHa >= 0) {
+overrides[item.index + finalHa] = 'wa';
+return;
+}
+var startHa = haStartIndex(text, item);
+if (startHa >= 0) {
+overrides[item.index + startHa] = 'wa';
+return;
+}
 if (item.segment === 'はい' && teHaNegative(text, item.index)) {
 overrides[item.index] = 'wa';
 return;
@@ -214,6 +261,7 @@ return;
 if (item.segment !== 'は' && item.segment !== 'へ' && item.segment !== 'を') return;
 var next = text.charAt(item.index + 1);
 if (item.index === 0 && isJapanese(next)) return;
+if (item.segment === 'は' && lexicalHaAt(text, item.index)) return;
 markParticle(overrides, item.index, item.segment);
 });
 } catch (e) { return fallbackParticleOverrides(text); }
@@ -239,9 +287,28 @@ var SPECIAL_PRONUNCIATION = {
 'こんにちは': 'konnichiwa',
 'こんばんは': 'konbanwa'
 };
+var WA_WORD_SURFACES = {
+'こんにちは': 1, 'こんばんは': 1, '実は': 1, 'それでは': 1, 'では': 1
+};
+var WA_WORD_READINGS = {
+'こんにちは': 'こんにちは', 'こんばんは': 'こんばんは', '実は': 'じつは',
+'それでは': 'それでは', 'では': 'では'
+};
+function wordRomaji(value, readingValue) {
+var jp = strip(value);
+var kana = strip(readingValue || '');
+if (!kana && jp) kana = WA_WORD_READINGS[jp] || reading(jp);
+if (!kana || hasKanji(kana)) return '';
+if (WA_WORD_SURFACES[jp]) kana = kana.replace(/は$/, 'わ');
+return (P && P.kanaToRomaji ? P.kanaToRomaji(kana) : '') || '';
+}
 function romaji(value) {
 if (!P || !P.kanaToRomaji) return '';
-var kana = reading(String(value || ''));
+var raw = strip(value);
+if (WA_WORD_SURFACES[raw]) return wordRomaji(raw, WA_WORD_READINGS[raw] || '');
+var d = dictionary();
+if (d.map.has(raw)) return wordRomaji(raw, reading(raw));
+var kana = reading(raw);
 if (!kana || hasKanji(kana)) return '';
 return P.kanaToRomaji(particleKana(kana)) || '';
 }
@@ -249,6 +316,9 @@ function pronunciation(value) {
 var raw = strip(value).replace(/^[\s　。、！？!?.,・…「」『』（）()]+|[\s　。、！？!?.,・…「」『』（）()]+$/g, '');
 if (!raw) return '';
 if (SPECIAL_PRONUNCIATION[raw]) return SPECIAL_PRONUNCIATION[raw];
+if (WA_WORD_SURFACES[raw]) return wordRomaji(raw, WA_WORD_READINGS[raw] || '');
+var d = dictionary();
+if (d.map.has(raw)) return wordRomaji(raw, reading(raw));
 return romaji(raw);
 }
 function romajiRubyHtml(annotated, context) {
@@ -426,6 +496,7 @@ return {
 annotate: annotate,
 reading: reading,
 romaji: romaji,
+wordRomaji: wordRomaji,
 pronunciation: pronunciation,
 particleOverrides: particleOverrides,
 kanaReading: kanaReading,

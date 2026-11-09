@@ -325,6 +325,27 @@ const gloss = await page.evaluate(() => window.Kotoba.Gloss.tokenize('ここで�
 expect(gloss.find((token) => token.jp === 'は').romaji).toBe('wa');
 expect(gloss.find((token) => token.jp === 'はい')).toBeUndefined();
 });
+test('guide de prononciation des particules', async ({ page }) => {
+  await page.goto('/#grammaire');
+  const guide = page.getByTestId('particle-guide');
+  await expect(guide).toBeVisible();
+  await expect(guide).toContainText('Le son des particules');
+  await expect(guide).toContainText('実は');
+  await expect(guide).toContainText('jitsuwa');
+  await expect(guide.locator('[data-action="speak-text"]').first()).toBeVisible();
+  await expect(guide.getByTestId('particle-guide-quiz')).toContainText('trois pièges');
+});
+test('fiches de mots : les は de 実は et それでは se lisent wa', async ({ page }) => {
+  await page.goto('/#mots');
+  await page.getByTestId('search').fill('実は');
+  await page.locator('#libraryList .word-row').first().click();
+  await expect(page.locator('.modal-panel .detail-romaji')).toHaveText('jitsuwa');
+  await expect(page.getByTestId('detail-particle-note')).toContainText('wa');
+  await page.keyboard.press('Escape');
+  await page.getByTestId('search').fill('それでは');
+  await page.locator('#libraryList .word-row').first().click();
+  await expect(page.locator('.modal-panel .detail-romaji')).toHaveText('soredewa');
+});
 test('parcours de grammaire B1 : leçon, exercice et correction', async ({ page }) => {
 await page.goto('/#grammaire');
 await expect(page.getByTestId('grammar-track')).toContainText('Grammaire B1 · B2');

@@ -106,6 +106,22 @@ test("lecture latine : la particule は se lit wa", function () {
   assert.equal(Reading.romaji("ではありません"), "dewaarimasen");
 });
 
+test("lecture des mots : は particule dans les expressions, ha dans les mots lexicaux", function () {
+  assert.equal(Reading.wordRomaji("実は", "じつは"), "jitsuwa");
+  assert.equal(Reading.wordRomaji("それでは", "それでは"), "soredewa");
+  assert.equal(Reading.wordRomaji("では", "では"), "dewa");
+  assert.equal(Reading.wordRomaji("歯", "は"), "ha");
+  assert.equal(Reading.wordRomaji("母親", "ははおや"), "hahaoya");
+  assert.equal(Reading.pronunciation("実は"), "jitsuwa");
+  assert.equal(Reading.pronunciation("それでは"), "soredewa");
+  assert.equal(Reading.pronunciation("ははです"), "hahadesu");
+  assert.equal(Reading.pronunciation("わたしははなです"), "watashiwahanadesu");
+  assert.equal(Reading.pronunciation("このは"), "konoha");
+  assert.equal(Reading.pronunciation("このどうがはむりょうです"), "konodougawamuryoudesu");
+  assert.equal(Reading.pronunciation("かれはぐあいがわるいようです"), "karewaguaigawaruiyoudesu");
+  assert.equal(Reading.pronunciation("はな"), "hana");
+});
+
 test("import « bonjour | kon-ni-chi-wa »", function () {
   const e = entryOf("bonjour | kon-ni-chi-wa");
   assert.equal(e.fr, "bonjour");

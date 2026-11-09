@@ -88,6 +88,14 @@ function kanaFromRuby(value) {
     })
     : P.stripAnnotations(raw);
 }
+function generatedRomaji(jp, reading) {
+  const R = window.Kotoba.Reading;
+  if (R && R.wordRomaji) {
+    const value = R.wordRomaji(jp, reading);
+    if (value) return value;
+  }
+  return reading ? (P.kanaToRomaji(reading) || '') : '';
+}
 function wordRubyHtml(e) {
   const jp = e && e.jp ? P.stripAnnotations(e.jp) : '';
   if (!jp) return '';
@@ -105,6 +113,13 @@ const REGISTER_NOTES = {
 const REGISTER_HINTS = {
   'さようなら': 'Version formelle',
   'じゃあね': 'Version familière'
+};
+const WA_PARTICLE_NOTES = {
+  '実は': 'Le は final se lit wa : jitsuwa.',
+  'それでは': 'Le は final se lit wa : soredewa.',
+  'では': 'Le は se lit wa : dewa.',
+  'こんにちは': 'Le は final se lit wa : konnichiwa.',
+  'こんばんは': 'Le は final se lit wa : konbanwa.'
 };
 function jpKeyOf(entry) {
   if (!entry) return '';
@@ -696,11 +711,14 @@ function glossaryPronunciation(jp) {
     'っ': 'tsu', '々': 'kurikaeshi'
   };
   if (special[key]) return special[key];
-  const reading = glossReadings && glossReadings[key];
-  if (reading) return P.kanaToRomaji(reading) || '';
-  const kana = glossaryKana(text);
-  if (kana) return P.kanaToRomaji(kana) || '';
   const R = window.Kotoba.Reading;
+  const reading = glossReadings && glossReadings[key];
+  const kana = reading || glossaryKana(text);
+  if (kana) {
+    if (P.hasKanji(text) && R && R.wordRomaji) return R.wordRomaji(text, kana) || '';
+    if (R && R.pronunciation) return R.pronunciation(text);
+    return P.kanaToRomaji(kana) || '';
+  }
   return R && R.pronunciation ? R.pronunciation(text) : '';
 }
 
@@ -765,7 +783,7 @@ function deinflectGloss(jp) {
           reading = baseReading.slice(0, -1) + last;
         }
       }
-      return { fr: fr, romaji: reading ? (P.kanaToRomaji(reading) || '') : '' };
+      return { fr: fr, romaji: reading ? ((window.Kotoba.Reading && window.Kotoba.Reading.wordRomaji ? window.Kotoba.Reading.wordRomaji(cand, reading) : P.kanaToRomaji(reading)) || '') : '' };
     }
   }
   return null;
@@ -1243,7 +1261,7 @@ function buildEntries() {
         jp = rawJp || '';
         ruby = w[1] || jp;
         reading = kanaFromRuby(ruby);
-        romaji = w[2] || '';
+        romaji = w[2] || generatedRomaji(jp, reading);
         context = w[4] || '';
         contextFr = w[5] || '';
         hl = w[6] || P.stripAnnotations(jp);
@@ -1256,7 +1274,7 @@ function buildEntries() {
         ruby = String(w.ruby || '');
         if (!ruby) ruby = reading && P.hasKanji(jp) ? P.annotate(jp, reading) : jp;
         if (!reading) reading = kanaFromRuby(ruby);
-        romaji = String(w.romaji || '') || (reading ? P.kanaToRomaji(reading) : '');
+        romaji = String(w.romaji || '') || generatedRomaji(jp, reading);
         context = String(w.context || '');
         contextFr = String(w.contextFr || '');
         hl = String(w.hl || jp);
@@ -4172,9 +4190,11 @@ const stageHtml = '<div class="stage-progress" data-testid="stage-progress">' +
 '<div class="bar"><span class="bar-fill" style="width:' + stage.pct + '%"></span></div></div>';
 const nuance = nuanceOf(e);
 const nuanceHtml = nuance ? '<p class="nuance-note" data-testid="detail-nuance">' + esc(nuance) + '</p>' : '';
+const particleNote = WA_PARTICLE_NOTES[e.jp] || '';
+const particleNoteHtml = particleNote ? '<p class="particle-note" data-testid="detail-particle-note">' + esc(particleNote) + '</p>' : '';
 openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
-<div class='detail-romaji'>${esc(e.romaji)}</div>${politeFormsHtml(e)}${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
+<div class='detail-romaji'>${esc(e.romaji)}</div>${particleNoteHtml}${politeFormsHtml(e)}${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
 <div class='detail-context'><div class='context-label'>En contexte</div><p class='jp sentence-tip' lang='ja'${translationTipAttrs(e.contextFr, e.context)}>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${wordByWordDetails(e.context, 'detail-word-by-word')}${contextNoteHtml(e)}
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}${examplesHtml(e)}</div>
