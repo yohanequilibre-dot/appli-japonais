@@ -61,6 +61,15 @@ test("lecture latine : la particule は se lit wa", function () {
   assert.equal(sentence.includes("ha"), false, "aucun ha pour la particule");
   const annotated = readings(Reading.annotate("私は学生です。", "私", true, "私[わたし]"));
   assert.ok(annotated.includes("wa"), "la particule reste wa dans un contexte surligné");
+  const name = readings(Reading.annotate("お名前は何ですか。", "", true));
+  assert.ok(name.includes("wa"), "お名前は doit lire は wa");
+  assert.equal(name.includes("ha"), false, "aucun ha dans お名前は");
+  const targetedName = readings(Reading.annotate("お名前は何ですか。", "名前", true, "名前[なまえ]"));
+  assert.ok(targetedName.includes("wa"), "la particule reste wa quand 名前 est surligné");
+  assert.equal(targetedName.includes("ha"), false, "aucun ha dans le contexte ciblé");
+  const namePronunciation = Reading.pronunciation("お名前は何ですか");
+  assert.ok(namePronunciation.indexOf("onamaewa") === 0, "お名前は doit commencer par onamaewa");
+  assert.equal(namePronunciation.includes("ha"), false, "aucun ha dans la prononciation de お名前は");
   const greeting = readings(Reading.romajiRubyHtml("こんにちは。"));
   assert.ok(greeting.includes("wa"));
   assert.equal(greeting.includes("ha"), false);

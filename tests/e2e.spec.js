@@ -346,6 +346,25 @@ test('fiches de mots : les は de 実は et それでは se lisent wa', async ({
   await page.locator('#libraryList .word-row').first().click();
   await expect(page.locator('.modal-panel .detail-romaji')).toHaveText('soredewa');
 });
+test('prononciation : 名前 et la conversation se lisent wa', async ({ page }) => {
+  await page.goto('/#mots');
+  await page.getByTestId('search').fill('名前');
+  await page.locator('#libraryList .word-row').first().click();
+  await expect(page.locator('.detail-romaji')).toHaveText('namae');
+  const contextReadings = await page.locator('.detail-context .rt-romaji').allTextContents();
+  expect(contextReadings).toContain('wa');
+  expect(contextReadings).not.toContain('ha');
+  await expect(page.getByTestId('context-particle-note')).toContainText('wa');
+  await page.keyboard.press('Escape');
+  await page.goto('/#parler');
+  await page.getByTestId('conversation-scenario-meet').click();
+  await expect(page.getByTestId('conversation-partner')).toContainText('Onamae wa');
+  await expect(page.getByTestId('conversation-particle-note')).toContainText('wa');
+  const partnerGloss = page.getByTestId('conversation-partner-word-by-word');
+  await partnerGloss.locator('summary').click();
+  const partnerWa = partnerGloss.locator('.gloss-item').filter({ hasText: /^はwa/ }).first();
+  await expect(partnerWa.locator('.rt-romaji')).toHaveText('wa');
+});
 test('parcours de grammaire B1 : leçon, exercice et correction', async ({ page }) => {
 await page.goto('/#grammaire');
 await expect(page.getByTestId('grammar-track')).toContainText('Grammaire B1 · B2');

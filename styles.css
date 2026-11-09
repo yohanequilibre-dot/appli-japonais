@@ -865,6 +865,9 @@ background: linear-gradient(135deg, var(--surface) 0%, var(--green-soft) 100%);
 .review-card[role='button']:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .detail-label { display: block; font-size: .6rem; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); font-weight: 900; margin-bottom: 2px; }
 .particle-note { margin: 4px 0 0; color: var(--green-dark); font-size: .78rem; font-weight: 700; }
+.context-particle-note { margin-top: 6px; }
+.conversation-bubble .context-particle-note,
+.conv-model .context-particle-note { margin-top: 6px; }
 .grammar-intro { background: linear-gradient(135deg, var(--surface) 0%, var(--green-soft) 100%); }
 .grammar-recipe { display: grid; gap: 4px; margin: 14px 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; font-size: .88rem; }
 .grammar-recipe b { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--green-dark); }

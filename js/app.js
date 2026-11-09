@@ -41,6 +41,7 @@ let glossBuckets = null;
 let glossRoles = null;
 let glossReadings = null;
 const MAX_IMPORT_CHARS = 2 * 1024 * 1024;
+const APP_VERSION = '7.18';
 
 const VIEWS = { learn: '#view-learn', review: '#view-review', conversation: '#view-conversation', reading: '#view-reading', library: '#view-library', import: '#view-import', grammar: '#view-grammar' };
 const FROM_HASH = { apprendre: 'learn', reviser: 'review', parler: 'conversation', histoires: 'reading', mots: 'library', importer: 'import', grammaire: 'grammar' };
@@ -941,6 +942,16 @@ function contextNoteHtml(entry) {
   const note = entry && entry.contextNote ? String(entry.contextNote) : '';
   return note ? '<p class="context-note" data-testid="answer-context-note">' + esc(note) + '</p>' : '';
 }
+function contextParticleNoteHtml(text, testId) {
+  const raw = String(text || '');
+  if (!raw) return '';
+  const R = window.Kotoba && window.Kotoba.Reading;
+  if (!R || !R.particleOverrides) return '';
+  const overrides = R.particleOverrides(raw);
+  const hasParticleWa = Object.keys(overrides).some(function (index) { return overrides[index] === 'wa'; });
+  if (!hasParticleWa) return '';
+  return '<p class="particle-note context-particle-note" data-testid="' + attr(testId || 'context-particle-note') + '">💡 Prononciation : dans cette phrase, は se lit <b>wa</b>, pas <b>ha</b>.</p>';
+}
 function kanaContextHtml(text, highlight) {
   if (window.Kotoba.Reading && window.Kotoba.Reading.annotate) {
     return window.Kotoba.Reading.annotate(text, highlight, true);
@@ -1561,6 +1572,7 @@ function conversationSessionHtml() {
     : '<p class="conv-jp" lang="ja">' + esc(turn.partner.jp) + '</p>' +
       '<p class="conv-reading">' + esc(turn.partner.reading) + '</p>' +
       (turn.partner.romaji ? '<p class="conv-romaji">' + esc(turn.partner.romaji) + '</p>' : '') +
+      contextParticleNoteHtml(turn.partner.jp, 'conversation-particle-note') +
       '<p class="conv-fr">' + esc(turn.partner.fr) + '</p>' +
       wordByWordDetails(turn.partner.jp, 'conv-word-by-word', 'conversation-partner-word-by-word') +
       '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.partner.jp) + '" data-slow="1">🔊 Écouter</button></div>';
@@ -1709,6 +1721,7 @@ function conversationFeedbackHtml(turn, last) {
     (conversationState.feedback.pronunciation ? conversationPronunciationHtml(conversationState.feedback.pronunciation) : '') +
     '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
+    contextParticleNoteHtml(turn.model.jp, 'conversation-model-particle-note') +
     '<p class="conv-fr">' + esc(turn.model.fr) + '</p>' +
     wordByWordDetails(turn.model.jp, 'conv-word-by-word', 'conversation-model-word-by-word') +
     '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
@@ -1862,6 +1875,7 @@ function conversationTaskFeedbackHtml(scenario, turn) {
     (result.pronunciation ? conversationPronunciationHtml(result.pronunciation) : '') +
     '<div class="conv-model"><p class="eyebrow">Réponse modèle</p><p class="conv-jp" lang="ja">' + esc(turn.model.jp) + '</p>' +
     '<p class="conv-reading">' + esc(turn.model.reading) + '</p><p class="conv-romaji">' + esc(turn.model.romaji) + '</p>' +
+    contextParticleNoteHtml(turn.model.jp, 'conversation-model-particle-note') +
     '<p class="conv-fr">' + esc(turn.model.fr) + '</p>' +
     wordByWordDetails(turn.model.jp, 'conv-word-by-word', 'conversation-model-word-by-word') +
     '<div class="conversation-actions"><button class="btn ghost small" data-action="speak-text" data-text="' + attr(turn.model.jp) + '">🔊 Écouter</button></div></div>' +
@@ -4192,11 +4206,12 @@ const nuance = nuanceOf(e);
 const nuanceHtml = nuance ? '<p class="nuance-note" data-testid="detail-nuance">' + esc(nuance) + '</p>' : '';
 const particleNote = WA_PARTICLE_NOTES[e.jp] || '';
 const particleNoteHtml = particleNote ? '<p class="particle-note" data-testid="detail-particle-note">' + esc(particleNote) + '</p>' : '';
+const contextParticleNote = !particleNote ? contextParticleNoteHtml(e.context) : '';
 openModal('Fiche du mot', `
 <div class='detail-top'><div class='detail-fr'><span class='detail-label'>Français</span>${frHtml(e.fr)}</div>${nuanceHtml}<div class='detail-jp' lang='ja'>${wordRubyHtml(e)}</div>
 <div class='detail-romaji'>${esc(e.romaji)}</div>${particleNoteHtml}${politeFormsHtml(e)}${alternativesHtml(e)}<div class='audio-row' style='justify-content:center'><button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}'>🔊 Écouter</button>
 <button class='btn ghost small' data-action='speak-text' data-text='${attr(e.jp)}' data-slow='1'>🐢 Lent</button></div></div>
-<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp sentence-tip' lang='ja'${translationTipAttrs(e.contextFr, e.context)}>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${wordByWordDetails(e.context, 'detail-word-by-word')}${contextNoteHtml(e)}
+<div class='detail-context'><div class='context-label'>En contexte</div><p class='jp sentence-tip' lang='ja'${translationTipAttrs(e.contextFr, e.context)}>${contextHtml(e.context, e.hl, e)}</p><p class='muted small'>${esc(e.contextFr || '—')}</p>${wordByWordDetails(e.context, 'detail-word-by-word')}${contextParticleNote}${contextNoteHtml(e)}
 ${e.context ? '<button class=\'btn ghost small\' data-action=\'speak-text\' data-text=\'' + attr(e.context) + '\'>🔊 La phrase</button>' : ''}${examplesHtml(e)}</div>
 ${stageHtml}
 ${pronunciationHistory}
@@ -5014,6 +5029,7 @@ function registerSW() {
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (!hadController || refreshing) return;
     refreshing = true;
+    try { sessionStorage.setItem('kotoba:updated', APP_VERSION); } catch (e) { /* stockage indisponible */ }
     window.location.reload();
   });
   const run = function () {
@@ -5027,6 +5043,7 @@ function registerSW() {
 /* ---------- Démarrage ---------- */
 function init() {
   entries = buildEntries();
+  document.body.setAttribute('data-app-version', APP_VERSION);
   applyTheme();
   updateChrome();
   loadVoices();
@@ -5070,6 +5087,12 @@ function init() {
       }
     }
   });
+  try {
+    if (sessionStorage.getItem('kotoba:updated') === APP_VERSION) {
+      sessionStorage.removeItem('kotoba:updated');
+      setTimeout(function () { toast('Version ' + APP_VERSION + ' chargée : は se lit wa.'); }, 600);
+    }
+  } catch (e) { /* stockage indisponible */ }
   registerSW();
   route();
   if (SY) {
